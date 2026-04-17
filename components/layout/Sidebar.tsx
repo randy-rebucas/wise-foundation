@@ -52,19 +52,30 @@ function buildAdminItems(slug: string): NavItem[] {
   return [
     { label: "Tenants", path: p("/admin/tenants"), icon: Building2, roles: ["SUPER_ADMIN"] },
     { label: "Branches", path: p("/admin/branches"), icon: GitBranch, permission: "manage:branches" },
-    { label: "Settings", path: p("/settings"), icon: Settings },
+    { label: "Users", path: p("/admin/users"), icon: Users, permission: "manage:users" },
+    { label: "Settings", path: p("/settings"), icon: Settings, roles: ["SUPER_ADMIN", "TENANT_OWNER"] },
   ];
+}
+
+interface SidebarUser {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  role: string;
+  permissions: string[];
 }
 
 interface SidebarProps {
   slug: string;
+  initialUser: SidebarUser;
 }
 
-export function Sidebar({ slug }: SidebarProps) {
+export function Sidebar({ slug, initialUser }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  // useSession is only needed for sign-out; nav access uses initialUser (server-resolved)
+  // to avoid SSR/client hydration mismatches caused by session loading state.
   const { data: session } = useSession();
-  const user = session?.user;
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -78,8 +89,11 @@ export function Sidebar({ slug }: SidebarProps) {
     }
   }
 
-  const userPermissions = user?.permissions ?? [];
-  const userRole = user?.role ?? "";
+  // Prefer live session for display once loaded, but fall back to the server-provided
+  // snapshot so the initial render is identical between SSR and hydration.
+  const displayUser = session?.user ?? initialUser;
+  const userPermissions = initialUser.permissions;
+  const userRole = initialUser.role;
 
   const navItems = buildNavItems(slug);
   const adminItems = buildAdminItems(slug);
@@ -90,7 +104,7 @@ export function Sidebar({ slug }: SidebarProps) {
     return userRole === "SUPER_ADMIN" || userPermissions.includes(item.permission);
   }
 
-  const initials = user?.name
+  const initials = displayUser?.name
     ?.split(" ")
     .map((n) => n[0])
     .slice(0, 2)
@@ -165,7 +179,7 @@ export function Sidebar({ slug }: SidebarProps) {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-sm font-medium truncate">{displayUser?.name}</p>
             <p className="text-xs opacity-60 truncate">{userRole.replace(/_/g, " ")}</p>
           </div>
           <Button

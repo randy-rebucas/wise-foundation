@@ -52,10 +52,18 @@ export default async function SlugDashboardLayout({ children, params }: Props) {
     settings: tenant.settings,
   };
 
+  const sidebarUser = {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    role: session.user.role,
+    permissions: session.user.permissions,
+  };
+
   return (
     <TenantProvider value={tenantValue}>
       <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar slug={slug} />
+        <Sidebar slug={slug} initialUser={sidebarUser} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
