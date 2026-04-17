@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { getTenantBySlug } from "@/lib/services/tenantFromSlug";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,15 +78,23 @@ async function getDashboardStats(tenantId: string) {
   };
 }
 
-export default async function DashboardPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
+interface Props {
+  params: Promise<{ slug: string }>;
+}
 
-  const stats = await getDashboardStats(session.user.tenantId);
+export default async function DashboardPage({ params }: Props) {
+  const { slug } = await params;
+  const session = await auth();
+
+  // Use slug-resolved tenant so SUPER_ADMIN sees the right data
+  const tenant = await getTenantBySlug(slug);
+  if (!tenant) return notFound();
+
+  const stats = await getDashboardStats(tenant._id.toString());
 
   return (
     <div className="flex flex-col">
-      <Header title="Dashboard" subtitle={`Welcome back, ${session.user.name}`} />
+      <Header title="Dashboard" subtitle={`Welcome back, ${session!.user.name}`} />
       <div className="flex-1 p-6 space-y-6">
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -174,10 +183,10 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
               {[
-                { label: "New Sale", href: "/pos", icon: ShoppingCart, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
-                { label: "Add Product", href: "/products?action=new", icon: Package, color: "bg-green-50 hover:bg-green-100 text-green-700" },
-                { label: "Add Member", href: "/members?action=new", icon: Users, color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
-                { label: "View Reports", href: "/reports", icon: TrendingUp, color: "bg-orange-50 hover:bg-orange-100 text-orange-700" },
+                { label: "New Sale", href: `/${slug}/pos`, icon: ShoppingCart, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
+                { label: "Add Product", href: `/${slug}/products?action=new`, icon: Package, color: "bg-green-50 hover:bg-green-100 text-green-700" },
+                { label: "Add Member", href: `/${slug}/members?action=new`, icon: Users, color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
+                { label: "View Reports", href: `/${slug}/reports`, icon: TrendingUp, color: "bg-orange-50 hover:bg-orange-100 text-orange-700" },
               ].map((action) => (
                 <a
                   key={action.href}

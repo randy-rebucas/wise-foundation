@@ -21,6 +21,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { Plus, Pencil, Trash2, Loader2, Users, Search, UserCheck, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface Member {
@@ -49,6 +50,7 @@ export default function MembersPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const apiFetch = useTenantFetch();
   const branchId = session?.user?.branchIds?.[0] ?? "";
 
   const [open, setOpen] = useState(false);
@@ -70,7 +72,7 @@ export default function MembersPage() {
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (search) params.set("search", search);
-      const res = await fetch(`/api/members?${params}`);
+      const res = await apiFetch(`/api/members?${params}`);
       const data = await res.json();
       return data;
     },
@@ -85,7 +87,7 @@ export default function MembersPage() {
       const url = editId ? `/api/members/${editId}` : "/api/members";
       const method = editId ? "PATCH" : "POST";
       const payload = editId ? { ...form, branchId: undefined } : form;
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -105,7 +107,7 @@ export default function MembersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/members/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/members/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
     },

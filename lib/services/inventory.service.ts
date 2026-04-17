@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { Inventory } from "@/lib/db/models/Inventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
+import { Branch } from "@/lib/db/models/Branch";
 import type { StockMovementInput } from "@/lib/validations/inventory.schema";
 
 export async function getInventory(
@@ -118,6 +119,20 @@ export async function processStockMovement(
         break;
       case "TRANSFER": {
         if (!input.toBranchId) throw new Error("Destination branch is required for transfers");
+
+        // Verify destination branch belongs to the same tenant
+        const destBranch = await Branch.findOne({
+          _id: input.toBranchId,
+          tenantId,
+          deletedAt: null,
+        }).session(session);
+        if (!destBranch) {
+          throw new Error("Destination branch not found or does not belong to this organization");
+        }
+        if (input.toBranchId === branchId) {
+          throw new Error("Source and destination branches must be different");
+        }
+
         if (previousQuantity < input.quantity) {
           throw new Error(
             `Insufficient stock for transfer. Available: ${previousQuantity}, Requested: ${input.quantity}`

@@ -27,6 +27,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Pencil, Trash2, Loader2, Package, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 import { formatCurrency } from "@/lib/utils";
 import type { ProductCategory } from "@/types";
 
@@ -85,39 +86,10 @@ const CATEGORY_COLORS: Record<ProductCategory, string> = {
   scent: "bg-purple-100 text-purple-800",
 };
 
-async function fetchProducts(category?: string, search?: string): Promise<Product[]> {
-  const params = new URLSearchParams();
-  if (category && category !== "all") params.set("category", category);
-  if (search) params.set("search", search);
-  const res = await fetch(`/api/products?${params}`);
-  const data = await res.json();
-  return data.data ?? [];
-}
-
-async function saveProduct(form: ProductForm, id?: string) {
-  const url = id ? `/api/products/${id}` : "/api/products";
-  const method = id ? "PATCH" : "POST";
-  const payload = {
-    ...form,
-    tags: form.tags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean),
-    category: form.category || undefined,
-  };
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error);
-  return data.data;
-}
-
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const apiFetch = useTenantFetch();
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -128,11 +100,34 @@ export default function ProductsPage() {
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products", activeCategory, search],
-    queryFn: () => fetchProducts(activeCategory, search),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (activeCategory && activeCategory !== "all") params.set("category", activeCategory);
+      if (search) params.set("search", search);
+      const res = await apiFetch(`/api/products?${params}`);
+      const data = await res.json();
+      return (data.data ?? []) as Product[];
+    },
   });
 
   const saveMutation = useMutation({
-    mutationFn: () => saveProduct(form, editId ?? undefined),
+    mutationFn: async () => {
+      const url = editId ? `/api/products/${editId}` : "/api/products";
+      const method = editId ? "PATCH" : "POST";
+      const payload = {
+        ...form,
+        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        category: form.category || undefined,
+      };
+      const res = await apiFetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: editId ? "Product updated" : "Product created" });
@@ -144,7 +139,7 @@ export default function ProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/products/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
     },

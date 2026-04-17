@@ -29,6 +29,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { Boxes, AlertTriangle, TrendingDown, ArrowDownUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 
 interface MovementForm {
   productId: string;
@@ -66,6 +67,7 @@ export default function InventoryPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const apiFetch = useTenantFetch();
   const branchId = session?.user?.branchIds?.[0];
 
   const [movementOpen, setMovementOpen] = useState(false);
@@ -77,7 +79,7 @@ export default function InventoryPage() {
   const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
     queryKey: ["inventory", branchId, page],
     queryFn: async () => {
-      const res = await fetch(`/api/inventory?branchId=${branchId}&page=${page}&limit=20`);
+      const res = await apiFetch(`/api/inventory?branchId=${branchId}&page=${page}&limit=20`);
       const data = await res.json();
       return data;
     },
@@ -87,7 +89,7 @@ export default function InventoryPage() {
   const { data: movementsData, isLoading: movementsLoading } = useQuery({
     queryKey: ["movements", branchId, movPage],
     queryFn: async () => {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/inventory/movements?branchId=${branchId}&page=${movPage}&limit=20`
       );
       const data = await res.json();
@@ -99,7 +101,7 @@ export default function InventoryPage() {
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["products-simple"],
     queryFn: async () => {
-      const res = await fetch("/api/products?limit=100&isActive=true");
+      const res = await apiFetch("/api/products?limit=100&isActive=true");
       const data = await res.json();
       return data.data ?? [];
     },
@@ -108,7 +110,7 @@ export default function InventoryPage() {
   const { data: branches = [] } = useQuery<Branch[]>({
     queryKey: ["branches"],
     queryFn: async () => {
-      const res = await fetch("/api/branches");
+      const res = await apiFetch("/api/branches");
       const data = await res.json();
       return data.data ?? [];
     },
@@ -116,7 +118,7 @@ export default function InventoryPage() {
 
   const movementMutation = useMutation({
     mutationFn: async (form: MovementForm) => {
-      const res = await fetch("/api/inventory/movements", {
+      const res = await apiFetch("/api/inventory/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, branchId }),

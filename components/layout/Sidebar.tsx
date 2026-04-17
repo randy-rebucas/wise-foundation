@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -27,36 +28,61 @@ import { Badge } from "@/components/ui/badge";
 
 interface NavItem {
   label: string;
-  href: string;
+  path: string;
   icon: React.ElementType;
   permission?: string;
   roles?: string[];
-  badge?: string;
 }
 
-const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "POS", href: "/pos", icon: ShoppingCart, permission: "use:pos" },
-  { label: "Products", href: "/products", icon: Package, permission: "manage:products" },
-  { label: "Inventory", href: "/inventory", icon: Boxes, permission: "manage:inventory" },
-  { label: "Orders", href: "/orders", icon: ClipboardList, permission: "manage:orders" },
-  { label: "Members", href: "/members", icon: Users, permission: "manage:members" },
-  { label: "Reports", href: "/reports", icon: BarChart3, permission: "view:reports" },
-];
+function buildNavItems(slug: string): NavItem[] {
+  const p = (path: string) => `/${slug}${path}`;
+  return [
+    { label: "Dashboard", path: p("/dashboard"), icon: LayoutDashboard },
+    { label: "POS", path: p("/pos"), icon: ShoppingCart, permission: "use:pos" },
+    { label: "Products", path: p("/products"), icon: Package, permission: "manage:products" },
+    { label: "Inventory", path: p("/inventory"), icon: Boxes, permission: "manage:inventory" },
+    { label: "Orders", path: p("/orders"), icon: ClipboardList, permission: "manage:orders" },
+    { label: "Members", path: p("/members"), icon: Users, permission: "manage:members" },
+    { label: "Reports", path: p("/reports"), icon: BarChart3, permission: "view:reports" },
+  ];
+}
 
-const adminItems: NavItem[] = [
-  { label: "Tenants", href: "/admin/tenants", icon: Building2, roles: ["SUPER_ADMIN"] },
-  { label: "Branches", href: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
-  { label: "Settings", href: "/settings", icon: Settings },
-];
+function buildAdminItems(slug: string): NavItem[] {
+  const p = (path: string) => `/${slug}${path}`;
+  return [
+    { label: "Tenants", path: p("/admin/tenants"), icon: Building2, roles: ["SUPER_ADMIN"] },
+    { label: "Branches", path: p("/admin/branches"), icon: GitBranch, permission: "manage:branches" },
+    { label: "Settings", path: p("/settings"), icon: Settings },
+  ];
+}
 
-export function Sidebar() {
+interface SidebarProps {
+  slug: string;
+}
+
+export function Sidebar({ slug }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user;
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut({ redirect: false });
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   const userPermissions = user?.permissions ?? [];
   const userRole = user?.role ?? "";
+
+  const navItems = buildNavItems(slug);
+  const adminItems = buildAdminItems(slug);
 
   function canAccess(item: NavItem): boolean {
     if (item.roles) return item.roles.includes(userRole);
@@ -71,6 +97,26 @@ export function Sidebar() {
     .join("")
     .toUpperCase() ?? "?";
 
+  function NavLink({ item }: { item: NavItem }) {
+    const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
+    return (
+      <Link href={item.path}>
+        <span
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+            isActive
+              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <item.icon className="h-4 w-4 flex-shrink-0" />
+          {item.label}
+          {isActive && <ChevronRight className="h-3 w-3 ml-auto" />}
+        </span>
+      </Link>
+    );
+  }
+
   return (
     <aside className="flex flex-col w-64 min-h-screen bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border">
       {/* Logo */}
@@ -80,7 +126,9 @@ export function Sidebar() {
         </div>
         <div>
           <p className="font-bold text-sm">Livelihood</p>
-          <p className="text-xs text-sidebar-accent-foreground opacity-70">Platform</p>
+          <p className="text-xs text-sidebar-accent-foreground opacity-70 truncate max-w-[120px]">
+            {slug}
+          </p>
         </div>
       </div>
 
@@ -90,30 +138,9 @@ export function Sidebar() {
           <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
             Main
           </p>
-          {navItems.filter(canAccess).map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link key={item.href} href={item.href}>
-                <span
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  )}
-                >
-                  <item.icon className="h-4 w-4 flex-shrink-0" />
-                  {item.label}
-                  {item.badge && (
-                    <Badge variant="secondary" className="ml-auto text-xs">
-                      {item.badge}
-                    </Badge>
-                  )}
-                  {isActive && <ChevronRight className="h-3 w-3 ml-auto" />}
-                </span>
-              </Link>
-            );
-          })}
+          {navItems.filter(canAccess).map((item) => (
+            <NavLink key={item.path} item={item} />
+          ))}
         </nav>
 
         {/* Admin Navigation */}
@@ -122,24 +149,9 @@ export function Sidebar() {
             <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
               Admin
             </p>
-            {adminItems.filter(canAccess).map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link key={item.href} href={item.href}>
-                  <span
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
+            {adminItems.filter(canAccess).map((item) => (
+              <NavLink key={item.path} item={item} />
+            ))}
           </nav>
         )}
       </ScrollArea>
@@ -154,15 +166,17 @@ export function Sidebar() {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.name}</p>
-            <p className="text-xs opacity-60 truncate">{user?.role?.replace(/_/g, " ")}</p>
+            <p className="text-xs opacity-60 truncate">{userRole.replace(/_/g, " ")}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={handleSignOut}
+            disabled={signingOut}
+            title="Sign out"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className={`h-4 w-4 ${signingOut ? "opacity-50" : ""}`} />
           </Button>
         </div>
       </div>

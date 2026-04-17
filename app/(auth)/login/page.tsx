@@ -14,7 +14,8 @@ import { Loader2, ShoppingBag } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  // Fall back to "/" so app/page.tsx can resolve the correct /{slug}/dashboard
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

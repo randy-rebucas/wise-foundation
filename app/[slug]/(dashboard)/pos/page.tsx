@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCartStore } from "@/store/cartStore";
 import { User, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 
 interface POSProduct {
   _id: string;
@@ -42,6 +43,7 @@ interface Member {
 
 export default function POSPage() {
   const { data: session } = useSession();
+  const apiFetch = useTenantFetch();
   const branchId = session?.user?.branchIds?.[0] ?? "";
   const { memberId: cartMemberId, setMember } = useCartStore();
 
@@ -56,7 +58,7 @@ export default function POSPage() {
   const { data: products = [] } = useQuery<POSProduct[]>({
     queryKey: ["pos-products", branchId],
     queryFn: async () => {
-      const res = await fetch(`/api/products/pos?branchId=${branchId}`);
+      const res = await apiFetch(`/api/products/pos?branchId=${branchId}`);
       const data = await res.json();
       return data.data ?? [];
     },
@@ -68,7 +70,7 @@ export default function POSPage() {
     if (!memberSearch.trim()) return;
     setSearching(true);
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/members?search=${encodeURIComponent(memberSearch)}&status=active`
       );
       const data = await res.json();

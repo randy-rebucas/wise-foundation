@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 
 interface ReportData {
   sales: {
@@ -66,10 +67,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function ReportsPage() {
+  const apiFetch = useTenantFetch();
   const { data: report, isLoading } = useQuery<ReportData>({
     queryKey: ["reports-summary"],
     queryFn: async () => {
-      const res = await fetch("/api/reports?type=summary&days=30");
+      const res = await apiFetch("/api/reports?type=summary&days=30");
       const data = await res.json();
       return data.data;
     },

@@ -22,10 +22,12 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const apiFetch = useTenantFetch();
   const user = session?.user;
 
   const [profileForm, setProfileForm] = useState({
@@ -44,7 +46,7 @@ export default function SettingsPage() {
 
   const profileMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/users/me", {
+      const res = await apiFetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: profileForm.name, phone: profileForm.phone }),
@@ -62,7 +64,7 @@ export default function SettingsPage() {
       if (passwordForm.newPassword !== passwordForm.confirmPassword) {
         throw new Error("New passwords do not match");
       }
-      const res = await fetch("/api/users/me/password", {
+      const res = await apiFetch("/api/users/me/password", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

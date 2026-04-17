@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useTenantFetch } from "@/hooks/useTenantFetch";
 
 interface Order {
   _id: string;
@@ -72,6 +73,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 export default function OrdersPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const apiFetch = useTenantFetch();
   const branchId = session?.user?.branchIds?.[0] ?? "";
 
   const [statusFilter, setStatusFilter] = useState("all");
@@ -85,7 +87,7 @@ export default function OrdersPage() {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (branchId) params.set("branchId", branchId);
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const res = await fetch(`/api/orders?${params}`);
+      const res = await apiFetch(`/api/orders?${params}`);
       const data = await res.json();
       return data;
     },
@@ -104,7 +106,7 @@ export default function OrdersPage() {
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await fetch(`/api/orders/${id}`, {
+      const res = await apiFetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -116,7 +118,7 @@ export default function OrdersPage() {
   });
 
   async function openDetail(orderId: string) {
-    const res = await fetch(`/api/orders/${orderId}`);
+    const res = await apiFetch(`/api/orders/${orderId}`);
     const data = await res.json();
     if (data.success) {
       setSelectedOrder(data.data);
