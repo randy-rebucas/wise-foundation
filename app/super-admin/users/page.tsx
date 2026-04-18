@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/shared/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -80,6 +81,7 @@ export default function AllUsersPage() {
 
   const users = data?.users ?? [];
   const totalPages = data?.meta?.totalPages ?? 1;
+  const totalCount = data?.meta?.total ?? 0;
 
   const columns = [
     {
@@ -89,14 +91,14 @@ export default function AllUsersPage() {
         const initials = u.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
         return (
           <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-8 w-8 flex-shrink-0">
               <AvatarFallback className="text-xs bg-primary/10 text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <p className="font-medium text-sm">{u.name}</p>
-              <p className="text-xs text-muted-foreground">{u.email}</p>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{u.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{u.email}</p>
             </div>
           </div>
         );
@@ -106,7 +108,7 @@ export default function AllUsersPage() {
       key: "role",
       label: "Role",
       render: (u: User) => (
-        <Badge variant={ROLE_VARIANT[u.role] ?? "outline"}>
+        <Badge variant={ROLE_VARIANT[u.role] ?? "outline"} className="whitespace-nowrap">
           {u.role.replace(/_/g, " ")}
         </Badge>
       ),
@@ -119,7 +121,7 @@ export default function AllUsersPage() {
         return (
           <Link
             href={`/super-admin/tenants/${u.tenantId._id}`}
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary hover:underline truncate max-w-[160px] block"
           >
             {u.tenantId.name}
           </Link>
@@ -140,7 +142,9 @@ export default function AllUsersPage() {
       label: "Last Login",
       render: (u: User) => (
         <span className="text-xs text-muted-foreground">
-          {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
+          {u.lastLoginAt
+            ? new Date(u.lastLoginAt).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })
+            : "Never"}
         </span>
       ),
     },
@@ -149,14 +153,14 @@ export default function AllUsersPage() {
       label: "Joined",
       render: (u: User) => (
         <span className="text-xs text-muted-foreground">
-          {new Date(u.createdAt).toLocaleDateString()}
+          {new Date(u.createdAt).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}
         </span>
       ),
     },
   ];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-6">
         <div>
           <h1 className="text-xl font-semibold">Users</h1>
@@ -164,45 +168,50 @@ export default function AllUsersPage() {
         </div>
       </header>
 
-      <div className="flex-1 p-6 space-y-4">
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+      <div className="flex-1 p-6">
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex gap-2 flex-1 min-w-0">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or email…"
+                    className="pl-9"
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {ROLE_OPTIONS.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-sm text-muted-foreground whitespace-nowrap">
+                {totalCount} user{totalCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+
+            <DataTable
+              columns={columns}
+              data={users}
+              loading={isLoading}
+              keyExtractor={(u) => u._id}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              emptyMessage="No users found."
             />
-          </div>
-          <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-44">
-              <SelectValue placeholder="All roles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All roles</SelectItem>
-              {ROLE_OPTIONS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <p className="text-sm text-muted-foreground">{data?.meta?.total ?? 0} users</p>
-
-        <DataTable
-          columns={columns}
-          data={users}
-          loading={isLoading}
-          keyExtractor={(u) => u._id}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          emptyMessage="No users found."
-        />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

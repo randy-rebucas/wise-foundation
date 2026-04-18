@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -41,6 +43,8 @@ import {
   Loader2,
   ExternalLink,
   Building2,
+  Users,
+  GitBranch,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
@@ -50,7 +54,6 @@ interface Tenant {
   name: string;
   slug: string;
   email: string;
-  phone?: string;
   status: "active" | "trial" | "suspended";
   userCount: number;
   branchCount: number;
@@ -77,6 +80,10 @@ function statusVariant(status: string): "success" | "secondary" | "destructive" 
   if (status === "active") return "success";
   if (status === "suspended") return "destructive";
   return "secondary";
+}
+
+function autoSlug(name: string) {
+  return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
 export default function TenantsPage() {
@@ -115,6 +122,7 @@ export default function TenantsPage() {
 
   const tenants = data?.tenants ?? [];
   const totalPages = data?.meta?.totalPages ?? 1;
+  const totalCount = data?.meta?.total ?? 0;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -149,7 +157,7 @@ export default function TenantsPage() {
     },
     onSuccess: (_d, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["sa-tenants"] });
-      toast({ title: `Tenant ${status}` });
+      toast({ title: `Tenant marked as ${status}` });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -167,51 +175,67 @@ export default function TenantsPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  function autoSlug(name: string) {
-    return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  }
-
   const columns = [
     {
       key: "tenant",
       label: "Tenant",
       render: (t: Tenant) => (
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-            <Building2 className="h-4 w-4 text-blue-700" />
+          <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+            <Building2 className="h-4 w-4 text-blue-600" />
           </div>
-          <div>
-            <p className="font-medium text-sm">{t.name}</p>
-            <p className="text-xs text-muted-foreground">/{t.slug}</p>
+          <div className="min-w-0">
+            <p className="font-medium text-sm truncate">{t.name}</p>
+            <p className="text-xs text-muted-foreground font-mono">/{t.slug}</p>
           </div>
         </div>
       ),
     },
     {
       key: "email",
-      label: "Email",
-      render: (t: Tenant) => <span className="text-sm text-muted-foreground">{t.email}</span>,
+      label: "Owner Email",
+      render: (t: Tenant) => (
+        <span className="text-sm text-muted-foreground">{t.email}</span>
+      ),
     },
     {
       key: "status",
       label: "Status",
       render: (t: Tenant) => (
-        <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
+        <Badge variant={statusVariant(t.status)} className="capitalize">
+          {t.status}
+        </Badge>
       ),
     },
     {
       key: "stats",
-      label: "Users / Branches",
+      label: "Team",
       render: (t: Tenant) => (
-        <span className="text-sm text-muted-foreground">
-          {t.userCount} users · {t.branchCount} branches
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Users className="h-3.5 w-3.5" />
+            {t.userCount}
+          </span>
+          <span className="flex items-center gap-1">
+            <GitBranch className="h-3.5 w-3.5" />
+            {t.branchCount}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "created",
+      label: "Created",
+      render: (t: Tenant) => (
+        <span className="text-xs text-muted-foreground">
+          {new Date(t.createdAt).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}
         </span>
       ),
     },
     {
       key: "actions",
       label: "",
-      className: "w-12",
+      className: "w-10",
       render: (t: Tenant) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -234,18 +258,14 @@ export default function TenantsPage() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {t.status !== "active" && (
-              <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: t._id, status: "active" })}
-              >
+              <DropdownMenuItem onClick={() => statusMutation.mutate({ id: t._id, status: "active" })}>
                 <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
                 Activate
               </DropdownMenuItem>
             )}
             {t.status !== "suspended" && (
-              <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: t._id, status: "suspended" })}
-              >
-                <XCircle className="h-4 w-4 mr-2 text-yellow-600" />
+              <DropdownMenuItem onClick={() => statusMutation.mutate({ id: t._id, status: "suspended" })}>
+                <XCircle className="h-4 w-4 mr-2 text-orange-500" />
                 Suspend
               </DropdownMenuItem>
             )}
@@ -264,57 +284,62 @@ export default function TenantsPage() {
   ];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-background px-6">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-semibold">Tenants</h1>
           <p className="text-sm text-muted-foreground">Manage all organizations on the platform</p>
         </div>
+        <Button onClick={() => { setCreateForm(defaultCreate); setFormError(""); setCreateOpen(true); }}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Tenant
+        </Button>
       </header>
 
       <div className="flex-1 p-6 space-y-4">
-        {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <div className="flex gap-2 flex-1">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, slug, or email..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              />
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex gap-2 flex-1 min-w-0">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, slug, or email…"
+                    className="pl-9"
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-sm text-muted-foreground whitespace-nowrap">
+                {totalCount} tenant{totalCount !== 1 ? "s" : ""}
+              </p>
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="suspended">Suspended</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={() => { setCreateForm(defaultCreate); setFormError(""); setCreateOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Tenant
-          </Button>
-        </div>
 
-        <p className="text-sm text-muted-foreground">{data?.meta?.total ?? 0} tenants</p>
-
-        <DataTable
-          columns={columns}
-          data={tenants}
-          loading={isLoading}
-          keyExtractor={(t) => t._id}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          emptyMessage="No tenants found."
-        />
+            <DataTable
+              columns={columns}
+              data={tenants}
+              loading={isLoading}
+              keyExtractor={(t) => t._id}
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              emptyMessage="No tenants found."
+            />
+          </CardContent>
+        </Card>
       </div>
 
       {/* Create Tenant Dialog */}
@@ -322,71 +347,91 @@ export default function TenantsPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Tenant</DialogTitle>
+            <DialogDescription>
+              This will provision a new organization with a head office branch and an owner account.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+
+          <div className="space-y-4 py-1">
             {formError && (
               <Alert variant="destructive">
                 <AlertDescription>{formError}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
-              <Label>Organization Name</Label>
-              <Input
-                value={createForm.tenantName}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setCreateForm((f) => ({
-                    ...f,
-                    tenantName: name,
-                    tenantSlug: f.tenantSlug || autoSlug(name),
-                  }));
-                }}
-                placeholder="Acme Corp"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Slug (URL identifier)</Label>
-              <Input
-                value={createForm.tenantSlug}
-                onChange={(e) => setCreateForm((f) => ({ ...f, tenantSlug: autoSlug(e.target.value) }))}
-                placeholder="acme-corp"
-              />
-              <p className="text-xs text-muted-foreground">
-                Dashboard: /{createForm.tenantSlug || "slug"}/dashboard
+
+            {/* Organization */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Organization
               </p>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  value={createForm.tenantName}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setCreateForm((f) => ({
+                      ...f,
+                      tenantName: name,
+                      tenantSlug: f.tenantSlug || autoSlug(name),
+                    }));
+                  }}
+                  placeholder="Acme Corp"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Slug</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground select-none">
+                    /
+                  </span>
+                  <Input
+                    className="pl-5"
+                    value={createForm.tenantSlug}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, tenantSlug: autoSlug(e.target.value) }))}
+                    placeholder="acme-corp"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Dashboard URL: /{createForm.tenantSlug || "slug"}/dashboard
+                </p>
+              </div>
             </div>
-            <div className="space-y-1">
+
+            {/* Owner */}
+            <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
                 Owner Account
               </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Owner Full Name</Label>
-              <Input
-                value={createForm.name}
-                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Jane Dela Cruz"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Owner Email</Label>
-              <Input
-                type="email"
-                value={createForm.email}
-                onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="jane@acme.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Owner Password</Label>
-              <Input
-                type="password"
-                value={createForm.password}
-                onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                placeholder="Min. 8 characters"
-              />
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Jane Dela Cruz"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="jane@acme.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="Min. 8 characters"
+                />
+              </div>
             </div>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
