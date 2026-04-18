@@ -34,6 +34,7 @@ export interface ApiResponse<T = unknown> {
     limit?: number;
     total?: number;
     hasMore?: boolean;
+    totalPages?: number;
   };
 }
 
