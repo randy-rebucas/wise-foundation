@@ -20,6 +20,8 @@ export type OrderStatus = "pending" | "paid" | "completed" | "cancelled" | "refu
 
 export type MemberStatus = "active" | "inactive" | "suspended";
 
+export type PurchaseOrderStatus = "draft" | "submitted" | "approved" | "received" | "cancelled";
+
 export type TenantStatus = "active" | "suspended" | "trial";
 
 // ─── API Response ────────────────────────────────────────────────────────────

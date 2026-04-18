@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   Settings,
   ChevronRight,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ function buildNavItems(slug: string): NavItem[] {
     { label: "Products", path: p("/products"), icon: Package, permission: "manage:products" },
     { label: "Inventory", path: p("/inventory"), icon: Boxes, permission: "manage:inventory" },
     { label: "Orders", path: p("/orders"), icon: ClipboardList, permission: "manage:orders" },
+    { label: "Purchase Orders", path: p("/purchase-orders"), icon: Truck, permission: "manage:inventory" },
     { label: "Members", path: p("/members"), icon: Users, permission: "manage:members" },
     { label: "Reports", path: p("/reports"), icon: BarChart3, permission: "view:reports" },
   ];
