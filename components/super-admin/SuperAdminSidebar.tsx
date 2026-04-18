@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -12,6 +12,7 @@ import {
   LogOut,
   Shield,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Overview", path: "/super-admin", icon: LayoutDashboard },
   { label: "Tenants", path: "/super-admin/tenants", icon: Building2 },
   { label: "Users", path: "/super-admin/users", icon: Users },
+  { label: "Settings", path: "/super-admin/settings", icon: Settings },
 ];
 
 interface SuperAdminSidebarProps {
@@ -40,6 +42,9 @@ export function SuperAdminSidebar({ userName, userEmail }: SuperAdminSidebarProp
   const router = useRouter();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -52,8 +57,10 @@ export function SuperAdminSidebar({ userName, userEmail }: SuperAdminSidebarProp
     }
   }
 
-  const displayName = session?.user?.name ?? userName;
-  const displayEmail = session?.user?.email ?? userEmail;
+  // Prefer live session once mounted; fall back to server-provided props on first render
+  // to keep the server/client HTML identical and avoid hydration mismatches.
+  const displayName = (mounted ? session?.user?.name : null) ?? userName;
+  const displayEmail = (mounted ? session?.user?.email : null) ?? userEmail;
 
   const initials = displayName
     ?.split(" ")
@@ -63,6 +70,7 @@ export function SuperAdminSidebar({ userName, userEmail }: SuperAdminSidebarProp
     .toUpperCase() ?? "SA";
 
   function isActive(item: NavItem) {
+    if (!mounted) return false;
     if (item.path === "/super-admin") return pathname === "/super-admin";
     return pathname === item.path || pathname.startsWith(item.path + "/");
   }
