@@ -21,7 +21,7 @@ export function RoleGuard({
 
   if (!user) return <>{fallback}</>;
 
-  if (user.role === "SUPER_ADMIN") return <>{children}</>;
+  if (user.role === "ADMIN") return <>{children}</>;
 
   if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     return <>{fallback}</>;

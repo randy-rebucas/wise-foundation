@@ -11,14 +11,13 @@ import type {
   ReceivePurchaseOrderInput,
 } from "@/lib/validations/purchaseOrder.schema";
 
-async function generatePONumber(tenantId: string): Promise<string> {
-  const count = await PurchaseOrder.countDocuments({ tenantId });
+async function generatePONumber(): Promise<string> {
+  const count = await PurchaseOrder.countDocuments();
   const pad = String(count + 1).padStart(5, "0");
   return `PO-${pad}`;
 }
 
 export async function getPurchaseOrders(
-  tenantId: string,
   branchId?: string,
   status?: string,
   page = 1,
@@ -26,7 +25,7 @@ export async function getPurchaseOrders(
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, deletedAt: null };
+  const query: Record<string, unknown> = { deletedAt: null };
   if (branchId) query.branchId = branchId;
   if (status) query.status = status;
 
@@ -46,10 +45,10 @@ export async function getPurchaseOrders(
   return { orders, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getPurchaseOrderById(tenantId: string, poId: string) {
+export async function getPurchaseOrderById(poId: string) {
   await connectDB();
 
-  const po = await PurchaseOrder.findOne({ _id: poId, tenantId, deletedAt: null })
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
     .populate("branchId", "name code")
     .populate("supplierId", "name contactPerson email phone")
     .populate("createdBy", "name")
@@ -66,18 +65,13 @@ export async function getPurchaseOrderById(tenantId: string, poId: string) {
   return { ...po, items };
 }
 
-export async function createPurchaseOrder(
-  tenantId: string,
-  userId: string,
-  input: CreatePurchaseOrderInput
-) {
+export async function createPurchaseOrder(userId: string, input: CreatePurchaseOrderInput) {
   await connectDB();
 
-  const poNumber = await generatePONumber(tenantId);
+  const poNumber = await generatePONumber();
   const subtotal = input.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
 
   const po = await PurchaseOrder.create({
-    tenantId,
     branchId: input.branchId,
     poNumber,
     supplierId: input.supplierId ?? null,
@@ -91,7 +85,6 @@ export async function createPurchaseOrder(
   });
 
   const itemDocs = input.items.map((item) => ({
-    tenantId,
     purchaseOrderId: po._id,
     productId: item.productId,
     variantId: item.variantId ?? null,
@@ -107,14 +100,10 @@ export async function createPurchaseOrder(
   return po;
 }
 
-export async function updatePurchaseOrder(
-  tenantId: string,
-  poId: string,
-  input: UpdatePurchaseOrderInput
-) {
+export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrderInput) {
   await connectDB();
 
-  const po = await PurchaseOrder.findOne({ _id: poId, tenantId, deletedAt: null });
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
   if (po.status !== "draft") throw new Error("Only draft purchase orders can be edited");
 
@@ -135,7 +124,6 @@ export async function updatePurchaseOrder(
     await PurchaseOrderItem.deleteMany({ purchaseOrderId: poId });
     await PurchaseOrderItem.insertMany(
       input.items.map((item) => ({
-        tenantId,
         purchaseOrderId: poId,
         productId: item.productId,
         variantId: item.variantId ?? null,
@@ -153,14 +141,13 @@ export async function updatePurchaseOrder(
 }
 
 export async function updatePurchaseOrderStatus(
-  tenantId: string,
   poId: string,
   status: PurchaseOrderStatus,
   userId: string
 ) {
   await connectDB();
 
-  const po = await PurchaseOrder.findOne({ _id: poId, tenantId, deletedAt: null });
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
 
   const validTransitions: Record<string, PurchaseOrderStatus[]> = {
@@ -185,7 +172,6 @@ export async function updatePurchaseOrderStatus(
 }
 
 export async function receivePurchaseOrder(
-  tenantId: string,
   poId: string,
   userId: string,
   input: ReceivePurchaseOrderInput
@@ -196,9 +182,7 @@ export async function receivePurchaseOrder(
   try {
     session.startTransaction();
 
-    const po = await PurchaseOrder.findOne({ _id: poId, tenantId, deletedAt: null }).session(
-      session
-    );
+    const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null }).session(session);
     if (!po) throw new Error("Purchase order not found");
     if (po.status !== "approved") throw new Error("Only approved purchase orders can be received");
 
@@ -210,7 +194,6 @@ export async function receivePurchaseOrder(
       if (receiveItem.receivedQuantity === 0) continue;
 
       const inventoryFilter = {
-        tenantId,
         branchId: po.branchId,
         productId: poItem.productId,
         variantId: poItem.variantId ?? null,
@@ -234,7 +217,6 @@ export async function receivePurchaseOrder(
       await StockMovement.create(
         [
           {
-            tenantId,
             branchId: po.branchId,
             productId: poItem.productId,
             variantId: poItem.variantId ?? null,
@@ -265,7 +247,7 @@ export async function receivePurchaseOrder(
     );
 
     await session.commitTransaction();
-    return getPurchaseOrderById(tenantId, poId);
+    return getPurchaseOrderById(poId);
   } catch (err) {
     await session.abortTransaction();
     throw err;

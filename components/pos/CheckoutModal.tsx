@@ -23,7 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Loader2, Printer } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { useTenantFetch } from "@/hooks/useTenantFetch";
+
 
 interface CheckoutModalProps {
   open: boolean;
@@ -43,7 +43,7 @@ interface OrderResult {
 export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   const { items, memberId, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
     useCartStore();
-  const apiFetch = useTenantFetch();
+  
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amountPaid, setAmountPaid] = useState("");
@@ -68,7 +68,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
     setLoading(true);
 
     try {
-      const res = await apiFetch("/api/orders", {
+      const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

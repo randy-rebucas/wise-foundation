@@ -1,6 +1,4 @@
-import { type NextRequest } from "next/server";
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getBranches, createBranch } from "@/lib/services/branch.service";
 import { createBranchSchema } from "@/lib/validations/branch.schema";
@@ -17,7 +15,7 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getBranches(req.user.tenantId, page, limit);
+    const result = await getBranches(page, limit);
     return successResponse(result.branches, undefined, 200, {
       page,
       limit,
@@ -37,7 +35,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const branch = await createBranch(req.user.tenantId, parsed.data);
+    const branch = await createBranch(parsed.data);
     return successResponse(branch, "Branch created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -45,5 +43,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const POST = withAuth(withTenant(withPermission("manage:branches")(postHandler)));
+export const GET = withAuth(getHandler);
+export const POST = withAuth(withPermission("manage:branches")(postHandler));

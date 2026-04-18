@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import {
   getSalesSummary,
@@ -20,22 +19,22 @@ const getHandler = async (req: AuthedRequest) => {
 
     switch (type) {
       case "sales":
-        return successResponse(await getSalesSummary(req.user.tenantId, branchId, days));
+        return successResponse(await getSalesSummary(branchId, days));
       case "top-products":
-        return successResponse(await getTopProducts(req.user.tenantId, branchId));
+        return successResponse(await getTopProducts(branchId));
       case "branch-performance":
-        return successResponse(await getBranchPerformance(req.user.tenantId));
+        return successResponse(await getBranchPerformance());
       case "inventory-alerts":
-        return successResponse(await getInventoryAlerts(req.user.tenantId));
+        return successResponse(await getInventoryAlerts());
       case "member-stats":
-        return successResponse(await getMemberStats(req.user.tenantId));
+        return successResponse(await getMemberStats());
       case "summary": {
         const [sales, topProducts, branchPerf, alerts, memberStats] = await Promise.all([
-          getSalesSummary(req.user.tenantId, branchId, days),
-          getTopProducts(req.user.tenantId, branchId, 5),
-          getBranchPerformance(req.user.tenantId),
-          getInventoryAlerts(req.user.tenantId),
-          getMemberStats(req.user.tenantId),
+          getSalesSummary(branchId, days),
+          getTopProducts(branchId, 5),
+          getBranchPerformance(),
+          getInventoryAlerts(),
+          getMemberStats(),
         ]);
         return successResponse({ sales, topProducts, branchPerf, alerts, memberStats });
       }
@@ -47,4 +46,4 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(withPermission("view:reports")(getHandler)));
+export const GET = withAuth(withPermission("view:reports")(getHandler));

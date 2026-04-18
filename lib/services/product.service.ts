@@ -12,15 +12,10 @@ interface ProductFilter {
   isActive?: boolean;
 }
 
-export async function getProducts(
-  tenantId: string,
-  filter: ProductFilter = {},
-  page = 1,
-  limit = 20
-) {
+export async function getProducts(filter: ProductFilter = {}, page = 1, limit = 20) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, deletedAt: null };
+  const query: Record<string, unknown> = { deletedAt: null };
   if (filter.category) query.category = filter.category;
   if (filter.isActive !== undefined) query.isActive = filter.isActive;
   if (filter.search) {
@@ -36,79 +31,66 @@ export async function getProducts(
   return { products, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getProductById(tenantId: string, productId: string) {
+export async function getProductById(productId: string) {
   await connectDB();
-  const product = await Product.findOne({ _id: productId, tenantId, deletedAt: null }).lean();
+  const product = await Product.findOne({ _id: productId, deletedAt: null }).lean();
   if (!product) return null;
 
-  const variants = await ProductVariant.find({
-    productId,
-    tenantId,
-    deletedAt: null,
-  }).lean();
+  const variants = await ProductVariant.find({ productId, deletedAt: null }).lean();
 
   return { ...product, variants };
 }
 
-export async function createProduct(tenantId: string, data: CreateProductInput) {
+export async function createProduct(data: CreateProductInput) {
   await connectDB();
 
-  const existingSku = await Product.findOne({ tenantId, sku: data.sku });
+  const existingSku = await Product.findOne({ sku: data.sku });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
 
   const slug = slugify(data.name);
-  return Product.create({ ...data, tenantId, slug });
+  return Product.create({ ...data, slug });
 }
 
-export async function updateProduct(
-  tenantId: string,
-  productId: string,
-  data: Partial<IProduct>
-) {
+export async function updateProduct(productId: string, data: Partial<IProduct>) {
   await connectDB();
   return Product.findOneAndUpdate(
-    { _id: productId, tenantId, deletedAt: null },
+    { _id: productId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
 }
 
-export async function deleteProduct(tenantId: string, productId: string) {
+export async function deleteProduct(productId: string) {
   await connectDB();
   return Product.findOneAndUpdate(
-    { _id: productId, tenantId },
+    { _id: productId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();
 }
 
-export async function createProductVariant(
-  tenantId: string,
-  productId: string,
-  data: CreateVariantInput
-) {
+export async function createProductVariant(productId: string, data: CreateVariantInput) {
   await connectDB();
-  const existingSku = await ProductVariant.findOne({ tenantId, sku: data.sku });
+  const existingSku = await ProductVariant.findOne({ sku: data.sku });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
-  return ProductVariant.create({ ...data, tenantId, productId });
+  return ProductVariant.create({ ...data, productId });
 }
 
-export async function getProductVariants(tenantId: string, productId: string) {
+export async function getProductVariants(productId: string) {
   await connectDB();
-  return ProductVariant.find({ tenantId, productId, deletedAt: null }).lean();
+  return ProductVariant.find({ productId, deletedAt: null }).lean();
 }
 
-export async function getProductsForPOS(tenantId: string, branchId: string, search?: string) {
+export async function getProductsForPOS(branchId: string, search?: string) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, isActive: true, deletedAt: null };
+  const query: Record<string, unknown> = { isActive: true, deletedAt: null };
   if (search) query.$text = { $search: search };
 
   const products = await Product.find(query).sort({ name: 1 }).limit(50).lean();
 
   const productIds = products.map((p) => p._id);
   const inventoryItems = await Inventory.find({
-    tenantId,
     branchId,
     productId: { $in: productIds },
     variantId: null,

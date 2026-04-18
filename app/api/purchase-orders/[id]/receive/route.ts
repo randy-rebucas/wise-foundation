@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { receivePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
@@ -15,7 +14,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const po = await receivePurchaseOrder(req.user.tenantId, id, req.user.id, parsed.data);
+    const po = await receivePurchaseOrder(id, req.user.id, parsed.data);
     return successResponse(po, "Purchase order received and stock updated");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -23,4 +22,4 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const POST = withAuth(withTenant(withPermission("manage:inventory")(postHandler)));
+export const POST = withAuth(withPermission("manage:inventory")(postHandler));

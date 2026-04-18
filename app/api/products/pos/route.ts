@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { getProductsForPOS } from "@/lib/services/product.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -12,11 +11,11 @@ const getHandler = async (req: AuthedRequest) => {
 
     if (!branchId) return errorResponse("Branch ID is required");
 
-    const products = await getProductsForPOS(req.user.tenantId, branchId, search);
+    const products = await getProductsForPOS(branchId, search);
     return successResponse(products);
   } catch {
     return serverErrorResponse();
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
+export const GET = withAuth(getHandler);

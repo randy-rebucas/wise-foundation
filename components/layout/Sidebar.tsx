@@ -13,7 +13,6 @@ import {
   Users,
   ClipboardList,
   BarChart3,
-  Building2,
   GitBranch,
   LogOut,
   ShoppingBag,
@@ -25,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 
 interface NavItem {
   label: string;
@@ -35,29 +33,22 @@ interface NavItem {
   roles?: string[];
 }
 
-function buildNavItems(slug: string): NavItem[] {
-  const p = (path: string) => `/${slug}${path}`;
-  return [
-    { label: "Dashboard", path: p("/dashboard"), icon: LayoutDashboard },
-    { label: "POS", path: p("/pos"), icon: ShoppingCart, permission: "use:pos" },
-    { label: "Products", path: p("/products"), icon: Package, permission: "manage:products" },
-    { label: "Inventory", path: p("/inventory"), icon: Boxes, permission: "manage:inventory" },
-    { label: "Orders", path: p("/orders"), icon: ClipboardList, permission: "manage:orders" },
-    { label: "Purchase Orders", path: p("/purchase-orders"), icon: Truck, permission: "manage:inventory" },
-    { label: "Members", path: p("/members"), icon: Users, permission: "manage:members" },
-    { label: "Reports", path: p("/reports"), icon: BarChart3, permission: "view:reports" },
-  ];
-}
+const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
+  { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
+  { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
+  { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
+  { label: "Purchase Orders", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
+  { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
+  { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
+];
 
-function buildAdminItems(slug: string): NavItem[] {
-  const p = (path: string) => `/${slug}${path}`;
-  return [
-    { label: "Tenants", path: p("/admin/tenants"), icon: Building2, roles: ["SUPER_ADMIN"] },
-    { label: "Branches", path: p("/admin/branches"), icon: GitBranch, permission: "manage:branches" },
-    { label: "Users", path: p("/admin/users"), icon: Users, permission: "manage:users" },
-    { label: "Settings", path: p("/settings"), icon: Settings, roles: ["SUPER_ADMIN", "TENANT_OWNER"] },
-  ];
-}
+const ADMIN_ITEMS: NavItem[] = [
+  { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
+  { label: "Users", path: "/admin/users", icon: Users, permission: "manage:users" },
+  { label: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
+];
 
 interface SidebarUser {
   id?: string;
@@ -68,15 +59,12 @@ interface SidebarUser {
 }
 
 interface SidebarProps {
-  slug: string;
   initialUser: SidebarUser;
 }
 
-export function Sidebar({ slug, initialUser }: SidebarProps) {
+export function Sidebar({ initialUser }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  // useSession is only needed for sign-out; nav access uses initialUser (server-resolved)
-  // to avoid SSR/client hydration mismatches caused by session loading state.
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -91,19 +79,14 @@ export function Sidebar({ slug, initialUser }: SidebarProps) {
     }
   }
 
-  // Prefer live session for display once loaded, but fall back to the server-provided
-  // snapshot so the initial render is identical between SSR and hydration.
   const displayUser = session?.user ?? initialUser;
   const userPermissions = initialUser.permissions;
   const userRole = initialUser.role;
 
-  const navItems = buildNavItems(slug);
-  const adminItems = buildAdminItems(slug);
-
   function canAccess(item: NavItem): boolean {
     if (item.roles) return item.roles.includes(userRole);
     if (!item.permission) return true;
-    return userRole === "SUPER_ADMIN" || userPermissions.includes(item.permission);
+    return userRole === "ADMIN" || userPermissions.includes(item.permission);
   }
 
   const initials = displayUser?.name
@@ -142,9 +125,7 @@ export function Sidebar({ slug, initialUser }: SidebarProps) {
         </div>
         <div>
           <p className="font-bold text-sm">Livelihood</p>
-          <p className="text-xs text-sidebar-accent-foreground opacity-70 truncate max-w-[120px]">
-            {slug}
-          </p>
+          <p className="text-xs text-sidebar-accent-foreground opacity-70">POS System</p>
         </div>
       </div>
 
@@ -154,18 +135,18 @@ export function Sidebar({ slug, initialUser }: SidebarProps) {
           <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
             Main
           </p>
-          {navItems.filter(canAccess).map((item) => (
+          {NAV_ITEMS.filter(canAccess).map((item) => (
             <NavLink key={item.path} item={item} />
           ))}
         </nav>
 
         {/* Admin Navigation */}
-        {adminItems.some(canAccess) && (
+        {ADMIN_ITEMS.some(canAccess) && (
           <nav className="space-y-1 mt-6">
             <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
               Admin
             </p>
-            {adminItems.filter(canAccess).map((item) => (
+            {ADMIN_ITEMS.filter(canAccess).map((item) => (
               <NavLink key={item.path} item={item} />
             ))}
           </nav>

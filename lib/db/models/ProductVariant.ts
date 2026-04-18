@@ -1,7 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IProductVariant extends Document {
-  tenantId: Types.ObjectId;
   productId: Types.ObjectId;
   name: string;
   sku: string;
@@ -19,10 +18,9 @@ export interface IProductVariant extends Document {
 
 const ProductVariantSchema = new Schema<IProductVariant>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     name: { type: String, required: true, trim: true },
-    sku: { type: String, required: true, trim: true },
+    sku: { type: String, required: true, unique: true, trim: true },
     attributes: [
       {
         key: { type: String, required: true },
@@ -40,8 +38,8 @@ const ProductVariantSchema = new Schema<IProductVariant>(
   { timestamps: true }
 );
 
-ProductVariantSchema.index({ tenantId: 1, productId: 1, deletedAt: 1 });
-ProductVariantSchema.index({ tenantId: 1, sku: 1 }, { unique: true });
+ProductVariantSchema.index({ productId: 1, deletedAt: 1 });
+ProductVariantSchema.index({ sku: 1 }, { unique: true });
 
 export const ProductVariant =
   models.ProductVariant || model<IProductVariant>("ProductVariant", ProductVariantSchema);

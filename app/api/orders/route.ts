@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processCheckout } from "@/lib/services/pos.service";
 import { getOrders } from "@/lib/services/order.service";
@@ -15,7 +14,7 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getOrders(req.user.tenantId, branchId, { status }, page, limit);
+    const result = await getOrders(branchId, { status }, page, limit);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,
@@ -36,7 +35,6 @@ const postHandler = async (req: AuthedRequest) => {
     }
 
     const result = await processCheckout({
-      tenantId: req.user.tenantId,
       branchId: parsed.data.branchId,
       cashierId: req.user.id,
       items: parsed.data.items.map((i) => ({ ...i, variantId: i.variantId ?? undefined })),
@@ -54,5 +52,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const POST = withAuth(withTenant(withPermission("use:pos")(postHandler)));
+export const GET = withAuth(getHandler);
+export const POST = withAuth(withPermission("use:pos")(postHandler));

@@ -12,7 +12,6 @@ interface OrderFilter {
 }
 
 export async function getOrders(
-  tenantId: string,
   branchId?: string,
   filter: OrderFilter = {},
   page = 1,
@@ -20,7 +19,7 @@ export async function getOrders(
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, deletedAt: null };
+  const query: Record<string, unknown> = { deletedAt: null };
   if (branchId) query.branchId = branchId;
   if (filter.status) query.status = filter.status;
   if (filter.type) query.type = filter.type;
@@ -45,16 +44,16 @@ export async function getOrders(
   return { orders, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getOrderById(tenantId: string, orderId: string) {
+export async function getOrderById(orderId: string) {
   await connectDB();
-  const order = await Order.findOne({ _id: orderId, tenantId, deletedAt: null })
+  const order = await Order.findOne({ _id: orderId, deletedAt: null })
     .populate("cashierId", "name")
     .populate("memberId", "name memberId")
     .lean();
 
   if (!order) return null;
 
-  const items = await OrderItem.find({ orderId, tenantId })
+  const items = await OrderItem.find({ orderId })
     .populate("productId", "name sku images")
     .lean();
 
@@ -62,7 +61,6 @@ export async function getOrderById(tenantId: string, orderId: string) {
 }
 
 export async function updateOrderStatus(
-  tenantId: string,
   orderId: string,
   status: OrderStatus,
   userId: string
@@ -73,7 +71,7 @@ export async function updateOrderStatus(
   if (status === "completed") updates.completedAt = new Date();
 
   return Order.findOneAndUpdate(
-    { _id: orderId, tenantId, deletedAt: null },
+    { _id: orderId, deletedAt: null },
     { $set: updates },
     { new: true }
   ).lean();

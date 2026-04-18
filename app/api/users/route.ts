@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getUsers, createUser } from "@/lib/services/user.service";
 import { createUserSchema } from "@/lib/validations/user.schema";
@@ -14,7 +13,7 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getUsers(req.user.tenantId, search, role, page, limit);
+    const result = await getUsers(search, role, page, limit);
     return successResponse(result.users, undefined, 200, {
       page,
       limit,
@@ -34,7 +33,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const user = await createUser(req.user.tenantId, parsed.data);
+    const user = await createUser(parsed.data);
     return successResponse(user, "User created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -42,5 +41,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(withPermission("manage:users")(getHandler)));
-export const POST = withAuth(withTenant(withPermission("manage:users")(postHandler)));
+export const GET = withAuth(withPermission("manage:users")(getHandler));
+export const POST = withAuth(withPermission("manage:users")(postHandler));

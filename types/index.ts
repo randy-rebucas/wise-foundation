@@ -3,8 +3,7 @@ import { Types } from "mongoose";
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
 export type UserRole =
-  | "SUPER_ADMIN"
-  | "TENANT_OWNER"
+  | "ADMIN"
   | "BRANCH_MANAGER"
   | "STAFF"
   | "INVENTORY_MANAGER"
@@ -21,8 +20,6 @@ export type OrderStatus = "pending" | "paid" | "completed" | "cancelled" | "refu
 export type MemberStatus = "active" | "inactive" | "suspended";
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "approved" | "received" | "cancelled";
-
-export type TenantStatus = "active" | "suspended" | "trial";
 
 // ─── API Response ────────────────────────────────────────────────────────────
 
@@ -44,7 +41,6 @@ export interface ApiResponse<T = unknown> {
 
 export interface JWTPayload {
   userId: string;
-  tenantId: string;
   role: UserRole;
   branchIds: string[];
   permissions: string[];
@@ -55,7 +51,6 @@ export interface SessionUser {
   name: string;
   email: string;
   role: UserRole;
-  tenantId: string;
   branchIds: string[];
   permissions: string[];
   image?: string;
@@ -68,10 +63,6 @@ export interface BaseDocument {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
-}
-
-export interface TenantDocument extends BaseDocument {
-  tenantId: Types.ObjectId;
 }
 
 // ─── Cart (Zustand) ───────────────────────────────────────────────────────────

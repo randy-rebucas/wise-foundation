@@ -7,7 +7,6 @@ import type { UserRole } from "@/types";
 declare module "next-auth" {
   interface User {
     role: UserRole;
-    tenantId: string;
     branchIds: string[];
     permissions: string[];
   }
@@ -17,7 +16,6 @@ declare module "next-auth" {
       name: string;
       email: string;
       role: UserRole;
-      tenantId: string;
       branchIds: string[];
       permissions: string[];
       image?: string;
@@ -53,7 +51,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.sub = user.id;
         token.role = user.role;
-        token.tenantId = user.tenantId;
         token.branchIds = user.branchIds;
         token.permissions = user.permissions;
       }
@@ -63,7 +60,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user) {
         session.user.id = token.sub!;
         session.user.role = token.role as UserRole;
-        session.user.tenantId = token.tenantId as string;
         session.user.branchIds = token.branchIds as string[];
         session.user.permissions = token.permissions as string[];
       }

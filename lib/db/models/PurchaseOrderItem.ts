@@ -1,7 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IPurchaseOrderItem extends Document {
-  tenantId: Types.ObjectId;
   purchaseOrderId: Types.ObjectId;
   productId: Types.ObjectId;
   variantId?: Types.ObjectId | null;
@@ -17,7 +16,6 @@ export interface IPurchaseOrderItem extends Document {
 
 const PurchaseOrderItemSchema = new Schema<IPurchaseOrderItem>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     purchaseOrderId: { type: Schema.Types.ObjectId, ref: "PurchaseOrder", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
@@ -32,7 +30,7 @@ const PurchaseOrderItemSchema = new Schema<IPurchaseOrderItem>(
 );
 
 PurchaseOrderItemSchema.index({ purchaseOrderId: 1 });
-PurchaseOrderItemSchema.index({ tenantId: 1, productId: 1 });
+PurchaseOrderItemSchema.index({ productId: 1 });
 
 export const PurchaseOrderItem =
   models.PurchaseOrderItem ||

@@ -1,8 +1,7 @@
-import { Schema, model, models, type Document, type Types } from "mongoose";
+import { Schema, model, models, type Document } from "mongoose";
 import type { ProductCategory } from "@/types";
 
 export interface IProduct extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   slug: string;
   description?: string;
@@ -23,7 +22,6 @@ export interface IProduct extends Document {
 
 const ProductSchema = new Schema<IProduct>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, lowercase: true, trim: true },
     description: { type: String },
@@ -32,7 +30,7 @@ const ProductSchema = new Schema<IProduct>(
       required: true,
       enum: ["homecare", "cosmetics", "wellness", "scent"] as ProductCategory[],
     },
-    sku: { type: String, required: true, trim: true },
+    sku: { type: String, required: true, unique: true, trim: true },
     barcode: { type: String },
     images: [{ type: String }],
     retailPrice: { type: Number, required: true, min: 0 },
@@ -46,9 +44,9 @@ const ProductSchema = new Schema<IProduct>(
   { timestamps: true }
 );
 
-ProductSchema.index({ tenantId: 1, sku: 1 }, { unique: true });
-ProductSchema.index({ tenantId: 1, category: 1, deletedAt: 1 });
-ProductSchema.index({ tenantId: 1, isActive: 1, deletedAt: 1 });
-ProductSchema.index({ tenantId: 1, name: "text", tags: "text" });
+ProductSchema.index({ sku: 1 }, { unique: true });
+ProductSchema.index({ category: 1, deletedAt: 1 });
+ProductSchema.index({ isActive: 1, deletedAt: 1 });
+ProductSchema.index({ name: "text", tags: "text" });
 
 export const Product = models.Product || model<IProduct>("Product", ProductSchema);

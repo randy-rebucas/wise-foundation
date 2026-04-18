@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getUserById, updateUser, deleteUser } from "@/lib/services/user.service";
 import { updateUserSchema } from "@/lib/validations/user.schema";
@@ -18,7 +17,7 @@ interface Ctx {
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
-    const user = await getUserById(req.user.tenantId, id);
+    const user = await getUserById(id);
     if (!user) return notFoundResponse("User not found");
     return successResponse(user);
   } catch {
@@ -36,7 +35,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const user = await updateUser(req.user.tenantId, id, parsed.data);
+    const user = await updateUser(id, parsed.data);
     return successResponse(user, "User updated successfully");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -47,7 +46,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
-    await deleteUser(req.user.tenantId, id, req.user.id);
+    await deleteUser(id, req.user.id);
     return successResponse(null, "User removed successfully");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -55,6 +54,6 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withTenant(withPermission("manage:users")(getHandler)));
-export const PATCH = withAuth(withTenant(withPermission("manage:users")(patchHandler)));
-export const DELETE = withAuth(withTenant(withPermission("manage:users")(deleteHandler)));
+export const GET = withAuth(withPermission("manage:users")(getHandler));
+export const PATCH = withAuth(withPermission("manage:users")(patchHandler));
+export const DELETE = withAuth(withPermission("manage:users")(deleteHandler));

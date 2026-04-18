@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { getInventory } from "@/lib/services/inventory.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -14,7 +13,7 @@ const getHandler = async (req: AuthedRequest) => {
 
     if (!branchId) return errorResponse("Branch ID is required");
 
-    const result = await getInventory(req.user.tenantId, branchId, page, limit, lowStockOnly);
+    const result = await getInventory(branchId, page, limit, lowStockOnly);
     return successResponse(result.items, undefined, 200, {
       page,
       limit,
@@ -25,4 +24,4 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
+export const GET = withAuth(getHandler);

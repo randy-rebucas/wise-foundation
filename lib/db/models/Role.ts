@@ -1,8 +1,7 @@
-import { Schema, model, models, type Document, type Types } from "mongoose";
+import { Schema, model, models, type Document } from "mongoose";
 import type { UserRole } from "@/types";
 
 export interface IRole extends Document {
-  tenantId: Types.ObjectId;
   name: UserRole;
   displayName: string;
   permissions: string[];
@@ -14,11 +13,11 @@ export interface IRole extends Document {
 
 const RoleSchema = new Schema<IRole>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     name: {
       type: String,
       required: true,
-      enum: ["SUPER_ADMIN", "TENANT_OWNER", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"],
+      unique: true,
+      enum: ["ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"],
     },
     displayName: { type: String, required: true },
     permissions: [{ type: String }],
@@ -28,26 +27,13 @@ const RoleSchema = new Schema<IRole>(
   { timestamps: true }
 );
 
-RoleSchema.index({ tenantId: 1, name: 1 }, { unique: true });
-RoleSchema.index({ tenantId: 1, deletedAt: 1 });
+RoleSchema.index({ name: 1 }, { unique: true });
+RoleSchema.index({ deletedAt: 1 });
 
 export const Role = models.Role || model<IRole>("Role", RoleSchema);
 
-// Default permissions per role
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  SUPER_ADMIN: [
-    "manage:tenants",
-    "manage:branches",
-    "manage:users",
-    "manage:products",
-    "manage:inventory",
-    "use:pos",
-    "view:reports",
-    "manage:members",
-    "manage:orders",
-    "manage:roles",
-  ],
-  TENANT_OWNER: [
+  ADMIN: [
     "manage:branches",
     "manage:users",
     "manage:products",

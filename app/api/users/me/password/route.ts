@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { changePasswordSchema } from "@/lib/validations/auth.schema";
@@ -38,4 +37,4 @@ const patchHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const PATCH = withAuth(withTenant(patchHandler));
+export const PATCH = withAuth(patchHandler);

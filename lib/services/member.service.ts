@@ -4,7 +4,6 @@ import { generateMemberId } from "@/lib/utils/generateMemberId";
 import type { CreateMemberInput, UpdateMemberInput } from "@/lib/validations/member.schema";
 
 export async function getMembers(
-  tenantId: string,
   search?: string,
   status?: string,
   branchId?: string,
@@ -13,7 +12,7 @@ export async function getMembers(
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, deletedAt: null };
+  const query: Record<string, unknown> = { deletedAt: null };
   if (status) query.status = status;
   if (branchId) query.branchId = branchId;
   if (search) {
@@ -38,42 +37,36 @@ export async function getMembers(
   return { members, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getMemberById(tenantId: string, memberId: string) {
+export async function getMemberById(memberId: string) {
   await connectDB();
-  return Member.findOne({ _id: memberId, tenantId, deletedAt: null }).lean();
+  return Member.findOne({ _id: memberId, deletedAt: null }).lean();
 }
 
-export async function createMember(tenantId: string, data: CreateMemberInput) {
+export async function createMember(data: CreateMemberInput) {
   await connectDB();
 
-  // Check for duplicate phone in tenant
-  const existing = await Member.findOne({ tenantId, phone: data.phone, deletedAt: null });
+  const existing = await Member.findOne({ phone: data.phone, deletedAt: null });
   if (existing) throw new Error("A member with this phone number already exists");
 
-  // Generate unique member ID
-  const count = await Member.countDocuments({ tenantId });
+  const count = await Member.countDocuments();
   const memberId = generateMemberId(count + 1);
 
-  return Member.create({ ...data, tenantId, memberId });
+  return Member.create({ ...data, memberId });
 }
 
-export async function updateMember(
-  tenantId: string,
-  memberId: string,
-  data: UpdateMemberInput
-) {
+export async function updateMember(memberId: string, data: UpdateMemberInput) {
   await connectDB();
   return Member.findOneAndUpdate(
-    { _id: memberId, tenantId, deletedAt: null },
+    { _id: memberId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
 }
 
-export async function deleteMember(tenantId: string, memberId: string) {
+export async function deleteMember(memberId: string) {
   await connectDB();
   return Member.findOneAndUpdate(
-    { _id: memberId, tenantId },
+    { _id: memberId },
     { $set: { deletedAt: new Date(), status: "inactive" } },
     { new: true }
   ).lean();

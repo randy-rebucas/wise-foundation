@@ -4,17 +4,11 @@ import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 
-export async function getUsers(
-  tenantId: string,
-  search?: string,
-  role?: string,
-  page = 1,
-  limit = 20
-) {
+export async function getUsers(search?: string, role?: string, page = 1, limit = 20) {
   await connectDB();
   const skip = (page - 1) * limit;
 
-  const filter: Record<string, unknown> = { tenantId, deletedAt: null };
+  const filter: Record<string, unknown> = { deletedAt: null };
   if (role) filter.role = role;
   if (search) {
     filter.$or = [
@@ -36,14 +30,14 @@ export async function getUsers(
   return { users, total, pages: Math.ceil(total / limit) };
 }
 
-export async function getUserById(tenantId: string, userId: string) {
+export async function getUserById(userId: string) {
   await connectDB();
-  return User.findOne({ _id: userId, tenantId, deletedAt: null })
+  return User.findOne({ _id: userId, deletedAt: null })
     .select("-password")
     .lean();
 }
 
-export async function createUser(tenantId: string, data: CreateUserInput) {
+export async function createUser(data: CreateUserInput) {
   await connectDB();
 
   const existing = await User.findOne({ email: data.email.toLowerCase() });
@@ -53,7 +47,6 @@ export async function createUser(tenantId: string, data: CreateUserInput) {
   const permissions = DEFAULT_ROLE_PERMISSIONS[data.role] ?? [];
 
   const user = await User.create({
-    tenantId,
     name: data.name,
     email: data.email.toLowerCase(),
     password: hashedPassword,
@@ -68,26 +61,21 @@ export async function createUser(tenantId: string, data: CreateUserInput) {
   return safeUser;
 }
 
-export async function updateUser(
-  tenantId: string,
-  userId: string,
-  data: UpdateUserInput
-) {
+export async function updateUser(userId: string, data: UpdateUserInput) {
   await connectDB();
 
-  const existing = await User.findOne({ _id: userId, tenantId, deletedAt: null });
+  const existing = await User.findOne({ _id: userId, deletedAt: null });
   if (!existing) throw new Error("User not found");
-  if (existing.role === "TENANT_OWNER") throw new Error("The tenant owner account cannot be modified");
+  if (existing.role === "ADMIN") throw new Error("The admin account cannot be modified");
 
   const update: Record<string, unknown> = { ...data };
 
-  // Re-sync permissions when role changes
   if (data.role) {
     update.permissions = DEFAULT_ROLE_PERMISSIONS[data.role] ?? [];
   }
 
   const user = await User.findOneAndUpdate(
-    { _id: userId, tenantId, deletedAt: null },
+    { _id: userId, deletedAt: null },
     { $set: update },
     { new: true, runValidators: true }
   )
@@ -98,17 +86,17 @@ export async function updateUser(
   return user;
 }
 
-export async function deleteUser(tenantId: string, userId: string, requesterId: string) {
+export async function deleteUser(userId: string, requesterId: string) {
   await connectDB();
 
   if (userId === requesterId) throw new Error("You cannot delete your own account");
 
-  const user = await User.findOne({ _id: userId, tenantId, deletedAt: null });
+  const user = await User.findOne({ _id: userId, deletedAt: null });
   if (!user) throw new Error("User not found");
-  if (user.role === "TENANT_OWNER") throw new Error("Cannot delete the tenant owner");
+  if (user.role === "ADMIN") throw new Error("Cannot delete the admin account");
 
   return User.findOneAndUpdate(
-    { _id: userId, tenantId },
+    { _id: userId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();

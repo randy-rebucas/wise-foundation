@@ -8,8 +8,8 @@ export function withPermission(...requiredPermissions: string[]) {
     return async (req: AuthedRequest, ctx?: unknown): Promise<Response> => {
       const userPermissions = req.user?.permissions ?? [];
 
-      // SUPER_ADMIN bypasses all permission checks
-      if (req.user?.role === "SUPER_ADMIN") return handler(req, ctx);
+      // ADMIN bypasses all permission checks
+      if (req.user?.role === "ADMIN") return handler(req, ctx);
 
       const hasAll = requiredPermissions.every((p) => userPermissions.includes(p));
       if (!hasAll) return forbiddenResponse("Insufficient permissions");

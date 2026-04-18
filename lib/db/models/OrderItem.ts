@@ -1,7 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IOrderItem extends Document {
-  tenantId: Types.ObjectId;
   orderId: Types.ObjectId;
   branchId: Types.ObjectId;
   productId: Types.ObjectId;
@@ -19,7 +18,6 @@ export interface IOrderItem extends Document {
 
 const OrderItemSchema = new Schema<IOrderItem>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
@@ -35,7 +33,7 @@ const OrderItemSchema = new Schema<IOrderItem>(
   { timestamps: true }
 );
 
-OrderItemSchema.index({ tenantId: 1, orderId: 1 });
-OrderItemSchema.index({ tenantId: 1, productId: 1, createdAt: -1 });
+OrderItemSchema.index({ orderId: 1 });
+OrderItemSchema.index({ productId: 1, createdAt: -1 });
 
 export const OrderItem = models.OrderItem || model<IOrderItem>("OrderItem", OrderItemSchema);

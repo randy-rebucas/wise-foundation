@@ -2,7 +2,6 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 import type { StockMovementType } from "@/types";
 
 export interface IStockMovement extends Document {
-  tenantId: Types.ObjectId;
   branchId: Types.ObjectId;
   productId: Types.ObjectId;
   variantId?: Types.ObjectId | null;
@@ -23,7 +22,6 @@ export interface IStockMovement extends Document {
 
 const StockMovementSchema = new Schema<IStockMovement>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
@@ -46,9 +44,9 @@ const StockMovementSchema = new Schema<IStockMovement>(
   { timestamps: true }
 );
 
-StockMovementSchema.index({ tenantId: 1, branchId: 1, productId: 1, createdAt: -1 });
-StockMovementSchema.index({ tenantId: 1, type: 1, createdAt: -1 });
-StockMovementSchema.index({ tenantId: 1, orderId: 1 });
+StockMovementSchema.index({ branchId: 1, productId: 1, createdAt: -1 });
+StockMovementSchema.index({ type: 1, createdAt: -1 });
+StockMovementSchema.index({ orderId: 1 });
 
 export const StockMovement =
   models.StockMovement || model<IStockMovement>("StockMovement", StockMovementSchema);

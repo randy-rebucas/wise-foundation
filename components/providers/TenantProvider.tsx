@@ -2,32 +2,36 @@
 
 import { createContext, useContext } from "react";
 
-interface TenantContextValue {
-  tenantId: string;
-  slug: string;
-  tenantName: string;
-  settings: {
-    currency: string;
-    timezone: string;
-    memberDiscount: number;
-    lowStockThreshold: number;
-  };
+interface AppSettings {
+  currency: string;
+  timezone: string;
+  memberDiscount: number;
+  lowStockThreshold: number;
 }
 
-const TenantContext = createContext<TenantContextValue | null>(null);
+const DEFAULT_SETTINGS: AppSettings = {
+  currency: "PHP",
+  timezone: "Asia/Manila",
+  memberDiscount: 10,
+  lowStockThreshold: 10,
+};
+
+const AppSettingsContext = createContext<AppSettings>(DEFAULT_SETTINGS);
 
 export function TenantProvider({
   children,
   value,
 }: {
   children: React.ReactNode;
-  value: TenantContextValue;
+  value?: Partial<AppSettings>;
 }) {
-  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+  return (
+    <AppSettingsContext.Provider value={{ ...DEFAULT_SETTINGS, ...value }}>
+      {children}
+    </AppSettingsContext.Provider>
+  );
 }
 
-export function useTenant(): TenantContextValue {
-  const ctx = useContext(TenantContext);
-  if (!ctx) throw new Error("useTenant must be used within TenantProvider");
-  return ctx;
+export function useTenant(): AppSettings {
+  return useContext(AppSettingsContext);
 }

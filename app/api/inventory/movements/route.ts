@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getStockMovements, processStockMovement } from "@/lib/services/inventory.service";
 import { stockMovementSchema } from "@/lib/validations/inventory.schema";
@@ -16,7 +15,7 @@ const getHandler = async (req: AuthedRequest) => {
 
     if (!branchId) return errorResponse("Branch ID is required");
 
-    const result = await getStockMovements(req.user.tenantId, branchId, productId, page, limit);
+    const result = await getStockMovements(branchId, productId, page, limit);
     return successResponse(result.movements, undefined, 200, {
       page,
       limit,
@@ -39,12 +38,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const result = await processStockMovement(
-      req.user.tenantId,
-      branchId,
-      req.user.id,
-      parsed.data
-    );
+    const result = await processStockMovement(branchId, req.user.id, parsed.data);
 
     return successResponse(result, "Stock movement processed", 201);
   } catch (error) {
@@ -53,5 +47,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const POST = withAuth(withTenant(withPermission("manage:inventory")(postHandler)));
+export const GET = withAuth(getHandler);
+export const POST = withAuth(withPermission("manage:inventory")(postHandler));

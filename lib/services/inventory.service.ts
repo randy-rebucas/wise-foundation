@@ -6,7 +6,6 @@ import { Branch } from "@/lib/db/models/Branch";
 import type { StockMovementInput } from "@/lib/validations/inventory.schema";
 
 export async function getInventory(
-  tenantId: string,
   branchId: string,
   page = 1,
   limit = 20,
@@ -14,7 +13,7 @@ export async function getInventory(
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, branchId };
+  const query: Record<string, unknown> = { branchId };
   if (lowStockOnly) {
     query.$expr = { $lte: ["$quantity", "$lowStockThreshold"] };
   }
@@ -35,7 +34,6 @@ export async function getInventory(
 }
 
 export async function getStockMovements(
-  tenantId: string,
   branchId: string,
   productId?: string,
   page = 1,
@@ -43,7 +41,7 @@ export async function getStockMovements(
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { tenantId, branchId };
+  const query: Record<string, unknown> = { branchId };
   if (productId) query.productId = productId;
 
   const skip = (page - 1) * limit;
@@ -64,7 +62,6 @@ export async function getStockMovements(
 }
 
 export async function processStockMovement(
-  tenantId: string,
   branchId: string,
   performedBy: string,
   input: StockMovementInput
@@ -76,7 +73,6 @@ export async function processStockMovement(
     session.startTransaction();
 
     const inventoryFilter = {
-      tenantId,
       branchId,
       productId: input.productId,
       variantId: input.variantId ?? null,
@@ -85,13 +81,11 @@ export async function processStockMovement(
     let inventory = await Inventory.findOne(inventoryFilter).session(session);
 
     if (!inventory) {
-      // Auto-create inventory record if it doesn't exist (for IN movements)
       if (input.type !== "IN" && input.type !== "ADJUSTMENT") {
         throw new Error("Inventory record not found for this product");
       }
       inventory = new Inventory({
         ...inventoryFilter,
-        tenantId,
         branchId,
         quantity: 0,
         reservedQuantity: 0,
@@ -120,14 +114,12 @@ export async function processStockMovement(
       case "TRANSFER": {
         if (!input.toBranchId) throw new Error("Destination branch is required for transfers");
 
-        // Verify destination branch belongs to the same tenant
         const destBranch = await Branch.findOne({
           _id: input.toBranchId,
-          tenantId,
           deletedAt: null,
         }).session(session);
         if (!destBranch) {
-          throw new Error("Destination branch not found or does not belong to this organization");
+          throw new Error("Destination branch not found");
         }
         if (input.toBranchId === branchId) {
           throw new Error("Source and destination branches must be different");
@@ -140,9 +132,7 @@ export async function processStockMovement(
         }
         newQuantity = previousQuantity - input.quantity;
 
-        // Add stock to destination branch
         const destFilter = {
-          tenantId,
           branchId: input.toBranchId,
           productId: input.productId,
           variantId: input.variantId ?? null,
@@ -155,11 +145,9 @@ export async function processStockMovement(
         destInventory.quantity = destPrev + input.quantity;
         await destInventory.save({ session });
 
-        // Log incoming movement for destination branch
         await StockMovement.create(
           [
             {
-              tenantId,
               branchId: input.toBranchId,
               productId: input.productId,
               variantId: input.variantId ?? null,
@@ -185,7 +173,6 @@ export async function processStockMovement(
     await StockMovement.create(
       [
         {
-          tenantId,
           branchId,
           productId: input.productId,
           variantId: input.variantId ?? null,
@@ -213,11 +200,10 @@ export async function processStockMovement(
   }
 }
 
-export async function getLowStockAlerts(tenantId: string, branchId?: string) {
+export async function getLowStockAlerts(branchId?: string) {
   await connectDB();
 
   const query: Record<string, unknown> = {
-    tenantId,
     $expr: { $lte: ["$quantity", "$lowStockThreshold"] },
   };
   if (branchId) query.branchId = branchId;

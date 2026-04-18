@@ -1,28 +1,24 @@
 import { connectDB } from "@/lib/db/connect";
 import { Supplier } from "@/lib/db/models/Supplier";
 
-export async function getSuppliers(tenantId: string) {
+export async function getSuppliers() {
   await connectDB();
-  return Supplier.find({ tenantId, deletedAt: null }).sort({ name: 1 }).lean();
+  return Supplier.find({ deletedAt: null }).sort({ name: 1 }).lean();
 }
 
-export async function createSupplier(
-  tenantId: string,
-  data: {
-    name: string;
-    contactPerson?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    notes?: string;
-  }
-) {
+export async function createSupplier(data: {
+  name: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}) {
   await connectDB();
-  return Supplier.create({ tenantId, ...data });
+  return Supplier.create({ ...data });
 }
 
 export async function updateSupplier(
-  tenantId: string,
   supplierId: string,
   data: Partial<{
     name: string;
@@ -35,16 +31,16 @@ export async function updateSupplier(
 ) {
   await connectDB();
   return Supplier.findOneAndUpdate(
-    { _id: supplierId, tenantId, deletedAt: null },
+    { _id: supplierId, deletedAt: null },
     { $set: data },
     { new: true }
   ).lean();
 }
 
-export async function deleteSupplier(tenantId: string, supplierId: string) {
+export async function deleteSupplier(supplierId: string) {
   await connectDB();
   return Supplier.findOneAndUpdate(
-    { _id: supplierId, tenantId, deletedAt: null },
+    { _id: supplierId, deletedAt: null },
     { $set: { deletedAt: new Date() } }
   );
 }

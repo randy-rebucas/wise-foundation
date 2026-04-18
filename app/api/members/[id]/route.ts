@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getMemberById, updateMember, deleteMember } from "@/lib/services/member.service";
 import { updateMemberSchema } from "@/lib/validations/member.schema";
@@ -14,7 +13,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = (ctx as { params: { id: string } }).params;
-    const member = await getMemberById(req.user.tenantId, id);
+    const member = await getMemberById(id);
     if (!member) return notFoundResponse("Member not found");
     return successResponse(member);
   } catch {
@@ -29,7 +28,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateMemberSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const member = await updateMember(req.user.tenantId, id, parsed.data);
+    const member = await updateMember(id, parsed.data);
     if (!member) return notFoundResponse("Member not found");
     return successResponse(member, "Member updated");
   } catch (error) {
@@ -41,13 +40,13 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = (ctx as { params: { id: string } }).params;
-    await deleteMember(req.user.tenantId, id);
+    await deleteMember(id);
     return successResponse(null, "Member removed");
   } catch {
     return serverErrorResponse();
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const PATCH = withAuth(withTenant(withPermission("manage:members")(patchHandler)));
-export const DELETE = withAuth(withTenant(withPermission("manage:members")(deleteHandler)));
+export const GET = withAuth(getHandler);
+export const PATCH = withAuth(withPermission("manage:members")(patchHandler));
+export const DELETE = withAuth(withPermission("manage:members")(deleteHandler));

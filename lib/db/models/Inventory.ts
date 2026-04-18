@@ -1,7 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IInventory extends Document {
-  tenantId: Types.ObjectId;
   branchId: Types.ObjectId;
   productId: Types.ObjectId;
   variantId?: Types.ObjectId | null;
@@ -14,7 +13,6 @@ export interface IInventory extends Document {
 
 const InventorySchema = new Schema<IInventory>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
@@ -25,11 +23,10 @@ const InventorySchema = new Schema<IInventory>(
   { timestamps: true }
 );
 
-// Unique inventory record per branch + product + variant
 InventorySchema.index(
-  { tenantId: 1, branchId: 1, productId: 1, variantId: 1 },
+  { branchId: 1, productId: 1, variantId: 1 },
   { unique: true }
 );
-InventorySchema.index({ tenantId: 1, branchId: 1, quantity: 1 });
+InventorySchema.index({ branchId: 1, quantity: 1 });
 
 export const Inventory = models.Inventory || model<IInventory>("Inventory", InventorySchema);

@@ -6,7 +6,7 @@ import { Member } from "@/lib/db/models/Member";
 import { Branch } from "@/lib/db/models/Branch";
 import mongoose from "mongoose";
 
-export async function getSalesSummary(tenantId: string, branchId?: string, days = 30) {
+export async function getSalesSummary(branchId?: string, days = 30) {
   await connectDB();
 
   const startDate = new Date();
@@ -14,7 +14,6 @@ export async function getSalesSummary(tenantId: string, branchId?: string, days 
   startDate.setHours(0, 0, 0, 0);
 
   const matchStage: Record<string, unknown> = {
-    tenantId: new mongoose.Types.ObjectId(tenantId),
     status: { $in: ["paid", "completed"] },
     createdAt: { $gte: startDate },
     deletedAt: null,
@@ -61,14 +60,13 @@ export async function getSalesSummary(tenantId: string, branchId?: string, days 
   };
 }
 
-export async function getTopProducts(tenantId: string, branchId?: string, limit = 10) {
+export async function getTopProducts(branchId?: string, limit = 10) {
   await connectDB();
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const matchStage: Record<string, unknown> = {
-    tenantId: new mongoose.Types.ObjectId(tenantId),
     createdAt: { $gte: startOfMonth },
   };
   if (branchId) matchStage.branchId = new mongoose.Types.ObjectId(branchId);
@@ -105,7 +103,7 @@ export async function getTopProducts(tenantId: string, branchId?: string, limit 
   ]);
 }
 
-export async function getBranchPerformance(tenantId: string) {
+export async function getBranchPerformance() {
   await connectDB();
 
   const now = new Date();
@@ -115,7 +113,6 @@ export async function getBranchPerformance(tenantId: string) {
     Order.aggregate([
       {
         $match: {
-          tenantId: new mongoose.Types.ObjectId(tenantId),
           status: { $in: ["paid", "completed"] },
           createdAt: { $gte: startOfMonth },
           deletedAt: null,
@@ -130,7 +127,7 @@ export async function getBranchPerformance(tenantId: string) {
       },
       { $sort: { revenue: -1 } },
     ]),
-    Branch.find({ tenantId, deletedAt: null }).select("name code").lean(),
+    Branch.find({ deletedAt: null }).select("name code").lean(),
   ]);
 
   const branchMap = new Map(branches.map((b) => [b._id.toString(), b]));
@@ -144,10 +141,9 @@ export async function getBranchPerformance(tenantId: string) {
   }));
 }
 
-export async function getInventoryAlerts(tenantId: string) {
+export async function getInventoryAlerts() {
   await connectDB();
   return Inventory.find({
-    tenantId,
     $expr: { $lte: ["$quantity", "$lowStockThreshold"] },
   })
     .populate("productId", "name sku category")
@@ -156,13 +152,12 @@ export async function getInventoryAlerts(tenantId: string) {
     .lean();
 }
 
-export async function getMemberStats(tenantId: string) {
+export async function getMemberStats() {
   await connectDB();
   const [total, active, newThisMonth] = await Promise.all([
-    Member.countDocuments({ tenantId, deletedAt: null }),
-    Member.countDocuments({ tenantId, status: "active", deletedAt: null }),
+    Member.countDocuments({ deletedAt: null }),
+    Member.countDocuments({ status: "active", deletedAt: null }),
     Member.countDocuments({
-      tenantId,
       deletedAt: null,
       joinedAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
     }),

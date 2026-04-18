@@ -2,7 +2,6 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 import type { PurchaseOrderStatus } from "@/types";
 
 export interface IPurchaseOrder extends Document {
-  tenantId: Types.ObjectId;
   branchId: Types.ObjectId;
   poNumber: string;
   supplierId?: Types.ObjectId | null;
@@ -24,9 +23,8 @@ export interface IPurchaseOrder extends Document {
 
 const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
-    poNumber: { type: String, required: true },
+    poNumber: { type: String, required: true, unique: true },
     supplierId: { type: Schema.Types.ObjectId, ref: "Supplier", default: null },
     supplierName: { type: String },
     status: {
@@ -49,9 +47,9 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   { timestamps: true }
 );
 
-PurchaseOrderSchema.index({ tenantId: 1, poNumber: 1 }, { unique: true });
-PurchaseOrderSchema.index({ tenantId: 1, branchId: 1, status: 1, createdAt: -1 });
-PurchaseOrderSchema.index({ tenantId: 1, supplierId: 1 });
+PurchaseOrderSchema.index({ poNumber: 1 }, { unique: true });
+PurchaseOrderSchema.index({ branchId: 1, status: 1, createdAt: -1 });
+PurchaseOrderSchema.index({ supplierId: 1 });
 
 export const PurchaseOrder =
   models.PurchaseOrder || model<IPurchaseOrder>("PurchaseOrder", PurchaseOrderSchema);

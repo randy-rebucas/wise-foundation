@@ -2,7 +2,6 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 import type { OrderType, OrderStatus } from "@/types";
 
 export interface IOrder extends Document {
-  tenantId: Types.ObjectId;
   branchId: Types.ObjectId;
   orderNumber: string;
   type: OrderType;
@@ -27,9 +26,8 @@ export interface IOrder extends Document {
 
 const OrderSchema = new Schema<IOrder>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
-    orderNumber: { type: String, required: true },
+    orderNumber: { type: String, required: true, unique: true },
     type: {
       type: String,
       required: true,
@@ -64,9 +62,9 @@ const OrderSchema = new Schema<IOrder>(
   { timestamps: true }
 );
 
-OrderSchema.index({ tenantId: 1, orderNumber: 1 }, { unique: true });
-OrderSchema.index({ tenantId: 1, branchId: 1, status: 1, createdAt: -1 });
-OrderSchema.index({ tenantId: 1, memberId: 1, createdAt: -1 });
-OrderSchema.index({ tenantId: 1, createdAt: -1 });
+OrderSchema.index({ orderNumber: 1 }, { unique: true });
+OrderSchema.index({ branchId: 1, status: 1, createdAt: -1 });
+OrderSchema.index({ memberId: 1, createdAt: -1 });
+OrderSchema.index({ createdAt: -1 });
 
 export const Order = models.Order || model<IOrder>("Order", OrderSchema);

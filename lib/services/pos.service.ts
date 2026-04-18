@@ -10,7 +10,6 @@ import { generateOrderNumber } from "@/lib/utils";
 import type { CartItem } from "@/types";
 
 interface CheckoutInput {
-  tenantId: string;
   branchId: string;
   cashierId: string;
   items: CartItem[];
@@ -39,16 +38,13 @@ export async function processCheckout(input: CheckoutInput) {
     if (input.memberId) {
       const member = await Member.findOne({
         _id: input.memberId,
-        tenantId: input.tenantId,
         status: "active",
       }).session(session);
       memberName = member?.name;
     }
 
-    // Validate and deduct stock for each item
     for (const item of input.items) {
       const inventoryRecord = await Inventory.findOne({
-        tenantId: input.tenantId,
         branchId: input.branchId,
         productId: item.productId,
         variantId: item.variantId ?? null,
@@ -71,7 +67,6 @@ export async function processCheckout(input: CheckoutInput) {
       await StockMovement.create(
         [
           {
-            tenantId: input.tenantId,
             branchId: input.branchId,
             productId: item.productId,
             variantId: item.variantId ?? null,
@@ -87,11 +82,9 @@ export async function processCheckout(input: CheckoutInput) {
       );
     }
 
-    // Create Order
     const [order] = await Order.create(
       [
         {
-          tenantId: input.tenantId,
           branchId: input.branchId,
           orderNumber,
           type: "POS",
@@ -113,9 +106,7 @@ export async function processCheckout(input: CheckoutInput) {
       { session }
     );
 
-    // Create Order Items
     const orderItems = input.items.map((item) => ({
-      tenantId: input.tenantId,
       orderId: order._id,
       branchId: input.branchId,
       productId: item.productId,
@@ -130,11 +121,9 @@ export async function processCheckout(input: CheckoutInput) {
 
     await OrderItem.create(orderItems, { session });
 
-    // Create Transaction record
     await Transaction.create(
       [
         {
-          tenantId: input.tenantId,
           branchId: input.branchId,
           orderId: order._id,
           memberId: input.memberId ?? null,
@@ -147,13 +136,10 @@ export async function processCheckout(input: CheckoutInput) {
       { session }
     );
 
-    // Update member stats
     if (input.memberId) {
       await Member.updateOne(
-        { _id: input.memberId, tenantId: input.tenantId },
-        {
-          $inc: { totalPurchases: 1, totalSpent: total },
-        },
+        { _id: input.memberId },
+        { $inc: { totalPurchases: 1, totalSpent: total } },
         { session }
       );
     }

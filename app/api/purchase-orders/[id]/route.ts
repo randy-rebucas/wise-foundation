@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import {
   getPurchaseOrderById,
@@ -19,7 +18,7 @@ import type { PurchaseOrderStatus } from "@/types";
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = (ctx as { params: { id: string } }).params;
-    const po = await getPurchaseOrderById(req.user.tenantId, id);
+    const po = await getPurchaseOrderById(id);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po);
   } catch {
@@ -35,7 +34,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!parsed.success) {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
-    const po = await updatePurchaseOrder(req.user.tenantId, id, parsed.data);
+    const po = await updatePurchaseOrder(id, parsed.data);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order updated");
   } catch (error) {
@@ -49,12 +48,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const { id } = (ctx as { params: { id: string } }).params;
     const { status } = await req.json();
     if (!status) return errorResponse("Status is required");
-    const po = await updatePurchaseOrderStatus(
-      req.user.tenantId,
-      id,
-      status as PurchaseOrderStatus,
-      req.user.id
-    );
+    const po = await updatePurchaseOrderStatus(id, status as PurchaseOrderStatus, req.user.id);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, `Purchase order ${status}`);
   } catch (error) {
@@ -63,6 +57,6 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withTenant(withPermission("manage:inventory")(getHandler)));
-export const PUT = withAuth(withTenant(withPermission("manage:inventory")(putHandler)));
-export const PATCH = withAuth(withTenant(withPermission("manage:inventory")(patchHandler)));
+export const GET = withAuth(withPermission("manage:inventory")(getHandler));
+export const PUT = withAuth(withPermission("manage:inventory")(putHandler));
+export const PATCH = withAuth(withPermission("manage:inventory")(patchHandler));

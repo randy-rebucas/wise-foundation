@@ -3,7 +3,6 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 export type TransactionType = "SALE" | "REFUND" | "ADJUSTMENT";
 
 export interface ITransaction extends Document {
-  tenantId: Types.ObjectId;
   branchId: Types.ObjectId;
   orderId?: Types.ObjectId | null;
   memberId?: Types.ObjectId | null;
@@ -19,7 +18,6 @@ export interface ITransaction extends Document {
 
 const TransactionSchema = new Schema<ITransaction>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
     orderId: { type: Schema.Types.ObjectId, ref: "Order", default: null },
     memberId: { type: Schema.Types.ObjectId, ref: "Member", default: null },
@@ -37,9 +35,9 @@ const TransactionSchema = new Schema<ITransaction>(
   { timestamps: true }
 );
 
-TransactionSchema.index({ tenantId: 1, branchId: 1, createdAt: -1 });
-TransactionSchema.index({ tenantId: 1, orderId: 1 });
-TransactionSchema.index({ tenantId: 1, type: 1, createdAt: -1 });
+TransactionSchema.index({ branchId: 1, createdAt: -1 });
+TransactionSchema.index({ orderId: 1 });
+TransactionSchema.index({ type: 1, createdAt: -1 });
 
 export const Transaction =
   models.Transaction || model<ITransaction>("Transaction", TransactionSchema);

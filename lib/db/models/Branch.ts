@@ -1,7 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IBranch extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   code: string;
   address: string;
@@ -17,9 +16,8 @@ export interface IBranch extends Document {
 
 const BranchSchema = new Schema<IBranch>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     name: { type: String, required: true, trim: true },
-    code: { type: String, required: true, uppercase: true, trim: true },
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     address: { type: String, required: true },
     phone: { type: String },
     email: { type: String, lowercase: true },
@@ -31,7 +29,7 @@ const BranchSchema = new Schema<IBranch>(
   { timestamps: true }
 );
 
-BranchSchema.index({ tenantId: 1, code: 1 }, { unique: true });
-BranchSchema.index({ tenantId: 1, isActive: 1, deletedAt: 1 });
+BranchSchema.index({ code: 1 }, { unique: true });
+BranchSchema.index({ isActive: 1, deletedAt: 1 });
 
 export const Branch = models.Branch || model<IBranch>("Branch", BranchSchema);

@@ -1,5 +1,5 @@
 /**
- * Run once to create the super admin account:
+ * Run once to create the admin account:
  *   npx tsx scripts/seed-super-admin.ts
  */
 import bcrypt from "bcryptjs";
@@ -10,16 +10,15 @@ const MONGODB_URI = process.env.MONGODB_URI!;
 async function main() {
   await mongoose.connect(MONGODB_URI);
 
-  // Dynamically import models after connection
   const { User } = await import("../lib/db/models/User");
   const { DEFAULT_ROLE_PERMISSIONS } = await import("../lib/db/models/Role");
 
-  const email = "superadmin@wise.local";
-  const password = "SuperAdmin@2024";
+  const email = "admin@wise.local";
+  const password = "Admin@2024";
 
   const existing = await User.findOne({ email });
   if (existing) {
-    console.log("Super admin already exists:", email);
+    console.log("Admin already exists:", email);
     await mongoose.disconnect();
     return;
   }
@@ -27,17 +26,16 @@ async function main() {
   const hashed = await bcrypt.hash(password, 12);
 
   await User.create({
-    tenantId: new mongoose.Types.ObjectId("000000000000000000000000"), // placeholder — SUPER_ADMIN ignores tenantId
     branchIds: [],
-    name: "Super Admin",
+    name: "Admin",
     email,
     password: hashed,
-    role: "SUPER_ADMIN",
-    permissions: DEFAULT_ROLE_PERMISSIONS.SUPER_ADMIN,
+    role: "ADMIN",
+    permissions: DEFAULT_ROLE_PERMISSIONS.ADMIN,
     isActive: true,
   });
 
-  console.log("✅ Super admin created");
+  console.log("✅ Admin created");
   console.log("   Email:   ", email);
   console.log("   Password:", password);
   console.log("   Change this password after first login!");

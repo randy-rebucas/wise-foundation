@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { z } from "zod";
@@ -52,5 +51,5 @@ const patchHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const PATCH = withAuth(withTenant(patchHandler));
+export const GET = withAuth(getHandler);
+export const PATCH = withAuth(patchHandler);

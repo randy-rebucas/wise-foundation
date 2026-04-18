@@ -1,7 +1,6 @@
-import { Schema, model, models, type Document, type Types } from "mongoose";
+import { Schema, model, models, type Document } from "mongoose";
 
 export interface ISupplier extends Document {
-  tenantId: Types.ObjectId;
   name: string;
   contactPerson?: string;
   email?: string;
@@ -15,7 +14,6 @@ export interface ISupplier extends Document {
 
 const SupplierSchema = new Schema<ISupplier>(
   {
-    tenantId: { type: Schema.Types.ObjectId, ref: "Tenant", required: true },
     name: { type: String, required: true },
     contactPerson: { type: String },
     email: { type: String },
@@ -27,7 +25,7 @@ const SupplierSchema = new Schema<ISupplier>(
   { timestamps: true }
 );
 
-SupplierSchema.index({ tenantId: 1, name: 1 });
-SupplierSchema.index({ tenantId: 1, deletedAt: 1 });
+SupplierSchema.index({ name: 1 });
+SupplierSchema.index({ deletedAt: 1 });
 
 export const Supplier = models.Supplier || model<ISupplier>("Supplier", SupplierSchema);

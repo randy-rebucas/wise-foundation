@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getProductById, updateProduct, deleteProduct } from "@/lib/services/product.service";
 import { updateProductSchema } from "@/lib/validations/product.schema";
@@ -14,7 +13,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = (ctx as { params: { id: string } }).params;
-    const product = await getProductById(req.user.tenantId, id);
+    const product = await getProductById(id);
     if (!product) return notFoundResponse("Product not found");
     return successResponse(product);
   } catch {
@@ -29,7 +28,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateProductSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const product = await updateProduct(req.user.tenantId, id, parsed.data);
+    const product = await updateProduct(id, parsed.data);
     if (!product) return notFoundResponse("Product not found");
     return successResponse(product, "Product updated");
   } catch (error) {
@@ -41,13 +40,13 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = (ctx as { params: { id: string } }).params;
-    await deleteProduct(req.user.tenantId, id);
+    await deleteProduct(id);
     return successResponse(null, "Product deleted");
   } catch {
     return serverErrorResponse();
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const PATCH = withAuth(withTenant(withPermission("manage:products")(patchHandler)));
-export const DELETE = withAuth(withTenant(withPermission("manage:products")(deleteHandler)));
+export const GET = withAuth(getHandler);
+export const PATCH = withAuth(withPermission("manage:products")(patchHandler));
+export const DELETE = withAuth(withPermission("manage:products")(deleteHandler));

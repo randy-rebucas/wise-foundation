@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getMembers, createMember } from "@/lib/services/member.service";
 import { createMemberSchema } from "@/lib/validations/member.schema";
@@ -15,7 +14,7 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getMembers(req.user.tenantId, search, status, branchId, page, limit);
+    const result = await getMembers(search, status, branchId, page, limit);
     return successResponse(result.members, undefined, 200, {
       page,
       limit,
@@ -35,7 +34,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const member = await createMember(req.user.tenantId, parsed.data);
+    const member = await createMember(parsed.data);
     return successResponse(member, "Member registered", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -43,5 +42,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(getHandler));
-export const POST = withAuth(withTenant(withPermission("manage:members")(postHandler)));
+export const GET = withAuth(getHandler);
+export const POST = withAuth(withPermission("manage:members")(postHandler));

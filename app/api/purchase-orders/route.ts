@@ -1,5 +1,4 @@
 import { withAuth } from "@/lib/middleware/withAuth";
-import { withTenant } from "@/lib/middleware/withTenant";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getPurchaseOrders, createPurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { createPurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
@@ -14,7 +13,7 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getPurchaseOrders(req.user.tenantId, branchId, status, page, limit);
+    const result = await getPurchaseOrders(branchId, status, page, limit);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,
@@ -33,7 +32,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const po = await createPurchaseOrder(req.user.tenantId, req.user.id, parsed.data);
+    const po = await createPurchaseOrder(req.user.id, parsed.data);
     return successResponse(po, "Purchase order created", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -41,5 +40,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withTenant(withPermission("manage:inventory")(getHandler)));
-export const POST = withAuth(withTenant(withPermission("manage:inventory")(postHandler)));
+export const GET = withAuth(withPermission("manage:inventory")(getHandler));
+export const POST = withAuth(withPermission("manage:inventory")(postHandler));
