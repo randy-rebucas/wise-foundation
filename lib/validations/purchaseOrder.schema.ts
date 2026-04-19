@@ -10,17 +10,13 @@ export const purchaseOrderItemSchema = z.object({
 });
 
 export const createPurchaseOrderSchema = z.object({
-  branchId: z.string().min(1, "Branch is required"),
-  supplierId: z.string().optional(),
-  supplierName: z.string().optional(),
+  organizationId: z.string().min(1, "Organization is required"),
   items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required"),
   expectedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const updatePurchaseOrderSchema = z.object({
-  supplierId: z.string().optional(),
-  supplierName: z.string().optional(),
   items: z.array(purchaseOrderItemSchema).min(1).optional(),
   expectedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),

@@ -6,6 +6,10 @@ import {
   getBranchPerformance,
   getInventoryAlerts,
   getMemberStats,
+  getOrgSalesSummary,
+  getTopOrganizations,
+  getDistributionSummary,
+  getOrgInventorySummary,
 } from "@/lib/services/report.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -16,6 +20,11 @@ const getHandler = async (req: AuthedRequest) => {
     const type = searchParams.get("type") ?? "summary";
     const branchId = searchParams.get("branchId") ?? undefined;
     const days = parseInt(searchParams.get("days") ?? "30");
+
+    const organizationId =
+      req.user.role === "ORG_ADMIN"
+        ? (req.user.organizationId ?? undefined)
+        : (searchParams.get("organizationId") ?? undefined);
 
     switch (type) {
       case "sales":
@@ -28,6 +37,14 @@ const getHandler = async (req: AuthedRequest) => {
         return successResponse(await getInventoryAlerts());
       case "member-stats":
         return successResponse(await getMemberStats());
+      case "org-sales":
+        return successResponse(await getOrgSalesSummary(organizationId, days));
+      case "top-organizations":
+        return successResponse(await getTopOrganizations(days));
+      case "distribution-summary":
+        return successResponse(await getDistributionSummary(days));
+      case "org-inventory":
+        return successResponse(await getOrgInventorySummary(organizationId));
       case "summary": {
         const [sales, topProducts, branchPerf, alerts, memberStats] = await Promise.all([
           getSalesSummary(branchId, days),
@@ -37,6 +54,15 @@ const getHandler = async (req: AuthedRequest) => {
           getMemberStats(),
         ]);
         return successResponse({ sales, topProducts, branchPerf, alerts, memberStats });
+      }
+      case "org-summary": {
+        const [orgSales, topOrgs, distribution, orgInventory] = await Promise.all([
+          getOrgSalesSummary(organizationId, days),
+          getTopOrganizations(days),
+          getDistributionSummary(days),
+          getOrgInventorySummary(organizationId),
+        ]);
+        return successResponse({ orgSales, topOrgs, distribution, orgInventory });
       }
       default:
         return errorResponse("Invalid report type");

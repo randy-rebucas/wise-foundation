@@ -20,6 +20,7 @@ export async function getUsers(search?: string, role?: string, page = 1, limit =
   const [users, total] = await Promise.all([
     User.find(filter)
       .select("-password")
+      .populate("organizationId", "name type")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -53,6 +54,7 @@ export async function createUser(data: CreateUserInput) {
     role: data.role,
     permissions,
     branchIds: data.branchIds,
+    organizationId: data.organizationId ?? null,
     phone: data.phone,
     isActive: true,
   });

@@ -59,6 +59,12 @@ export const useCartStore = create<CartState>()(
         set({ items: [], memberId: null, memberName: null, discountPercent: 0 });
       },
 
+      setBranchId: (id: string) => {
+        if (get().branchId !== id) {
+          set({ items: [], memberId: null, memberName: null, discountPercent: 0, branchId: id });
+        }
+      },
+
       getSubtotal: () => {
         return get().items.reduce((sum, item) => sum + item.price * item.quantity, 0);
       },

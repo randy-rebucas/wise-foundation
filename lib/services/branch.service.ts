@@ -3,17 +3,20 @@ import { Branch, type IBranch } from "@/lib/db/models/Branch";
 import { User } from "@/lib/db/models/User";
 import type { Types } from "mongoose";
 
-export async function getBranches(page = 1, limit = 20) {
+export async function getBranches(page = 1, limit = 20, organizationId?: string) {
   await connectDB();
   const skip = (page - 1) * limit;
+  const filter: Record<string, unknown> = { deletedAt: null };
+  if (organizationId) filter.organizationId = organizationId;
+
   const [branches, total] = await Promise.all([
-    Branch.find({ deletedAt: null })
+    Branch.find(filter)
       .sort({ isHeadOffice: -1, name: 1 })
       .skip(skip)
       .limit(limit)
       .populate("managerId", "name email")
       .lean(),
-    Branch.countDocuments({ deletedAt: null }),
+    Branch.countDocuments(filter),
   ]);
   return { branches, total, pages: Math.ceil(total / limit) };
 }
@@ -25,9 +28,19 @@ export async function getBranchById(branchId: string) {
     .lean();
 }
 
-export async function createBranch(
-  data: Pick<IBranch, "name" | "code" | "address" | "phone" | "email" | "isHeadOffice">
-) {
+export interface CreateBranchData {
+  name: string;
+  code: string;
+  address: string;
+  phone?: string;
+  email?: string;
+  isHeadOffice?: boolean;
+  organizationId?: string | null;
+}
+
+export interface UpdateBranchData extends Partial<CreateBranchData> {}
+
+export async function createBranch(data: CreateBranchData) {
   await connectDB();
   const existing = await Branch.findOne({ code: data.code.toUpperCase() });
   if (existing) throw new Error(`Branch code "${data.code}" already exists`);
@@ -35,7 +48,7 @@ export async function createBranch(
   return Branch.create({ ...data });
 }
 
-export async function updateBranch(branchId: string, data: Partial<IBranch>) {
+export async function updateBranch(branchId: string, data: UpdateBranchData) {
   await connectDB();
   return Branch.findOneAndUpdate(
     { _id: branchId, deletedAt: null },

@@ -23,7 +23,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     if (!body.status) return errorResponse("Status is required");
 
-    const validStatuses: OrderStatus[] = ["pending", "paid", "completed", "cancelled", "refunded"];
+    const validStatuses: OrderStatus[] = ["pending", "approved", "paid", "completed", "cancelled", "refunded"];
     if (!validStatuses.includes(body.status)) {
       return errorResponse(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
     }

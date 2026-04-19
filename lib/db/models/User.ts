@@ -3,6 +3,7 @@ import type { UserRole } from "@/types";
 
 export interface IUser extends Document {
   branchIds: Types.ObjectId[];
+  organizationId?: Types.ObjectId | null;
   name: string;
   email: string;
   password: string;
@@ -20,13 +21,14 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
   {
     branchIds: [{ type: Schema.Types.ObjectId, ref: "Branch" }],
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,
       required: true,
-      enum: ["ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"],
+      enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"],
     },
     permissions: [{ type: String }],
     avatar: { type: String },

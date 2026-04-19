@@ -35,13 +35,60 @@ type PaymentMethod = "cash" | "gcash" | "card" | "bank_transfer" | "credit";
 
 interface OrderResult {
   orderNumber: string;
+  subtotal: number;
+  discountAmount: number;
   total: number;
   change: number;
   paymentMethod: string;
 }
 
+function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore.getState>["items"], memberName: string | null, discountPercent: number) {
+  const w = window.open("", "_blank", "width=400,height=600");
+  if (!w) return;
+  const lines = items
+    .map(
+      (i) =>
+        `<tr><td>${i.name}<br/><small>${i.sku}</small></td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">₱${(i.price * i.quantity).toFixed(2)}</td></tr>`
+    )
+    .join("");
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
+  <style>
+    body{font-family:monospace;font-size:13px;width:320px;margin:0 auto;padding:16px}
+    h2{text-align:center;margin:0 0 4px}
+    p{text-align:center;margin:2px 0;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin:8px 0}
+    td{padding:3px 0;vertical-align:top}
+    hr{border:none;border-top:1px dashed #999;margin:8px 0}
+    .total{font-weight:bold;font-size:15px}
+    .change{color:#16a34a;font-weight:bold}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h2>Livelihood POS</h2>
+  <p>${new Date().toLocaleString()}</p>
+  <p>Order: <strong>${result.orderNumber}</strong></p>
+  ${memberName ? `<p>Member: ${memberName} (${discountPercent}% off)</p>` : ""}
+  <hr/>
+  <table><thead><tr><th style="text-align:left">Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <tbody>${lines}</tbody></table>
+  <hr/>
+  <table>
+    <tr><td>Subtotal</td><td style="text-align:right">₱${result.subtotal.toFixed(2)}</td></tr>
+    ${result.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-₱${result.discountAmount.toFixed(2)}</td></tr>` : ""}
+    <tr class="total"><td>Total</td><td style="text-align:right">₱${result.total.toFixed(2)}</td></tr>
+    ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td style="text-align:right">₱${result.change.toFixed(2)}</td></tr>` : ""}
+  </table>
+  <hr/>
+  <p>Payment: ${result.paymentMethod.toUpperCase()}</p>
+  <p style="margin-top:12px">Thank you for your purchase!</p>
+  <br/><button onclick="window.print()">Print</button>
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
 export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
-  const { items, memberId, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
+  const { items, memberId, memberName, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
     useCartStore();
   
 
@@ -130,7 +177,11 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
               )}
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={handleClose}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => printReceipt(result, items, memberName, discountPercent)}
+              >
                 <Printer className="h-4 w-4 mr-2" />
                 Print Receipt
               </Button>

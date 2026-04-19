@@ -81,6 +81,24 @@ export async function getProductVariants(productId: string) {
   return ProductVariant.find({ productId, deletedAt: null }).lean();
 }
 
+export async function updateProductVariant(variantId: string, data: Partial<CreateVariantInput>) {
+  await connectDB();
+  return ProductVariant.findOneAndUpdate(
+    { _id: variantId, deletedAt: null },
+    { $set: data },
+    { new: true, runValidators: true }
+  ).lean();
+}
+
+export async function deleteProductVariant(variantId: string) {
+  await connectDB();
+  return ProductVariant.findOneAndUpdate(
+    { _id: variantId },
+    { $set: { deletedAt: new Date(), isActive: false } },
+    { new: true }
+  ).lean();
+}
+
 export async function getProductsForPOS(branchId: string, search?: string) {
   await connectDB();
 
@@ -88,18 +106,42 @@ export async function getProductsForPOS(branchId: string, search?: string) {
   if (search) query.$text = { $search: search };
 
   const products = await Product.find(query).sort({ name: 1 }).limit(50).lean();
-
   const productIds = products.map((p) => p._id);
-  const inventoryItems = await Inventory.find({
-    branchId,
-    productId: { $in: productIds },
-    variantId: null,
-  }).lean();
 
-  const inventoryMap = new Map(inventoryItems.map((i) => [i.productId.toString(), i]));
+  const [inventoryItems, variantsList] = await Promise.all([
+    Inventory.find({ branchId, productId: { $in: productIds } }).lean(),
+    ProductVariant.find({ productId: { $in: productIds }, isActive: true, deletedAt: null }).lean(),
+  ]);
 
-  return products.map((p) => ({
-    ...p,
-    stock: inventoryMap.get(p._id.toString())?.quantity ?? 0,
-  }));
+  const baseStockMap = new Map<string, number>();
+  const variantStockMap = new Map<string, number>();
+  for (const item of inventoryItems) {
+    const key = item.productId.toString();
+    if (!item.variantId) {
+      baseStockMap.set(key, (baseStockMap.get(key) ?? 0) + item.quantity);
+    } else {
+      variantStockMap.set(item.variantId.toString(), item.quantity);
+    }
+  }
+
+  const variantsByProduct = new Map<string, typeof variantsList>();
+  for (const v of variantsList) {
+    const pid = v.productId.toString();
+    if (!variantsByProduct.has(pid)) variantsByProduct.set(pid, []);
+    variantsByProduct.get(pid)!.push(v);
+  }
+
+  return products.map((p) => {
+    const pid = p._id.toString();
+    const productVariants = variantsByProduct.get(pid) ?? [];
+    const variantsWithStock = productVariants.map((v) => ({
+      ...v,
+      stock: variantStockMap.get(v._id.toString()) ?? 0,
+    }));
+    return {
+      ...p,
+      stock: baseStockMap.get(pid) ?? 0,
+      variants: variantsWithStock,
+    };
+  });
 }

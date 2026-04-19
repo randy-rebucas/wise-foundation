@@ -8,6 +8,7 @@ declare module "next-auth" {
   interface User {
     role: UserRole;
     branchIds: string[];
+    organizationId?: string | null;
     permissions: string[];
   }
   interface Session {
@@ -17,6 +18,7 @@ declare module "next-auth" {
       email: string;
       role: UserRole;
       branchIds: string[];
+      organizationId?: string | null;
       permissions: string[];
       image?: string;
     };
@@ -52,6 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.sub = user.id;
         token.role = user.role;
         token.branchIds = user.branchIds;
+        token.organizationId = user.organizationId ?? null;
         token.permissions = user.permissions;
       }
       return token;
@@ -61,6 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.sub!;
         session.user.role = token.role as UserRole;
         session.user.branchIds = token.branchIds as string[];
+        session.user.organizationId = (token.organizationId as string | null) ?? null;
         session.user.permissions = token.permissions as string[];
       }
       return session;

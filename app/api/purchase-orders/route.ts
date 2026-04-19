@@ -12,8 +12,9 @@ const getHandler = async (req: AuthedRequest) => {
     const status = searchParams.get("status") ?? undefined;
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
+    const organizationId = searchParams.get("organizationId") ?? undefined;
 
-    const result = await getPurchaseOrders(branchId, status, page, limit);
+    const result = await getPurchaseOrders(branchId, status, page, limit, organizationId);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,

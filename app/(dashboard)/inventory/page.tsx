@@ -26,9 +26,19 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard } from "@/components/shared/StatCard";
-import { Boxes, AlertTriangle, TrendingDown, ArrowDownUp, Loader2 } from "lucide-react";
+import { Boxes, AlertTriangle, TrendingDown, ArrowDownUp, Loader2, Building2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { formatCurrency } from "@/lib/utils";
+
+interface OrgInventoryItem {
+  _id: string;
+  organizationId: { _id: string; name: string; type: string };
+  productId: { _id: string; name: string; sku: string; retailPrice: number; distributorPrice: number };
+  quantity: number;
+  totalReceived: number;
+  totalSold: number;
+}
 
 
 interface MovementForm {
@@ -41,12 +51,30 @@ interface MovementForm {
   notes: string;
 }
 
+interface OrgTransferForm {
+  fromOrganizationId: string;
+  toOrganizationId: string;
+  productId: string;
+  quantity: number;
+  reference: string;
+  notes: string;
+}
+
 const defaultMovementForm: MovementForm = {
   productId: "",
   type: "IN",
   quantity: 1,
   unitCost: 0,
   toBranchId: "",
+  reference: "",
+  notes: "",
+};
+
+const defaultOrgTransferForm: OrgTransferForm = {
+  fromOrganizationId: "",
+  toOrganizationId: "",
+  productId: "",
+  quantity: 1,
   reference: "",
   notes: "",
 };
@@ -67,14 +95,21 @@ export default function InventoryPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const branchId = session?.user?.branchIds?.[0];
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  const [orgFilter, setOrgFilter] = useState("all");
 
   const [movementOpen, setMovementOpen] = useState(false);
   const [movementForm, setMovementForm] = useState<MovementForm>(defaultMovementForm);
   const [formError, setFormError] = useState("");
   const [page, setPage] = useState(1);
   const [movPage, setMovPage] = useState(1);
+
+  const [orgTransferOpen, setOrgTransferOpen] = useState(false);
+  const [orgTransferForm, setOrgTransferForm] = useState<OrgTransferForm>(defaultOrgTransferForm);
+  const [orgTransferError, setOrgTransferError] = useState("");
 
   const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
     queryKey: ["inventory", branchId, page],
@@ -116,6 +151,29 @@ export default function InventoryPage() {
     },
   });
 
+  const { data: orgInventory = [], isLoading: orgInventoryLoading } = useQuery<OrgInventoryItem[]>({
+    queryKey: ["org-inventory", orgFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (orgFilter !== "all") params.set("organizationId", orgFilter);
+      const res = await fetch(`/api/organization-inventory?${params}`);
+      const data = await res.json();
+      return data.data ?? [];
+    },
+    enabled: isAdmin,
+  });
+
+  const { data: orgsResult } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const res = await fetch("/api/organizations");
+      const data = await res.json();
+      return data.data ?? [];
+    },
+    enabled: isAdmin,
+  });
+  const organizations = (orgsResult ?? []) as { _id: string; name: string; type: string }[];
+
   const movementMutation = useMutation({
     mutationFn: async (form: MovementForm) => {
       const res = await fetch("/api/inventory/movements", {
@@ -135,6 +193,27 @@ export default function InventoryPage() {
       setMovementForm(defaultMovementForm);
     },
     onError: (err: Error) => setFormError(err.message),
+  });
+
+  const orgTransferMutation = useMutation({
+    mutationFn: async (form: OrgTransferForm) => {
+      const res = await fetch("/api/inventory/org-transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["org-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["movements"] });
+      toast({ title: `Transferred ${result.quantity} units from ${result.fromOrg} to ${result.toOrg}` });
+      setOrgTransferOpen(false);
+      setOrgTransferForm(defaultOrgTransferForm);
+    },
+    onError: (err: Error) => setOrgTransferError(err.message),
   });
 
   const inventoryItems = inventoryData?.data ?? [];
@@ -182,7 +261,16 @@ export default function InventoryPage() {
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => { setOrgTransferForm(defaultOrgTransferForm); setOrgTransferError(""); setOrgTransferOpen(true); }}
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Org Transfer
+            </Button>
+          )}
           <RoleGuard requiredPermissions={["manage:inventory"]}>
             <Button onClick={() => { setMovementForm(defaultMovementForm); setFormError(""); setMovementOpen(true); }}>
               <ArrowDownUp className="h-4 w-4 mr-2" />
@@ -195,6 +283,7 @@ export default function InventoryPage() {
           <TabsList>
             <TabsTrigger value="stock">Current Stock</TabsTrigger>
             <TabsTrigger value="movements">Movement Log</TabsTrigger>
+            {isAdmin && <TabsTrigger value="organizations">Organizations</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="stock" className="mt-4">
@@ -216,8 +305,198 @@ export default function InventoryPage() {
               onPageChange={setMovPage}
             />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="organizations" className="mt-4 space-y-4">
+              <div className="flex gap-2">
+                <Select value={orgFilter} onValueChange={setOrgFilter}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="All organizations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All organizations</SelectItem>
+                    {organizations.map((org) => (
+                      <SelectItem key={org._id} value={org._id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {orgInventoryLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : orgInventory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                  <Building2 className="h-8 w-8 opacity-40" />
+                  <p className="text-sm">No organization inventory yet. Fulfill a PO to populate stock.</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="text-left px-4 py-2 font-medium">Organization</th>
+                        <th className="text-left px-4 py-2 font-medium">Product</th>
+                        <th className="text-right px-4 py-2 font-medium">In Stock</th>
+                        <th className="text-right px-4 py-2 font-medium">Total Received</th>
+                        <th className="text-right px-4 py-2 font-medium">Total Sold</th>
+                        <th className="text-right px-4 py-2 font-medium">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {orgInventory.map((item) => (
+                        <tr key={item._id} className="hover:bg-muted/50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium">{item.organizationId?.name}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{item.organizationId?.type}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="font-medium">{item.productId?.name}</p>
+                            <p className="text-xs text-muted-foreground">{item.productId?.sku}</p>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={item.quantity === 0 ? "text-destructive font-medium" : item.quantity <= 5 ? "text-yellow-600 font-medium" : "font-medium"}>
+                              {item.quantity}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{item.totalReceived}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">{item.totalSold}</td>
+                          <td className="px-4 py-3 text-right font-medium">
+                            {formatCurrency(item.quantity * (item.productId?.distributorPrice ?? item.productId?.retailPrice ?? 0))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
       </div>
+
+      {/* Org Transfer Dialog */}
+      <Dialog open={orgTransferOpen} onOpenChange={setOrgTransferOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Organization Stock Transfer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {orgTransferError && (
+              <Alert variant="destructive">
+                <AlertDescription>{orgTransferError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-2">
+              <Label>From Organization *</Label>
+              <Select
+                value={orgTransferForm.fromOrganizationId}
+                onValueChange={(v) => setOrgTransferForm((f) => ({ ...f, fromOrganizationId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source org" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations
+                    .filter((o) => o._id !== orgTransferForm.toOrganizationId)
+                    .map((o) => (
+                      <SelectItem key={o._id} value={o._id}>
+                        {o.name} <span className="text-muted-foreground capitalize ml-1">({o.type})</span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>To Organization *</Label>
+              <Select
+                value={orgTransferForm.toOrganizationId}
+                onValueChange={(v) => setOrgTransferForm((f) => ({ ...f, toOrganizationId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select destination org" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations
+                    .filter((o) => o._id !== orgTransferForm.fromOrganizationId)
+                    .map((o) => (
+                      <SelectItem key={o._id} value={o._id}>
+                        {o.name} <span className="text-muted-foreground capitalize ml-1">({o.type})</span>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Product *</Label>
+              <Select
+                value={orgTransferForm.productId}
+                onValueChange={(v) => setOrgTransferForm((f) => ({ ...f, productId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.map((p) => (
+                    <SelectItem key={p._id} value={p._id}>
+                      {p.name} ({p.sku})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Quantity *</Label>
+              <Input
+                type="number"
+                min={1}
+                value={orgTransferForm.quantity}
+                onChange={(e) =>
+                  setOrgTransferForm((f) => ({ ...f, quantity: parseInt(e.target.value) || 1 }))
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Reference</Label>
+                <Input
+                  value={orgTransferForm.reference}
+                  onChange={(e) => setOrgTransferForm((f) => ({ ...f, reference: e.target.value }))}
+                  placeholder="DR#, WT#, etc."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Input
+                  value={orgTransferForm.notes}
+                  onChange={(e) => setOrgTransferForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional notes"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOrgTransferOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => orgTransferMutation.mutate(orgTransferForm)}
+              disabled={orgTransferMutation.isPending}
+            >
+              {orgTransferMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Transfer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Record Movement Dialog */}
       <Dialog open={movementOpen} onOpenChange={setMovementOpen}>

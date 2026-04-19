@@ -3,6 +3,7 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 export interface IOrderItem extends Document {
   orderId: Types.ObjectId;
   branchId: Types.ObjectId;
+  organizationId?: Types.ObjectId | null;
   productId: Types.ObjectId;
   variantId?: Types.ObjectId | null;
   productName: string;
@@ -20,6 +21,7 @@ const OrderItemSchema = new Schema<IOrderItem>(
   {
     orderId: { type: Schema.Types.ObjectId, ref: "Order", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
     productName: { type: String, required: true },

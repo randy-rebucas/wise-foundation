@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { ProductGrid } from "@/components/pos/ProductGrid";
@@ -28,6 +28,15 @@ interface POSProduct {
   memberPrice: number;
   images: string[];
   stock: number;
+  variants: {
+    _id: string;
+    name: string;
+    sku: string;
+    attributes: { key: string; value: string }[];
+    retailPrice: number;
+    memberPrice: number;
+    stock: number;
+  }[];
 }
 
 interface Member {
@@ -42,7 +51,11 @@ interface Member {
 export default function POSPage() {
   const { data: session } = useSession();
   const branchId = session?.user?.branchIds?.[0] ?? "";
-  const { memberId: cartMemberId, setMember } = useCartStore();
+  const { memberId: cartMemberId, setMember, setBranchId } = useCartStore();
+
+  useEffect(() => {
+    if (branchId) setBranchId(branchId);
+  }, [branchId, setBranchId]);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
@@ -68,7 +81,7 @@ export default function POSPage() {
     setSearching(true);
     try {
       const res = await fetch(
-        `/api/members?search=${encodeURIComponent(memberSearch)}&status=active`
+        `/api/members?search=${encodeURIComponent(memberSearch)}&status=active&branchId=${branchId}`
       );
       const data = await res.json();
       setMemberResults(data.data ?? []);

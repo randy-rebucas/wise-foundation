@@ -11,7 +11,13 @@
       "Bash(sed -i 's/type UserRole = \"TENANT_OWNER\" | \"BRANCH_MANAGER\" | \"STAFF\" | \"INVENTORY_MANAGER\" | \"MEMBER\";/type UserRole = \"ADMIN\" | \"BRANCH_MANAGER\" | \"STAFF\" | \"INVENTORY_MANAGER\" | \"MEMBER\";/g' \"c:/Users/corew/wise/app/\\(dashboard\\)/admin/users/page.tsx\")",
       "Bash(sed -i 's/{ value: \"TENANT_OWNER\", label: \"Tenant Owner\" },/{ value: \"ADMIN\", label: \"Admin\" },/g' \"c:/Users/corew/wise/app/\\(dashboard\\)/admin/users/page.tsx\")",
       "Bash(sed -i 's/import { useTenantFetch } from \"@\\\\/hooks\\\\/useTenantFetch\";//g' \"c:/Users/corew/wise/components/pos/CheckoutModal.tsx\")",
-      "Bash(sed -i 's/const apiFetch = useTenantFetch\\(\\);//g' \"c:/Users/corew/wise/components/pos/CheckoutModal.tsx\")"
+      "Bash(sed -i 's/const apiFetch = useTenantFetch\\(\\);//g' \"c:/Users/corew/wise/components/pos/CheckoutModal.tsx\")",
+      "Bash(grep -E \"^\\(tsx|ts-node|dotenv\\)$\")",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(require\\('c:/Users/corew/wise/node_modules/next-auth/package.json'\\).version\\)\")",
+      "Bash(ls \"c:\\\\Users\\\\corew\\\\wise\\\\app\\\\api\\\\branches\\\\[id]\\\\\\\\\")"
     ]
   }
 }

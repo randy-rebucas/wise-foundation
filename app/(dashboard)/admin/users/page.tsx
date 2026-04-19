@@ -37,7 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { useSession } from "next-auth/react";
 
-type UserRole = "ADMIN" | "BRANCH_MANAGER" | "STAFF" | "INVENTORY_MANAGER" | "MEMBER";
+type UserRole = "ADMIN" | "ORG_ADMIN" | "BRANCH_MANAGER" | "STAFF" | "INVENTORY_MANAGER" | "MEMBER";
 
 interface StaffUser {
   _id: string;
@@ -45,6 +45,7 @@ interface StaffUser {
   email: string;
   role: UserRole;
   branchIds: string[];
+  organizationId?: { _id: string; name: string } | null;
   phone?: string;
   isActive: boolean;
   lastLoginAt?: string;
@@ -63,6 +64,7 @@ interface CreateForm {
   password: string;
   role: UserRole | "";
   branchIds: string[];
+  organizationId: string;
   phone: string;
 }
 
@@ -70,12 +72,14 @@ interface EditForm {
   name: string;
   role: UserRole | "";
   branchIds: string[];
+  organizationId: string;
   phone: string;
   isActive: boolean;
 }
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "ADMIN", label: "Admin" },
+  { value: "ORG_ADMIN", label: "Org Admin" },
   { value: "BRANCH_MANAGER", label: "Branch Manager" },
   { value: "STAFF", label: "Staff" },
   { value: "INVENTORY_MANAGER", label: "Inventory Manager" },
@@ -84,6 +88,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 
 const ROLE_VARIANT: Record<UserRole, "default" | "secondary" | "outline" | "success" | "destructive"> = {
   ADMIN: "default",
+  ORG_ADMIN: "secondary",
   BRANCH_MANAGER: "secondary",
   STAFF: "outline",
   INVENTORY_MANAGER: "secondary",
@@ -96,6 +101,7 @@ const defaultCreate: CreateForm = {
   password: "",
   role: "",
   branchIds: [],
+  organizationId: "",
   phone: "",
 };
 
@@ -103,6 +109,7 @@ const defaultEdit: EditForm = {
   name: "",
   role: "",
   branchIds: [],
+  organizationId: "",
   phone: "",
   isActive: true,
 };
@@ -141,6 +148,15 @@ export default function UsersPage() {
       const res = await fetch("/api/branches");
       const data = await res.json();
       return (data.data ?? []) as Branch[];
+    },
+  });
+
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: async () => {
+      const res = await fetch("/api/organizations");
+      const data = await res.json();
+      return (data.data ?? []) as { _id: string; name: string; type: string }[];
     },
   });
 
@@ -222,6 +238,7 @@ export default function UsersPage() {
       name: user.name,
       role: user.role,
       branchIds: user.branchIds,
+      organizationId: user.organizationId?._id ?? "",
       phone: user.phone ?? "",
       isActive: user.isActive,
     });
@@ -270,12 +287,17 @@ export default function UsersPage() {
     },
     {
       key: "branches",
-      label: "Branches",
-      render: (u: StaffUser) => (
-        <span className="text-sm text-muted-foreground">
-          {u.branchIds.length > 0 ? `${u.branchIds.length} branch${u.branchIds.length > 1 ? "es" : ""}` : "—"}
-        </span>
-      ),
+      label: "Scope",
+      render: (u: StaffUser) => {
+        if (u.role === "ORG_ADMIN" && u.organizationId) {
+          return <span className="text-sm text-muted-foreground">{u.organizationId.name}</span>;
+        }
+        return (
+          <span className="text-sm text-muted-foreground">
+            {u.branchIds.length > 0 ? `${u.branchIds.length} branch${u.branchIds.length > 1 ? "es" : ""}` : "—"}
+          </span>
+        );
+      },
     },
     {
       key: "status",
@@ -442,7 +464,7 @@ export default function UsersPage() {
                 <Label>Role</Label>
                 <Select
                   value={createForm.role}
-                  onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v as UserRole }))}
+                  onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v as UserRole, organizationId: "" }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
@@ -456,6 +478,26 @@ export default function UsersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {createForm.role === "ORG_ADMIN" && (
+                <div className="space-y-2 col-span-2">
+                  <Label>Organization *</Label>
+                  <Select
+                    value={createForm.organizationId}
+                    onValueChange={(v) => setCreateForm((f) => ({ ...f, organizationId: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select organization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => (
+                        <SelectItem key={o._id} value={o._id}>
+                          {o.name} <span className="text-muted-foreground capitalize ml-1">({o.type})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {branches.length > 0 && (
                 <div className="space-y-2 col-span-2">
                   <Label>Assign Branches</Label>
@@ -526,7 +568,7 @@ export default function UsersPage() {
                 <Label>Role</Label>
                 <Select
                   value={editForm.role}
-                  onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as UserRole }))}
+                  onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as UserRole, organizationId: "" }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -543,6 +585,26 @@ export default function UsersPage() {
                   Changing the role will automatically update this user&apos;s permissions.
                 </p>
               </div>
+              {editForm.role === "ORG_ADMIN" && (
+                <div className="space-y-2 col-span-2">
+                  <Label>Organization *</Label>
+                  <Select
+                    value={editForm.organizationId}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, organizationId: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select organization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((o) => (
+                        <SelectItem key={o._id} value={o._id}>
+                          {o.name} <span className="text-muted-foreground capitalize ml-1">({o.type})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {branches.length > 0 && (
                 <div className="space-y-2 col-span-2">
                   <Label>Assigned Branches</Label>

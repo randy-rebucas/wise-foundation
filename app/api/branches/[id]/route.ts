@@ -1,6 +1,6 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getBranchById, updateBranch, deleteBranch } from "@/lib/services/branch.service";
+import { getBranchById, updateBranch, deleteBranch, type UpdateBranchData } from "@/lib/services/branch.service";
 import { updateBranchSchema } from "@/lib/validations/branch.schema";
 import {
   successResponse,
@@ -31,7 +31,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const branch = await updateBranch(id, parsed.data);
+    const branch = await updateBranch(id, parsed.data as UpdateBranchData);
     if (!branch) return notFoundResponse("Branch not found");
     return successResponse(branch, "Branch updated");
   } catch (error) {

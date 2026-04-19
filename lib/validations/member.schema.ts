@@ -7,6 +7,7 @@ export const createMemberSchema = z.object({
   address: z.string().optional(),
   discountPercent: z.number().min(0).max(100).default(10),
   branchId: z.string().min(1, "Branch is required"),
+  organizationId: z.string().optional().nullable(),
 });
 
 export const updateMemberSchema = createMemberSchema

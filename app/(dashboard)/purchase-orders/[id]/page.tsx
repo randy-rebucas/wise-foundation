@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, PackageCheck, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
+type OrganizationType = "distributor" | "franchise" | "partner";
 
 interface POItemDetail {
   _id: string;
@@ -34,9 +35,13 @@ interface PurchaseOrderDetail {
   _id: string;
   poNumber: string;
   status: "draft" | "submitted" | "approved" | "received" | "cancelled";
-  supplierId?: { name: string; contactPerson?: string; email?: string; phone?: string } | null;
-  supplierName?: string;
-  branchId: { name: string; code: string };
+  organizationId?: {
+    name: string;
+    type: OrganizationType;
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+  } | null;
   subtotal: number;
   total: number;
   expectedDeliveryDate?: string;
@@ -62,7 +67,6 @@ export default function PurchaseOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
-  
 
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
@@ -115,9 +119,7 @@ export default function PurchaseOrderDetailPage() {
   function openReceive() {
     if (!po) return;
     const defaults: Record<string, number> = {};
-    po.items.forEach((item) => {
-      defaults[item._id] = item.quantity;
-    });
+    po.items.forEach((item) => { defaults[item._id] = item.quantity; });
     setReceivedQtys(defaults);
     setReceiveOpen(true);
   }
@@ -144,15 +146,16 @@ export default function PurchaseOrderDetailPage() {
     );
   }
 
-  const supplierDisplay = po.supplierId?.name ?? po.supplierName ?? "—";
-
   return (
     <div className="flex flex-col">
-      <Header title={`PO: ${po.poNumber}`} subtitle={`Branch: ${po.branchId?.name}`} />
+      <Header
+        title={`PO: ${po.poNumber}`}
+        subtitle={po.organizationId ? `${po.organizationId.name} · ${po.organizationId.type}` : ""}
+      />
       <div className="flex-1 p-6 space-y-6 max-w-4xl">
         {/* Back + Actions */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/purchase-orders`)}>
+          <Button variant="ghost" size="sm" onClick={() => router.push("/purchase-orders")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
@@ -162,20 +165,11 @@ export default function PurchaseOrderDetailPage() {
             </Badge>
             {po.status === "draft" && (
               <>
-                <Button
-                  size="sm"
-                  onClick={() => statusMutation.mutate("submitted")}
-                  disabled={statusMutation.isPending}
-                >
+                <Button size="sm" onClick={() => statusMutation.mutate("submitted")} disabled={statusMutation.isPending}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Submit
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => statusMutation.mutate("cancelled")}
-                  disabled={statusMutation.isPending}
-                >
+                <Button variant="destructive" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
@@ -183,20 +177,11 @@ export default function PurchaseOrderDetailPage() {
             )}
             {po.status === "submitted" && (
               <>
-                <Button
-                  size="sm"
-                  onClick={() => statusMutation.mutate("approved")}
-                  disabled={statusMutation.isPending}
-                >
+                <Button size="sm" onClick={() => statusMutation.mutate("approved")} disabled={statusMutation.isPending}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => statusMutation.mutate("cancelled")}
-                  disabled={statusMutation.isPending}
-                >
+                <Button variant="destructive" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
@@ -205,7 +190,7 @@ export default function PurchaseOrderDetailPage() {
             {po.status === "approved" && (
               <Button size="sm" onClick={openReceive}>
                 <PackageCheck className="h-4 w-4 mr-2" />
-                Receive Goods
+                Mark Fulfilled
               </Button>
             )}
           </div>
@@ -213,13 +198,19 @@ export default function PurchaseOrderDetailPage() {
 
         {/* Info Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Supplier</p>
-            <p className="text-sm font-medium">{supplierDisplay}</p>
-            {po.supplierId?.contactPerson && (
-              <p className="text-xs text-muted-foreground">{po.supplierId.contactPerson}</p>
-            )}
-          </div>
+          {po.organizationId && (
+            <div>
+              <p className="text-xs text-muted-foreground">Organization</p>
+              <p className="text-sm font-medium">{po.organizationId.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{po.organizationId.type}</p>
+              {po.organizationId.contactPerson && (
+                <p className="text-xs text-muted-foreground">{po.organizationId.contactPerson}</p>
+              )}
+              {po.organizationId.email && (
+                <p className="text-xs text-muted-foreground">{po.organizationId.email}</p>
+              )}
+            </div>
+          )}
           <div>
             <p className="text-xs text-muted-foreground">Created By</p>
             <p className="text-sm font-medium">{po.createdBy?.name}</p>
@@ -242,7 +233,7 @@ export default function PurchaseOrderDetailPage() {
           )}
           {po.receivedBy && (
             <div>
-              <p className="text-xs text-muted-foreground">Received By</p>
+              <p className="text-xs text-muted-foreground">Fulfilled By</p>
               <p className="text-sm font-medium">{po.receivedBy.name}</p>
               {po.receivedAt && (
                 <p className="text-xs text-muted-foreground">{formatDateTime(po.receivedAt)}</p>
@@ -258,8 +249,8 @@ export default function PurchaseOrderDetailPage() {
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Product</th>
                 <th className="text-right px-4 py-2 font-medium">Qty Ordered</th>
-                <th className="text-right px-4 py-2 font-medium">Received</th>
-                <th className="text-right px-4 py-2 font-medium">Unit Cost</th>
+                <th className="text-right px-4 py-2 font-medium">Fulfilled</th>
+                <th className="text-right px-4 py-2 font-medium">Unit Price</th>
                 <th className="text-right px-4 py-2 font-medium">Total</th>
               </tr>
             </thead>
@@ -300,20 +291,20 @@ export default function PurchaseOrderDetailPage() {
         )}
       </div>
 
-      {/* Receive Goods Dialog */}
+      {/* Fulfill Dialog */}
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PackageCheck className="h-5 w-5" />
-              Receive Goods — {po.poNumber}
+              Mark as Fulfilled — {po.poNumber}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Enter the quantity actually received for each item. Stock will be added to{" "}
-              <strong>{po.branchId?.name}</strong>.
+              Enter the quantity fulfilled for each item for{" "}
+              <strong>{po.organizationId?.name}</strong>.
             </p>
             <div className="border rounded-lg divide-y">
               {po.items.map((item) => (
@@ -325,7 +316,7 @@ export default function PurchaseOrderDetailPage() {
                     </p>
                   </div>
                   <div className="w-24 space-y-1">
-                    <Label className="text-xs">Received</Label>
+                    <Label className="text-xs">Fulfilled</Label>
                     <Input
                       type="number"
                       min={0}
@@ -349,11 +340,8 @@ export default function PurchaseOrderDetailPage() {
             <Button variant="outline" onClick={() => setReceiveOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => receiveMutation.mutate()}
-              disabled={receiveMutation.isPending}
-            >
-              {receiveMutation.isPending ? "Processing..." : "Confirm Receipt"}
+            <Button onClick={() => receiveMutation.mutate()} disabled={receiveMutation.isPending}>
+              {receiveMutation.isPending ? "Processing..." : "Confirm Fulfillment"}
             </Button>
           </DialogFooter>
         </DialogContent>

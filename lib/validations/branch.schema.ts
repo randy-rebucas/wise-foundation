@@ -11,6 +11,7 @@ export const createBranchSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   isHeadOffice: z.boolean().default(false),
+  organizationId: z.string().optional().nullable(),
 });
 
 export const updateBranchSchema = createBranchSchema.partial();

@@ -3,6 +3,7 @@ import type { MemberStatus } from "@/types";
 
 export interface IMember extends Document {
   branchId: Types.ObjectId;
+  organizationId?: Types.ObjectId | null;
   userId?: Types.ObjectId | null;
   memberId: string;
   name: string;
@@ -22,6 +23,7 @@ export interface IMember extends Document {
 const MemberSchema = new Schema<IMember>(
   {
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     memberId: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
@@ -43,6 +45,7 @@ const MemberSchema = new Schema<IMember>(
 );
 
 MemberSchema.index({ memberId: 1 }, { unique: true });
+MemberSchema.index({ organizationId: 1, deletedAt: 1 });
 MemberSchema.index({ phone: 1, deletedAt: 1 });
 MemberSchema.index({ status: 1, deletedAt: 1 });
 

@@ -22,6 +22,7 @@ export async function verifyCredentials(email: string, password: string) {
     email: user.email,
     role: user.role,
     branchIds: (user.branchIds as Array<{ toString(): string }>).map((b) => b.toString()),
+    organizationId: user.organizationId?.toString() ?? null,
     permissions: user.permissions,
   };
 }

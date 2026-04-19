@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -33,17 +32,17 @@ import {
   ClipboardCheck,
   Clock,
   CheckCircle,
-  XCircle,
   PackageCheck,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
-interface Supplier {
+type OrganizationType = "distributor" | "franchise" | "partner";
+
+interface Organization {
   _id: string;
   name: string;
+  type: OrganizationType;
 }
 
 interface Product {
@@ -65,9 +64,7 @@ interface PurchaseOrder {
   _id: string;
   poNumber: string;
   status: "draft" | "submitted" | "approved" | "received" | "cancelled";
-  supplierName?: string;
-  supplierId?: { name: string } | null;
-  branchId: { name: string };
+  organizationId?: { name: string; type: OrganizationType } | null;
   subtotal: number;
   total: number;
   createdBy: { name: string };
@@ -92,18 +89,13 @@ const STATUS_NEXT: Record<string, { label: string; value: string } | null> = {
 };
 
 export default function PurchaseOrdersPage() {
-  const { data: session } = useSession();
   const queryClient = useQueryClient();
-  
-  
-  const branchId = session?.user?.branchIds?.[0] ?? "";
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
 
-  // Create PO form state
-  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [selectedOrgId, setSelectedOrgId] = useState("");
   const [poNotes, setPONotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [poItems, setPOItems] = useState<POItem[]>([
@@ -111,7 +103,7 @@ export default function PurchaseOrdersPage() {
   ]);
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ["purchase-orders", branchId, statusFilter, page],
+    queryKey: ["purchase-orders", statusFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (statusFilter !== "all") params.set("status", statusFilter);
@@ -120,10 +112,10 @@ export default function PurchaseOrdersPage() {
     },
   });
 
-  const { data: suppliersResult } = useQuery({
-    queryKey: ["suppliers"],
+  const { data: orgsResult } = useQuery({
+    queryKey: ["organizations"],
     queryFn: async () => {
-      const res = await fetch("/api/suppliers");
+      const res = await fetch("/api/organizations");
       return res.json();
     },
   });
@@ -139,7 +131,7 @@ export default function PurchaseOrdersPage() {
 
   const orders: PurchaseOrder[] = result?.data ?? [];
   const total = result?.meta?.total ?? 0;
-  const suppliers: Supplier[] = suppliersResult?.data ?? [];
+  const organizations: Organization[] = orgsResult?.data ?? [];
   const products: Product[] = productsResult?.data ?? [];
 
   const statusMutation = useMutation({
@@ -157,14 +149,11 @@ export default function PurchaseOrdersPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const supplier = suppliers.find((s) => s._id === selectedSupplierId);
       const res = await fetch("/api/purchase-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          branchId,
-          supplierId: selectedSupplierId || undefined,
-          supplierName: supplier?.name,
+          organizationId: selectedOrgId,
           items: poItems.filter((i) => i.productId),
           expectedDeliveryDate: expectedDate || undefined,
           notes: poNotes || undefined,
@@ -182,7 +171,7 @@ export default function PurchaseOrdersPage() {
   });
 
   function resetForm() {
-    setSelectedSupplierId("");
+    setSelectedOrgId("");
     setPONotes("");
     setExpectedDate("");
     setPOItems([{ productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 }]);
@@ -194,13 +183,7 @@ export default function PurchaseOrdersPage() {
     setPOItems((prev) =>
       prev.map((item, i) =>
         i === index
-          ? {
-              ...item,
-              productId,
-              productName: product.name,
-              sku: product.sku,
-              unitCost: product.retailPrice,
-            }
+          ? { ...item, productId, productName: product.name, sku: product.sku, unitCost: product.retailPrice }
           : item
       )
     );
@@ -242,22 +225,17 @@ export default function PurchaseOrdersPage() {
       ),
     },
     {
-      key: "supplier",
-      label: "Supplier",
-      render: (o: PurchaseOrder) => (
-        <span className="text-sm">
-          {o.supplierId?.name ?? o.supplierName ?? (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: "branch",
-      label: "Branch",
-      render: (o: PurchaseOrder) => (
-        <span className="text-sm">{o.branchId?.name}</span>
-      ),
+      key: "organization",
+      label: "Organization",
+      render: (o: PurchaseOrder) =>
+        o.organizationId ? (
+          <div>
+            <p className="text-sm font-medium">{o.organizationId.name}</p>
+            <p className="text-xs text-muted-foreground capitalize">{o.organizationId.type}</p>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-sm">—</span>
+        ),
     },
     {
       key: "total",
@@ -315,7 +293,7 @@ export default function PurchaseOrdersPage() {
 
   return (
     <div className="flex flex-col">
-      <Header title="Purchase Orders" subtitle="Manage supplier purchase orders and stock receiving" />
+      <Header title="Purchase Orders" subtitle="Manage orders from distributors, franchises, and partners" />
       <div className="flex-1 p-6 space-y-6">
         <div className="flex justify-end">
           <Button onClick={() => setCreateOpen(true)}>
@@ -323,17 +301,15 @@ export default function PurchaseOrdersPage() {
             New PO
           </Button>
         </div>
+
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard title="Draft" value={draftCount} icon={ClipboardCheck} description="Pending submission" iconClassName="bg-gray-100" />
           <StatCard title="Submitted" value={submittedCount} icon={Clock} description="Awaiting approval" iconClassName="bg-yellow-100" />
-          <StatCard title="Approved" value={approvedCount} icon={CheckCircle} description="Ready to receive" iconClassName="bg-blue-100" />
-          <StatCard title="Received" value={receivedCount} icon={PackageCheck} description="Stock updated" iconClassName="bg-green-100" />
+          <StatCard title="Approved" value={approvedCount} icon={CheckCircle} description="Ready to fulfill" iconClassName="bg-blue-100" />
+          <StatCard title="Received" value={receivedCount} icon={PackageCheck} description="Fulfilled" iconClassName="bg-green-100" />
         </div>
 
-        <Tabs
-          value={statusFilter}
-          onValueChange={(v) => { setStatusFilter(v); setPage(1); }}
-        >
+        <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="draft">Draft</TabsTrigger>
@@ -369,15 +345,16 @@ export default function PurchaseOrdersPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Supplier</Label>
-                <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                <Label>Organization</Label>
+                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select supplier (optional)" />
+                    <SelectValue placeholder="Select organization" />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s._id} value={s._id}>
-                        {s.name}
+                    {organizations.map((org) => (
+                      <SelectItem key={org._id} value={org._id}>
+                        {org.name}
+                        <span className="text-muted-foreground capitalize ml-1">({org.type})</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -432,22 +409,18 @@ export default function PurchaseOrdersPage() {
                             min={1}
                             className="h-8 text-sm"
                             value={item.quantity}
-                            onChange={(e) =>
-                              updateItem(index, "quantity", parseInt(e.target.value) || 1)
-                            }
+                            onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Unit Cost</Label>
+                          <Label className="text-xs">Unit Price</Label>
                           <Input
                             type="number"
                             min={0}
                             step="0.01"
                             className="h-8 text-sm"
                             value={item.unitCost}
-                            onChange={(e) =>
-                              updateItem(index, "unitCost", parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updateItem(index, "unitCost", parseFloat(e.target.value) || 0)}
                           />
                         </div>
                       </div>
@@ -479,7 +452,7 @@ export default function PurchaseOrdersPage() {
             <div className="space-y-1">
               <Label>Notes</Label>
               <textarea
-                className="w-full min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                 value={poNotes}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPONotes(e.target.value)}
                 placeholder="Optional notes..."
@@ -494,7 +467,7 @@ export default function PurchaseOrdersPage() {
             </Button>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || poItems.every((i) => !i.productId)}
+              disabled={createMutation.isPending || !selectedOrgId || poItems.every((i) => !i.productId)}
             >
               {createMutation.isPending ? "Creating..." : "Create Purchase Order"}
             </Button>

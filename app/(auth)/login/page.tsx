@@ -3,18 +3,16 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, ShoppingBag, ShieldCheck } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Fall back to "/" so app/page.tsx can resolve the correct /{slug}/dashboard
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   const [email, setEmail] = useState("");
@@ -54,10 +52,10 @@ function LoginForm() {
           <div className="p-2 bg-primary rounded-lg">
             <ShoppingBag className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-lg">Livelihood Platform</span>
+          <span className="font-bold text-lg">Wise Livelihood Platform</span>
         </div>
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-        <CardDescription>Sign in to your account to continue</CardDescription>
+        <CardTitle className="text-2xl font-bold">Distributor Portal</CardTitle>
+        <CardDescription>Sign in with your authorized distributor account</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,12 +100,16 @@ function LoginForm() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
-        <p className="text-sm text-muted-foreground text-center">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary font-medium hover:underline">
-            Register your organization
-          </Link>
+      <CardFooter className="flex flex-col gap-3">
+        <div className="flex items-start gap-2 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" />
+          <p>
+            This portal is <span className="font-semibold text-foreground">exclusively for authorized distributors</span>.
+            Account access is granted by the administrator only — self-registration is not supported.
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          Contact your administrator if you need access.
         </p>
       </CardFooter>
     </Card>

@@ -15,8 +15,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Pencil, Trash2, Loader2, Building2, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Building2, MapPin, Users, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
@@ -29,6 +36,27 @@ interface Branch {
   isHeadOffice: boolean;
   isActive: boolean;
   managerId?: { name: string; email: string };
+  organizationId?: { _id: string; name: string } | null;
+}
+
+interface Organization {
+  _id: string;
+  name: string;
+  type: string;
+}
+
+interface BranchUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface AllUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 
 interface BranchForm {
@@ -37,6 +65,7 @@ interface BranchForm {
   address: string;
   phone: string;
   isHeadOffice: boolean;
+  organizationId: string;
 }
 
 const defaultForm: BranchForm = {
@@ -45,6 +74,7 @@ const defaultForm: BranchForm = {
   address: "",
   phone: "",
   isHeadOffice: false,
+  organizationId: "",
 };
 
 async function fetchBranches(): Promise<Branch[]> {
@@ -53,13 +83,35 @@ async function fetchBranches(): Promise<Branch[]> {
   return data.data ?? [];
 }
 
+async function fetchOrganizations(): Promise<Organization[]> {
+  const res = await fetch("/api/organizations");
+  const data = await res.json();
+  return data.data ?? [];
+}
+
+async function fetchAllUsers(): Promise<AllUser[]> {
+  const res = await fetch("/api/users?limit=200");
+  const data = await res.json();
+  return data.data ?? [];
+}
+
+async function fetchBranchUsers(branchId: string): Promise<BranchUser[]> {
+  const res = await fetch(`/api/branches/${branchId}/users`);
+  const data = await res.json();
+  return data.data ?? [];
+}
+
 async function saveBranch(form: BranchForm, id?: string) {
   const url = id ? `/api/branches/${id}` : "/api/branches";
   const method = id ? "PATCH" : "POST";
+  const payload = {
+    ...form,
+    organizationId: form.organizationId || null,
+  };
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(form),
+    body: JSON.stringify(payload),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error);
@@ -68,6 +120,26 @@ async function saveBranch(form: BranchForm, id?: string) {
 
 async function deleteBranch(id: string) {
   const res = await fetch(`/api/branches/${id}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+}
+
+async function assignUser(branchId: string, userId: string) {
+  const res = await fetch(`/api/branches/${branchId}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error);
+}
+
+async function removeUser(branchId: string, userId: string) {
+  const res = await fetch(`/api/branches/${branchId}/users`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
   const data = await res.json();
   if (!data.success) throw new Error(data.error);
 }
@@ -81,9 +153,29 @@ export default function BranchesPage() {
   const [form, setForm] = useState<BranchForm>(defaultForm);
   const [formError, setFormError] = useState("");
 
+  const [usersDialogBranch, setUsersDialogBranch] = useState<Branch | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState("");
+
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches"],
     queryFn: fetchBranches,
+  });
+
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: fetchOrganizations,
+  });
+
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ["users-all"],
+    queryFn: fetchAllUsers,
+    enabled: !!usersDialogBranch,
+  });
+
+  const { data: branchUsers = [], isLoading: branchUsersLoading } = useQuery({
+    queryKey: ["branch-users", usersDialogBranch?._id],
+    queryFn: () => fetchBranchUsers(usersDialogBranch!._id),
+    enabled: !!usersDialogBranch,
   });
 
   const saveMutation = useMutation({
@@ -107,6 +199,27 @@ export default function BranchesPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  const assignMutation = useMutation({
+    mutationFn: ({ userId }: { userId: string }) =>
+      assignUser(usersDialogBranch!._id, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branch-users", usersDialogBranch?._id] });
+      setSelectedUserId("");
+      toast({ title: "User assigned to branch" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: ({ userId }: { userId: string }) =>
+      removeUser(usersDialogBranch!._id, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branch-users", usersDialogBranch?._id] });
+      toast({ title: "User removed from branch" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   function openEdit(branch: Branch) {
     setForm({
       name: branch.name,
@@ -114,6 +227,7 @@ export default function BranchesPage() {
       address: branch.address,
       phone: branch.phone ?? "",
       isHeadOffice: branch.isHeadOffice,
+      organizationId: branch.organizationId?._id ?? "",
     });
     setEditId(branch._id);
     setFormError("");
@@ -126,6 +240,9 @@ export default function BranchesPage() {
     setFormError("");
     setOpen(true);
   }
+
+  const assignedUserIds = new Set(branchUsers.map((u) => u._id));
+  const unassignedUsers = allUsers.filter((u) => !assignedUserIds.has(u._id));
 
   const columns = [
     {
@@ -140,6 +257,16 @@ export default function BranchesPage() {
           </div>
         </div>
       ),
+    },
+    {
+      key: "organization",
+      label: "Organization",
+      render: (b: Branch) =>
+        b.organizationId ? (
+          <span className="text-sm">{b.organizationId.name}</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">—</span>
+        ),
     },
     {
       key: "address",
@@ -173,6 +300,14 @@ export default function BranchesPage() {
       label: "",
       render: (b: Branch) => (
         <div className="flex gap-2 justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Manage Users"
+            onClick={() => { setUsersDialogBranch(b); setSelectedUserId(""); }}
+          >
+            <Users className="h-4 w-4" />
+          </Button>
           <RoleGuard requiredPermissions={["manage:branches"]}>
             <Button variant="ghost" size="icon" onClick={() => openEdit(b)}>
               <Pencil className="h-4 w-4" />
@@ -216,6 +351,7 @@ export default function BranchesPage() {
         />
       </div>
 
+      {/* Create / Edit Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -261,6 +397,27 @@ export default function BranchesPage() {
                   placeholder="Complete address"
                 />
               </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Organization</Label>
+                <Select
+                  value={form.organizationId || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, organizationId: v === "none" ? "" : v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="None (standalone)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (standalone)</SelectItem>
+                    {organizations.map((org) => (
+                      <SelectItem key={org._id} value={org._id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -270,6 +427,99 @@ export default function BranchesPage() {
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {editId ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Users Dialog */}
+      <Dialog open={!!usersDialogBranch} onOpenChange={(o) => !o && setUsersDialogBranch(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Users — {usersDialogBranch?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Assign user */}
+            <div className="space-y-2">
+              <Label>Assign User</Label>
+              <div className="flex gap-2">
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select a user…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unassignedUsers.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No users available
+                      </SelectItem>
+                    ) : (
+                      unassignedUsers.map((u) => (
+                        <SelectItem key={u._id} value={u._id}>
+                          {u.name} ({u.role})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={!selectedUserId || assignMutation.isPending}
+                  onClick={() => assignMutation.mutate({ userId: selectedUserId })}
+                >
+                  {assignMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Assigned users list */}
+            <div className="space-y-2">
+              <Label>Assigned Users</Label>
+              {branchUsersLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : branchUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No users assigned yet.</p>
+              ) : (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {branchUsers.map((u) => (
+                    <div
+                      key={u._id}
+                      className="flex items-center justify-between rounded-md border px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{u.name}</p>
+                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {u.role}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => removeMutation.mutate({ userId: u._id })}
+                          disabled={removeMutation.isPending}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUsersDialogBranch(null)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

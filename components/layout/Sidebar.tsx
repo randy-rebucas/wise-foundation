@@ -19,6 +19,10 @@ import {
   Settings,
   ChevronRight,
   Truck,
+  Building2,
+  Store,
+  Percent,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,11 +39,15 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
+  { label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
   { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
   { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
   { label: "Purchase Orders", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
+  { label: "Reseller Sales", path: "/reseller-sales", icon: Store, permission: "manage:orders" },
+  { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
   { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
 ];
@@ -47,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
 const ADMIN_ITEMS: NavItem[] = [
   { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
   { label: "Users", path: "/admin/users", icon: Users, permission: "manage:users" },
+  { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
   { label: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 

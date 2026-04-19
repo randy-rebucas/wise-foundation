@@ -1,6 +1,6 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getBranches, createBranch } from "@/lib/services/branch.service";
+import { getBranches, createBranch, type CreateBranchData } from "@/lib/services/branch.service";
 import { createBranchSchema } from "@/lib/validations/branch.schema";
 import {
   successResponse,
@@ -14,8 +14,12 @@ const getHandler = async (req: AuthedRequest) => {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
+    const organizationId =
+      req.user.role === "ORG_ADMIN"
+        ? (req.user.organizationId ?? undefined)
+        : (searchParams.get("organizationId") ?? undefined);
 
-    const result = await getBranches(page, limit);
+    const result = await getBranches(page, limit, organizationId);
     return successResponse(result.branches, undefined, 200, {
       page,
       limit,
@@ -35,7 +39,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const branch = await createBranch(parsed.data);
+    const branch = await createBranch(parsed.data as CreateBranchData);
     return successResponse(branch, "Branch created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

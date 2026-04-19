@@ -2,6 +2,7 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IInventory extends Document {
   branchId: Types.ObjectId;
+  organizationId?: Types.ObjectId | null;
   productId: Types.ObjectId;
   variantId?: Types.ObjectId | null;
   quantity: number;
@@ -14,6 +15,7 @@ export interface IInventory extends Document {
 const InventorySchema = new Schema<IInventory>(
   {
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", required: true },
+    organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
     quantity: { type: Number, required: true, default: 0, min: 0 },

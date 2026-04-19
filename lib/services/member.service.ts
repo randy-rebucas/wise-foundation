@@ -8,13 +8,20 @@ export async function getMembers(
   status?: string,
   branchId?: string,
   page = 1,
-  limit = 20
+  limit = 20,
+  organizationId?: string
 ) {
   await connectDB();
 
-  const query: Record<string, unknown> = { deletedAt: null };
+  const baseFilter: Record<string, unknown> = { deletedAt: null };
+  if (organizationId) {
+    baseFilter.organizationId = organizationId;
+  } else if (branchId) {
+    baseFilter.branchId = branchId;
+  }
+
+  const query: Record<string, unknown> = { ...baseFilter };
   if (status) query.status = status;
-  if (branchId) query.branchId = branchId;
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: "i" } },
@@ -25,16 +32,14 @@ export async function getMembers(
   }
 
   const skip = (page - 1) * limit;
-  const [members, total] = await Promise.all([
-    Member.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
+  const [members, total, activeCount, inactiveCount] = await Promise.all([
+    Member.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
     Member.countDocuments(query),
+    Member.countDocuments({ ...baseFilter, status: "active" }),
+    Member.countDocuments({ ...baseFilter, status: { $in: ["inactive", "suspended"] } }),
   ]);
 
-  return { members, total, pages: Math.ceil(total / limit) };
+  return { members, total, pages: Math.ceil(total / limit), activeCount, inactiveCount };
 }
 
 export async function getMemberById(memberId: string) {

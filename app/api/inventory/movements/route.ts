@@ -1,6 +1,6 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getStockMovements, processStockMovement } from "@/lib/services/inventory.service";
+import { getStockMovements, getStockMovementsByOrg, processStockMovement } from "@/lib/services/inventory.service";
 import { stockMovementSchema } from "@/lib/validations/inventory.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -8,11 +8,16 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
-    const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
     const productId = searchParams.get("productId") ?? undefined;
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
+      const result = await getStockMovementsByOrg(req.user.organizationId, productId, page, limit);
+      return successResponse(result.movements, undefined, 200, { page, limit, total: result.total });
+    }
+
+    const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
     if (!branchId) return errorResponse("Branch ID is required");
 
     const result = await getStockMovements(branchId, productId, page, limit);

@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db/connect";
 import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
 import { PurchaseOrderItem } from "@/lib/db/models/PurchaseOrderItem";
 import { Inventory } from "@/lib/db/models/Inventory";
+import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import type { PurchaseOrderStatus } from "@/types";
 import type {
@@ -21,12 +22,14 @@ export async function getPurchaseOrders(
   branchId?: string,
   status?: string,
   page = 1,
-  limit = 20
+  limit = 20,
+  organizationId?: string
 ) {
   await connectDB();
 
   const query: Record<string, unknown> = { deletedAt: null };
   if (branchId) query.branchId = branchId;
+  if (organizationId) query.organizationId = organizationId;
   if (status) query.status = status;
 
   const skip = (page - 1) * limit;
@@ -36,7 +39,7 @@ export async function getPurchaseOrders(
       .skip(skip)
       .limit(limit)
       .populate("branchId", "name code")
-      .populate("supplierId", "name")
+      .populate("organizationId", "name type")
       .populate("createdBy", "name")
       .lean(),
     PurchaseOrder.countDocuments(query),
@@ -50,7 +53,7 @@ export async function getPurchaseOrderById(poId: string) {
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
     .populate("branchId", "name code")
-    .populate("supplierId", "name contactPerson email phone")
+    .populate("organizationId", "name type contactPerson email phone")
     .populate("createdBy", "name")
     .populate("approvedBy", "name")
     .populate("receivedBy", "name")
@@ -72,10 +75,9 @@ export async function createPurchaseOrder(userId: string, input: CreatePurchaseO
   const subtotal = input.items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
 
   const po = await PurchaseOrder.create({
-    branchId: input.branchId,
+    organizationId: input.organizationId,
+    branchId: null,
     poNumber,
-    supplierId: input.supplierId ?? null,
-    supplierName: input.supplierName,
     status: "draft",
     subtotal,
     total: subtotal,
@@ -108,8 +110,6 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
   if (po.status !== "draft") throw new Error("Only draft purchase orders can be edited");
 
   const updates: Record<string, unknown> = {};
-  if (input.supplierId !== undefined) updates.supplierId = input.supplierId ?? null;
-  if (input.supplierName !== undefined) updates.supplierName = input.supplierName;
   if (input.expectedDeliveryDate !== undefined)
     updates.expectedDeliveryDate = input.expectedDeliveryDate
       ? new Date(input.expectedDeliveryDate)
@@ -182,13 +182,41 @@ export async function receivePurchaseOrder(
   try {
     session.startTransaction();
 
-    const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null }).session(session);
+    const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
+      .populate("organizationId", "settings")
+      .session(session);
     if (!po) throw new Error("Purchase order not found");
     if (po.status !== "approved") throw new Error("Only approved purchase orders can be received");
 
     const poItems = await PurchaseOrderItem.find({ purchaseOrderId: poId }).session(session);
 
     for (const receiveItem of input.items) {
+      if (!po.branchId) {
+        // Org PO — update received quantities and upsert org inventory
+        await PurchaseOrderItem.findByIdAndUpdate(
+          receiveItem.itemId,
+          { $set: { receivedQuantity: receiveItem.receivedQuantity } },
+          { session }
+        );
+        const orgSettings = (po.organizationId as unknown as { settings?: { hasInventory?: boolean } })?.settings;
+        const orgHasInventory = orgSettings?.hasInventory !== false;
+        if (po.organizationId && receiveItem.receivedQuantity > 0 && orgHasInventory) {
+          const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
+          if (poItem) {
+            await OrganizationInventory.findOneAndUpdate(
+              { organizationId: po.organizationId, productId: poItem.productId },
+              {
+                $inc: {
+                  quantity: receiveItem.receivedQuantity,
+                  totalReceived: receiveItem.receivedQuantity,
+                },
+              },
+              { upsert: true, new: true, session }
+            );
+          }
+        }
+        continue;
+      }
       const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
       if (!poItem) continue;
       if (receiveItem.receivedQuantity === 0) continue;

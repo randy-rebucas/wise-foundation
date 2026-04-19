@@ -4,6 +4,7 @@ import { Types } from "mongoose";
 
 export type UserRole =
   | "ADMIN"
+  | "ORG_ADMIN"
   | "BRANCH_MANAGER"
   | "STAFF"
   | "INVENTORY_MANAGER"
@@ -13,13 +14,15 @@ export type ProductCategory = "homecare" | "cosmetics" | "wellness" | "scent";
 
 export type StockMovementType = "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT";
 
-export type OrderType = "POS" | "BULK" | "DISTRIBUTOR";
+export type OrderType = "POS" | "DISTRIBUTOR" | "B2B";
 
-export type OrderStatus = "pending" | "paid" | "completed" | "cancelled" | "refunded";
+export type OrderStatus = "pending" | "approved" | "paid" | "completed" | "cancelled" | "refunded";
 
 export type MemberStatus = "active" | "inactive" | "suspended";
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "approved" | "received" | "cancelled";
+
+export type OrganizationType = "distributor" | "franchise" | "partner";
 
 // ─── API Response ────────────────────────────────────────────────────────────
 
@@ -34,6 +37,7 @@ export interface ApiResponse<T = unknown> {
     total?: number;
     hasMore?: boolean;
     totalPages?: number;
+    [key: string]: unknown;
   };
 }
 
@@ -52,6 +56,7 @@ export interface SessionUser {
   email: string;
   role: UserRole;
   branchIds: string[];
+  organizationId?: string | null;
   permissions: string[];
   image?: string;
 }
@@ -89,6 +94,7 @@ export interface CartState {
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   setMember: (memberId: string | null, memberName: string | null, discount: number) => void;
   clearCart: () => void;
+  setBranchId: (id: string) => void;
   getSubtotal: () => number;
   getDiscount: () => number;
   getTotal: () => number;

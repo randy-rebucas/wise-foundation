@@ -14,11 +14,16 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getMembers(search, status, branchId, page, limit);
+    const organizationId =
+      req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
+
+    const result = await getMembers(search, status, branchId, page, limit, organizationId);
     return successResponse(result.members, undefined, 200, {
       page,
       limit,
       total: result.total,
+      activeCount: result.activeCount,
+      inactiveCount: result.inactiveCount,
     });
   } catch {
     return serverErrorResponse();
