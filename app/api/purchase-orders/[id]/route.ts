@@ -17,7 +17,7 @@ import type { PurchaseOrderStatus } from "@/types";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const po = await getPurchaseOrderById(id);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po);
@@ -28,7 +28,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const parsed = updatePurchaseOrderSchema.safeParse(body);
     if (!parsed.success) {
@@ -45,7 +45,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const { status } = await req.json();
     if (!status) return errorResponse("Status is required");
     const po = await updatePurchaseOrderStatus(id, status as PurchaseOrderStatus, req.user.id);

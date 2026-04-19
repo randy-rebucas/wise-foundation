@@ -37,4 +37,4 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:organizations")(postHandler));
+export const POST = withAuth(withPermission("manage:organizations", { allowRoles: ["ORG_ADMIN"] })(postHandler));

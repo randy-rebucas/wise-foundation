@@ -15,7 +15,7 @@ const VALID_PERMISSIONS: OrgPermissionKey[] = [
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const permissions = await getOrgPermissions(id);
     return successResponse(permissions);
   } catch {
@@ -25,7 +25,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
 
     if (!VALID_PERMISSIONS.includes(body.permission)) {

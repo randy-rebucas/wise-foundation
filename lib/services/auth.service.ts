@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
+import type { UserRole } from "@/types";
 
 export async function verifyCredentials(email: string, password: string) {
   await connectDB();
@@ -16,6 +18,9 @@ export async function verifyCredentials(email: string, password: string) {
 
   await User.updateOne({ _id: user._id }, { lastLoginAt: new Date() });
 
+  const roleDefaults = DEFAULT_ROLE_PERMISSIONS[user.role as UserRole] ?? [];
+  const permissions = Array.from(new Set([...roleDefaults, ...user.permissions]));
+
   return {
     id: user._id.toString(),
     name: user.name,
@@ -23,7 +28,7 @@ export async function verifyCredentials(email: string, password: string) {
     role: user.role,
     branchIds: (user.branchIds as Array<{ toString(): string }>).map((b) => b.toString()),
     organizationId: user.organizationId?.toString() ?? null,
-    permissions: user.permissions,
+    permissions,
   };
 }
 

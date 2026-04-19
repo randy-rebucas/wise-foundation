@@ -2,6 +2,13 @@ import { connectDB } from "@/lib/db/connect";
 import { Organization, type OrganizationType, type IOrganizationSettings } from "@/lib/db/models/Organization";
 
 const TYPE_DEFAULT_SETTINGS: Record<OrganizationType, IOrganizationSettings> = {
+  headquarters: {
+    canSellRetail: false,
+    canDistribute: true,
+    hasInventory: true,
+    commissionEnabled: false,
+    canSubmitOrders: false,
+  },
   distributor: {
     canSellRetail: false,
     canDistribute: true,
@@ -54,6 +61,12 @@ export async function createOrganization(data: {
   notes?: string;
 }) {
   await connectDB();
+
+  if (data.type === "headquarters") {
+    const existing = await Organization.findOne({ type: "headquarters", deletedAt: null }).lean();
+    if (existing) throw new Error("A headquarters organization already exists");
+  }
+
   const settings = { ...TYPE_DEFAULT_SETTINGS[data.type], ...data.settings };
   return Organization.create({ ...data, settings });
 }

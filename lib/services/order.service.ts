@@ -1,8 +1,11 @@
 import { connectDB } from "@/lib/db/connect";
 import { Order } from "@/lib/db/models/Order";
 import { OrderItem } from "@/lib/db/models/OrderItem";
+import { Organization } from "@/lib/db/models/Organization";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
+import { StockMovement } from "@/lib/db/models/StockMovement";
 import mongoose from "mongoose";
+import type { ClientSession } from "mongoose";
 import type { OrderStatus } from "@/types";
 
 interface OrderFilter {
@@ -118,7 +121,124 @@ export async function updateOrderStatus(
   if (newStatus === "paid") updates.paidAt = new Date();
   if (newStatus === "completed") updates.completedAt = new Date();
 
+  // B2B orders: transfer inventory from seller to buyer when payment is confirmed
+  if (newStatus === "paid" && order.type === "B2B" && order.sellerOrganizationId && order.buyerOrganizationId) {
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+
+      await Order.findByIdAndUpdate(orderId, { $set: updates }, { session });
+
+      const items = await OrderItem.find({ orderId }).session(session).lean();
+      for (const item of items) {
+        await transferOrgStock(
+          {
+            fromOrganizationId: order.sellerOrganizationId.toString(),
+            toOrganizationId: order.buyerOrganizationId.toString(),
+            productId: item.productId.toString(),
+            variantId: item.variantId?.toString() ?? null,
+            quantity: item.quantity,
+            reference: order.orderNumber,
+          },
+          userId,
+          session
+        );
+      }
+
+      await session.commitTransaction();
+      return Order.findById(orderId).lean();
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
   return Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true }).lean();
+}
+
+async function transferOrgStock(
+  input: {
+    fromOrganizationId: string;
+    toOrganizationId: string;
+    productId: string;
+    variantId: string | null;
+    quantity: number;
+    reference?: string;
+  },
+  performedBy: string,
+  session: ClientSession
+) {
+  const sourceInv = await OrganizationInventory.findOne({
+    organizationId: input.fromOrganizationId,
+    productId: input.productId,
+    variantId: input.variantId ?? null,
+  }).session(session);
+
+  if (!sourceInv || sourceInv.quantity < input.quantity) {
+    throw new Error(
+      `Insufficient seller stock for product ${input.productId}. Available: ${sourceInv?.quantity ?? 0}, Required: ${input.quantity}`
+    );
+  }
+
+  const sourcePrev = sourceInv.quantity;
+  const sourceNew = sourcePrev - input.quantity;
+
+  await OrganizationInventory.findOneAndUpdate(
+    { organizationId: input.fromOrganizationId, productId: input.productId, variantId: input.variantId ?? null },
+    { $inc: { quantity: -input.quantity, totalSold: input.quantity } },
+    { session }
+  );
+
+  const destInv = await OrganizationInventory.findOne({
+    organizationId: input.toOrganizationId,
+    productId: input.productId,
+    variantId: input.variantId ?? null,
+  }).session(session);
+  const destPrev = destInv?.quantity ?? 0;
+
+  await OrganizationInventory.findOneAndUpdate(
+    { organizationId: input.toOrganizationId, productId: input.productId, variantId: input.variantId ?? null },
+    { $inc: { quantity: input.quantity, totalReceived: input.quantity } },
+    { upsert: true, session }
+  );
+
+  await StockMovement.insertMany(
+    [
+      {
+        branchId: null,
+        organizationId: input.fromOrganizationId,
+        fromOrganizationId: input.fromOrganizationId,
+        toOrganizationId: input.toOrganizationId,
+        productId: input.productId,
+        variantId: input.variantId ?? null,
+        type: "TRANSFER",
+        quantity: input.quantity,
+        previousQuantity: sourcePrev,
+        newQuantity: sourceNew,
+        reference: input.reference,
+        notes: `B2B fulfillment: ${input.reference}`,
+        performedBy,
+      },
+      {
+        branchId: null,
+        organizationId: input.toOrganizationId,
+        fromOrganizationId: input.fromOrganizationId,
+        toOrganizationId: input.toOrganizationId,
+        productId: input.productId,
+        variantId: input.variantId ?? null,
+        type: "IN",
+        quantity: input.quantity,
+        previousQuantity: destPrev,
+        newQuantity: destPrev + input.quantity,
+        reference: input.reference,
+        notes: `B2B receipt: ${input.reference}`,
+        performedBy,
+      },
+    ],
+    { session }
+  );
 }
 
 export interface CreateB2BOrderInput {
@@ -144,6 +264,15 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
 
   try {
     session.startTransaction();
+
+    // Validate seller is authorized to distribute
+    const seller = await Organization.findOne({
+      _id: input.sellerOrganizationId,
+      isActive: true,
+      deletedAt: null,
+    }).session(session).lean();
+    if (!seller) throw new Error("Seller organization not found or inactive");
+    if (!seller.settings.canDistribute) throw new Error("Seller organization is not authorized to distribute");
 
     // Validate seller has enough stock for each item
     for (const item of input.items) {
@@ -188,7 +317,7 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
       { session }
     );
 
-    await OrderItem.create(
+    await OrderItem.insertMany(
       input.items.map((item) => ({
         orderId: order._id,
         productId: item.productId,

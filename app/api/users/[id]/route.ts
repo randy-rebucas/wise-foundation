@@ -28,6 +28,14 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
+
+    if (req.user.role === "ORG_ADMIN") {
+      const target = await getUserById(id);
+      if (!target || (target as { organizationId?: { toString(): string } | null }).organizationId?.toString() !== req.user.organizationId) {
+        return errorResponse("You can only modify users in your organization");
+      }
+    }
+
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
 
@@ -46,6 +54,14 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
+
+    if (req.user.role === "ORG_ADMIN") {
+      const target = await getUserById(id);
+      if (!target || (target as { organizationId?: { toString(): string } | null }).organizationId?.toString() !== req.user.organizationId) {
+        return errorResponse("You can only remove users in your organization");
+      }
+    }
+
     await deleteUser(id, req.user.id);
     return successResponse(null, "User removed successfully");
   } catch (error) {

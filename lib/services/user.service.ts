@@ -4,12 +4,13 @@ import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 
-export async function getUsers(search?: string, role?: string, page = 1, limit = 20) {
+export async function getUsers(search?: string, role?: string, page = 1, limit = 20, organizationId?: string) {
   await connectDB();
   const skip = (page - 1) * limit;
 
   const filter: Record<string, unknown> = { deletedAt: null };
   if (role) filter.role = role;
+  if (organizationId) filter.organizationId = organizationId;
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: "i" } },

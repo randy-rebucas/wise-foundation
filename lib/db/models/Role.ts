@@ -42,12 +42,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "view:reports",
     "manage:members",
     "manage:orders",
+    "manage:organizations",
     "manage:roles",
   ],
   ORG_ADMIN: [
-    "manage:org_inventory",
-    "view:org_commissions",
-    "submit:org_orders",
+    "manage:organizations",
+    "manage:users",
     "view:reports",
   ],
   BRANCH_MANAGER: [
@@ -59,6 +59,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "manage:orders",
   ],
   STAFF: ["use:pos", "manage:members", "manage:orders"],
-  INVENTORY_MANAGER: ["manage:inventory", "view:reports"],
+  INVENTORY_MANAGER: ["manage:products", "manage:inventory", "view:reports"],
   MEMBER: ["view:own_orders"],
 };

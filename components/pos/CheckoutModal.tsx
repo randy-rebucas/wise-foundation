@@ -42,6 +42,13 @@ interface OrderResult {
   paymentMethod: string;
 }
 
+interface CompletedOrder {
+  order: OrderResult;
+  items: ReturnType<typeof useCartStore.getState>["items"];
+  memberName: string | null;
+  discountPercent: number;
+}
+
 function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore.getState>["items"], memberName: string | null, discountPercent: number) {
   const w = window.open("", "_blank", "width=400,height=600");
   if (!w) return;
@@ -97,7 +104,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<OrderResult | null>(null);
+  const [completed, setCompleted] = useState<CompletedOrder | null>(null);
 
   const subtotal = getSubtotal();
   const discount = getDiscount();
@@ -134,8 +141,14 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
       if (!data.success) {
         setError(data.error);
       } else {
-        setResult(data.data);
+        const snapshot: CompletedOrder = {
+          order: data.data,
+          items: [...items],
+          memberName,
+          discountPercent,
+        };
         clearCart();
+        setCompleted(snapshot);
       }
     } catch {
       setError("An unexpected error occurred");
@@ -145,7 +158,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   }
 
   function handleClose() {
-    setResult(null);
+    setCompleted(null);
     setAmountPaid("");
     setNotes("");
     setError("");
@@ -154,7 +167,8 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   }
 
   // Success screen
-  if (result) {
+  if (completed) {
+    const { order, items: receiptItems, memberName: receiptMemberName, discountPercent: receiptDiscount } = completed;
     return (
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="max-w-sm text-center">
@@ -162,17 +176,17 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
             <div>
               <h2 className="text-2xl font-bold">Payment Complete!</h2>
-              <p className="text-muted-foreground text-sm mt-1">{result.orderNumber}</p>
+              <p className="text-muted-foreground text-sm mt-1">{order.orderNumber}</p>
             </div>
             <div className="bg-muted rounded-lg p-4 text-left space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Total</span>
-                <span className="font-semibold">{formatCurrency(result.total)}</span>
+                <span className="font-semibold">{formatCurrency(order.total)}</span>
               </div>
-              {result.paymentMethod === "cash" && result.change > 0 && (
+              {order.paymentMethod === "cash" && order.change > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Change</span>
-                  <span className="font-semibold">{formatCurrency(result.change)}</span>
+                  <span className="font-semibold">{formatCurrency(order.change)}</span>
                 </div>
               )}
             </div>
@@ -180,7 +194,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => printReceipt(result, items, memberName, discountPercent)}
+                onClick={() => printReceipt(order, receiptItems, receiptMemberName, receiptDiscount)}
               >
                 <Printer className="h-4 w-4 mr-2" />
                 Print Receipt

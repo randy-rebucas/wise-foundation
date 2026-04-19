@@ -19,7 +19,6 @@ import {
   Boxes,
   DollarSign,
   Percent,
-  ShoppingCart,
   TrendingUp,
   Package,
   Building2,
@@ -35,7 +34,7 @@ import Link from "next/link";
 interface OrgData {
   _id: string;
   name: string;
-  type: "distributor" | "franchise" | "partner";
+  type: "distributor" | "franchise" | "partner" | "headquarters";
   commissionRate: number;
   settings: {
     canSellRetail: boolean;
@@ -229,9 +228,9 @@ function DistributorPanel({ org }: { org: OrgData }) {
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span className="flex items-center gap-2"><Boxes className="h-4 w-4" /> Inventory</span>
-            <Link href="/inventory">
+            <Link href="/reseller-sales">
               <Button variant="outline" size="sm" className="text-xs">
-                Manage Inventory <ArrowRight className="h-3 w-3 ml-1" />
+                Reseller Sales <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </Link>
           </CardTitle>
@@ -251,11 +250,6 @@ function DistributorPanel({ org }: { org: OrgData }) {
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Distribution Orders (B2B)</span>
-            <Link href="/orders">
-              <Button variant="outline" size="sm" className="text-xs">
-                All Orders <ArrowRight className="h-3 w-3 ml-1" />
-              </Button>
-            </Link>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -327,25 +321,10 @@ function FranchisePanel({ org }: { org: OrgData }) {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard title="Revenue (page)" value={formatCurrency(paidRevenue)} icon={DollarSign} description="Paid orders shown" iconClassName="bg-green-100" />
         <StatCard title="Pending Orders" value={pendingCount} icon={Clock} description="Awaiting action" iconClassName="bg-yellow-100" />
-        <StatCard title="Total Orders" value={ordersData?.meta?.total ?? 0} icon={ShoppingCart} description="All time" iconClassName="bg-blue-100" />
+        <StatCard title="Total Orders" value={ordersData?.meta?.total ?? 0} icon={Clock} description="All time" iconClassName="bg-blue-100" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Link href="/pos">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-blue-200 hover:border-blue-400">
-            <CardContent className="flex items-center gap-4 pt-5">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <ShoppingCart className="h-6 w-6 text-blue-700" />
-              </div>
-              <div>
-                <p className="font-semibold">Point of Sale</p>
-                <p className="text-sm text-muted-foreground">Process walk-in sales</p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground ml-auto" />
-            </CardContent>
-          </Card>
-        </Link>
-
         <Link href="/reseller-sales">
           <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-purple-200 hover:border-purple-400">
             <CardContent className="flex items-center gap-4 pt-5">
@@ -360,15 +339,30 @@ function FranchisePanel({ org }: { org: OrgData }) {
             </CardContent>
           </Card>
         </Link>
+
+        <Link href="/commissions">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-green-200 hover:border-green-400">
+            <CardContent className="flex items-center gap-4 pt-5">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Percent className="h-6 w-6 text-green-700" />
+              </div>
+              <div>
+                <p className="font-semibold">Commissions</p>
+                <p className="text-sm text-muted-foreground">Track earnings & payouts</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground ml-auto" />
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span className="flex items-center gap-2"><Clock className="h-4 w-4" /> Recent Sales</span>
-            <Link href="/orders">
+            <Link href="/reseller-sales">
               <Button variant="outline" size="sm" className="text-xs">
-                All Orders <ArrowRight className="h-3 w-3 ml-1" />
+                Reseller Sales <ArrowRight className="h-3 w-3 ml-1" />
               </Button>
             </Link>
           </CardTitle>
@@ -515,9 +509,9 @@ function PartnerPanel({ org }: { org: OrgData }) {
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
               <span className="flex items-center gap-2"><Clock className="h-4 w-4" /> My Orders</span>
-              <Link href="/orders">
+              <Link href="/reseller-sales">
                 <Button variant="outline" size="sm" className="text-xs">
-                  View All <ArrowRight className="h-3 w-3 ml-1" />
+                  Reseller Sales <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
               </Link>
             </CardTitle>
@@ -598,6 +592,7 @@ export default function OrgPanelPage() {
   }
 
   const subtitleMap = {
+    headquarters: "Master Inventory & Stock Distribution",
     distributor: "Inventory & Distribution",
     franchise: "POS & Sales",
     partner: "Orders & Commissions",
@@ -610,7 +605,7 @@ export default function OrgPanelPage() {
         subtitle={subtitleMap[orgData.type] ?? "Organization Panel"}
       />
       <div className="flex-1 p-6">
-        {orgData.type === "distributor" && <DistributorPanel org={orgData} />}
+        {(orgData.type === "headquarters" || orgData.type === "distributor") && <DistributorPanel org={orgData} />}
         {orgData.type === "franchise" && <FranchisePanel org={orgData} />}
         {orgData.type === "partner" && <PartnerPanel org={orgData} />}
       </div>

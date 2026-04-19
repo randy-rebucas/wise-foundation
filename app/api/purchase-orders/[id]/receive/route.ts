@@ -7,7 +7,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const parsed = receivePurchaseOrderSchema.safeParse(body);
     if (!parsed.success) {

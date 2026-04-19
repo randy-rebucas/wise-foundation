@@ -5,7 +5,7 @@ import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrganizationType } from "@/lib/db/models/Organization";
 
-const VALID_TYPES: OrganizationType[] = ["distributor", "franchise", "partner"];
+const VALID_TYPES: OrganizationType[] = ["distributor", "franchise", "partner", "headquarters"];
 
 const getHandler = async (req: AuthedRequest) => {
   try {
@@ -23,11 +23,12 @@ const postHandler = async (req: AuthedRequest) => {
     const body = await req.json();
     if (!body.name?.trim()) return errorResponse("Organization name is required");
     if (!VALID_TYPES.includes(body.type)) {
-      return errorResponse("Type must be distributor, franchise, or partner");
+      return errorResponse("Type must be distributor, franchise, partner, or headquarters");
     }
     const organization = await createOrganization(body);
     return successResponse(organization, "Organization created", 201);
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }
 };

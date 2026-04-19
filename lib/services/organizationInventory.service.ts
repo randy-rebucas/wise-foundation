@@ -106,7 +106,7 @@ export async function processResellerSale(input: ResellerSaleInput) {
       total: item.unitPrice * item.quantity,
     }));
 
-    await OrderItem.create(orderItems, { session });
+    await OrderItem.insertMany(orderItems, { session });
 
     for (const item of input.items) {
       await OrganizationInventory.findOneAndUpdate(

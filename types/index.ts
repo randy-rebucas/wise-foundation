@@ -22,7 +22,7 @@ export type MemberStatus = "active" | "inactive" | "suspended";
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "approved" | "received" | "cancelled";
 
-export type OrganizationType = "distributor" | "franchise" | "partner";
+export type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
 // ─── API Response ────────────────────────────────────────────────────────────
 

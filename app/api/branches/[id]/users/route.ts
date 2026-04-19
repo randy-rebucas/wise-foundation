@@ -10,7 +10,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const users = await getBranchUsers(id);
     return successResponse(users);
   } catch {
@@ -20,7 +20,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
     await assignUserToBranch(body.userId, id);
@@ -33,7 +33,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
     await removeUserFromBranch(body.userId, id);

@@ -1,6 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 
-export type OrganizationType = "distributor" | "franchise" | "partner";
+export type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
 export interface IOrganizationSettings {
   canSellRetail: boolean;
@@ -32,7 +32,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     name: { type: String, required: true },
     type: {
       type: String,
-      enum: ["distributor", "franchise", "partner"],
+      enum: ["distributor", "franchise", "partner", "headquarters"],
       required: true,
     },
     parentOrganizationId: {
@@ -63,6 +63,11 @@ OrganizationSchema.index({ name: 1 });
 OrganizationSchema.index({ type: 1, deletedAt: 1 });
 OrganizationSchema.index({ parentOrganizationId: 1, deletedAt: 1 });
 OrganizationSchema.index({ deletedAt: 1 });
+
+// In development, delete the cached model so hot-reloaded schema changes take effect
+if (process.env.NODE_ENV !== "production") {
+  delete (models as Record<string, unknown>).Organization;
+}
 
 export const Organization =
   models.Organization || model<IOrganization>("Organization", OrganizationSchema);

@@ -7,7 +7,7 @@ import type { OrderStatus } from "@/types";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const order = await getOrderById(id);
     if (!order) return notFoundResponse("Order not found");
     return successResponse(order);
@@ -18,7 +18,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
 
     if (!body.status) return errorResponse("Status is required");

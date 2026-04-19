@@ -33,7 +33,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type OrganizationType = "distributor" | "franchise" | "partner";
+type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
 interface OrgSettings {
   canSellRetail: boolean;
@@ -73,12 +73,14 @@ interface OrgForm {
 }
 
 const TYPE_OPTIONS: { value: OrganizationType; label: string }[] = [
+  { value: "headquarters", label: "Headquarters" },
   { value: "distributor", label: "Distributor" },
   { value: "franchise", label: "Franchise" },
   { value: "partner", label: "Partner" },
 ];
 
 const TYPE_VARIANT: Record<OrganizationType, "default" | "secondary" | "outline"> = {
+  headquarters: "default",
   distributor: "default",
   franchise: "secondary",
   partner: "outline",
@@ -93,9 +95,10 @@ const defaultSettings: OrgSettings = {
 };
 
 const TYPE_DEFAULT_SETTINGS: Record<OrganizationType, OrgSettings> = {
-  distributor: { canSellRetail: false, canDistribute: true, hasInventory: true, commissionEnabled: false, canSubmitOrders: true },
-  franchise:   { canSellRetail: true,  canDistribute: false, hasInventory: true, commissionEnabled: false, canSubmitOrders: true },
-  partner:     { canSellRetail: true,  canDistribute: false, hasInventory: false, commissionEnabled: true, canSubmitOrders: true },
+  headquarters: { canSellRetail: false, canDistribute: true,  hasInventory: true,  commissionEnabled: false, canSubmitOrders: false },
+  distributor:  { canSellRetail: false, canDistribute: true,  hasInventory: true,  commissionEnabled: false, canSubmitOrders: true },
+  franchise:    { canSellRetail: true,  canDistribute: false, hasInventory: true,  commissionEnabled: false, canSubmitOrders: true },
+  partner:      { canSellRetail: true,  canDistribute: false, hasInventory: false, commissionEnabled: true,  canSubmitOrders: true },
 };
 
 const defaultForm: OrgForm = {
@@ -196,6 +199,26 @@ export default function OrganizationsPage() {
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
+
+  const setParentMutation = useMutation({
+    mutationFn: async ({ childId, parentId }: { childId: string; parentId: string }) => {
+      const res = await fetch(`/api/organizations/${childId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentOrganizationId: parentId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      toast({ title: "Parent organization set to HQ" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const hqOrg = organizations.find((o) => o.type === "headquarters") ?? null;
 
   function openEdit(org: Organization) {
     setEditId(org._id);
@@ -307,6 +330,14 @@ export default function OrganizationsPage() {
               <Pencil className="h-4 w-4 mr-2" />
               Edit
             </DropdownMenuItem>
+            {hqOrg && org.type !== "headquarters" && org.parentOrganizationId?._id !== hqOrg._id && (
+              <DropdownMenuItem
+                onClick={() => setParentMutation.mutate({ childId: org._id, parentId: hqOrg._id })}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Set HQ as Parent
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
@@ -494,13 +525,19 @@ function OrgFormFields({
             value={form.type}
             onValueChange={(v) => {
               const type = v as OrganizationType;
-              setForm({ ...form, type, settings: TYPE_DEFAULT_SETTINGS[type] });
+              setForm({
+                ...form,
+                type,
+                settings: TYPE_DEFAULT_SETTINGS[type],
+                parentOrganizationId: type === "headquarters" ? "" : form.parentOrganizationId,
+              });
             }}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="headquarters">Headquarters</SelectItem>
               <SelectItem value="distributor">Distributor</SelectItem>
               <SelectItem value="franchise">Franchise</SelectItem>
               <SelectItem value="partner">Partner</SelectItem>
@@ -515,19 +552,23 @@ function OrgFormFields({
             onValueChange={(v) =>
               setForm({ ...form, parentOrganizationId: v === "none" ? "" : v })
             }
+            disabled={form.type === "headquarters"}
           >
             <SelectTrigger>
-              <SelectValue placeholder="None (top-level)" />
+              <SelectValue placeholder={form.type === "headquarters" ? "N/A — HQ has no parent" : "None (top-level)"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None (top-level)</SelectItem>
-              {parentOptions.map((o) => (
+              {parentOptions.filter((o) => o.type !== "headquarters").map((o) => (
                 <SelectItem key={o._id} value={o._id}>
                   {o.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {form.type === "headquarters" && (
+            <p className="text-xs text-muted-foreground">Headquarters cannot have a parent organization.</p>
+          )}
         </div>
 
         <div className="space-y-2 col-span-2">

@@ -38,7 +38,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
   { label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
   { label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
   { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
@@ -46,7 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
   { label: "Purchase Orders", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
-  { label: "Reseller Sales", path: "/reseller-sales", icon: Store, permission: "manage:orders" },
+  { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
   { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
@@ -54,7 +54,8 @@ const NAV_ITEMS: NavItem[] = [
 
 const ADMIN_ITEMS: NavItem[] = [
   { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
-  { label: "Users", path: "/admin/users", icon: Users, permission: "manage:users" },
+  { label: "Users", path: "/admin/users", icon: Users, roles: ["ADMIN"] },
+  { label: "Team", path: "/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
   { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
   { label: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
 ];
@@ -94,7 +95,7 @@ export function Sidebar({ initialUser }: SidebarProps) {
 
   function canAccess(item: NavItem): boolean {
     if (item.roles) return item.roles.includes(userRole);
-    if (!item.permission) return true;
+    if (!item.permission) return userRole !== "MEMBER";
     return userRole === "ADMIN" || userPermissions.includes(item.permission);
   }
 

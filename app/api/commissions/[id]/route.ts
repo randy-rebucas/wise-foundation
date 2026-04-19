@@ -6,7 +6,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const action = body.action as "pay" | "cancel";
 

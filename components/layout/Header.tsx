@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  action?: React.ReactNode;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, action }: HeaderProps) {
   const { data: session } = useSession();
 
   return (
@@ -20,6 +21,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-3">
+        {action && <div className="shrink-0">{action}</div>}
         <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search..." className="pl-9 w-64 h-9" />

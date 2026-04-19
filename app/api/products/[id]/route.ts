@@ -12,7 +12,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const product = await getProductById(id);
     if (!product) return notFoundResponse("Product not found");
     return successResponse(product);
@@ -23,7 +23,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const parsed = updateProductSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
@@ -39,7 +39,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     await deleteProduct(id);
     return successResponse(null, "Product deleted");
   } catch {

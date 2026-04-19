@@ -6,7 +6,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const updated = await updateSupplier(id, body);
     if (!updated) return notFoundResponse("Supplier not found");
@@ -18,7 +18,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const deleted = await deleteSupplier(id);
     if (!deleted) return notFoundResponse("Supplier not found");
     return successResponse(null, "Supplier deleted");

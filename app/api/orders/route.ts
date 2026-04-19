@@ -11,6 +11,7 @@ const getHandler = async (req: AuthedRequest) => {
     const { searchParams } = new URL(req.url);
     const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
     const status = searchParams.get("status") ?? undefined;
+    const type = searchParams.get("type") ?? undefined;
     const memberId = searchParams.get("memberId") ?? undefined;
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
@@ -18,7 +19,7 @@ const getHandler = async (req: AuthedRequest) => {
     const organizationId =
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
 
-    const result = await getOrders(branchId, { status, memberId }, page, limit, organizationId);
+    const result = await getOrders(branchId, { status, type, memberId }, page, limit, organizationId);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,

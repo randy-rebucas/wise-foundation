@@ -28,13 +28,14 @@ import { Plus, Loader2, X, CheckCircle, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 
-type OrganizationType = "distributor" | "franchise" | "partner";
+type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 type PaymentMethod = "cash" | "gcash" | "card" | "bank_transfer" | "credit";
 
 interface Organization {
   _id: string;
   name: string;
   type: OrganizationType;
+  settings?: { hasInventory: boolean };
 }
 
 interface OrgInventoryItem {
@@ -65,7 +66,7 @@ interface ResellerOrder {
   type: string;
   status: string;
   total: number;
-  createdBy?: { name: string };
+  cashierId?: { name: string };
   createdAt: string;
 }
 
@@ -146,7 +147,7 @@ export default function ResellerSalesPage() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["reseller-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["org-inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["org-inventory", selectedOrg] });
       queryClient.invalidateQueries({ queryKey: ["org-inventory-sale", selectedOrg] });
       setSaleResult(result);
     },
@@ -231,7 +232,7 @@ export default function ResellerSalesPage() {
       key: "by",
       label: "Recorded By",
       render: (o: ResellerOrder) => (
-        <span className="text-sm text-muted-foreground">{o.createdBy?.name ?? "—"}</span>
+        <span className="text-sm text-muted-foreground">{o.cashierId?.name ?? "—"}</span>
       ),
     },
     {
@@ -323,7 +324,7 @@ export default function ResellerSalesPage() {
                         <SelectValue placeholder="Select organization" />
                       </SelectTrigger>
                       <SelectContent>
-                        {organizations.map((org) => (
+                        {organizations.filter((o) => o.settings?.hasInventory).map((org) => (
                           <SelectItem key={org._id} value={org._id}>
                             {org.name}
                             <span className="text-muted-foreground capitalize ml-1">({org.type})</span>

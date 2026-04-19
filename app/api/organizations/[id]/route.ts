@@ -10,7 +10,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     if (req.user.role === "ORG_ADMIN" && req.user.organizationId !== id) {
       return notFoundResponse("Organization not found");
     }
@@ -24,7 +24,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const updated = await updateOrganization(id, body);
     if (!updated) return notFoundResponse("Organization not found");
@@ -36,7 +36,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const deleted = await deleteOrganization(id);
     if (!deleted) return notFoundResponse("Organization not found");
     return successResponse(null, "Organization deleted");

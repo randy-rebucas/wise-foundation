@@ -310,6 +310,7 @@ export async function getDistributionSummary(days = 30) {
     distributor: orgs.filter((o) => o.type === "distributor").length,
     franchise: orgs.filter((o) => o.type === "franchise").length,
     partner: orgs.filter((o) => o.type === "partner").length,
+    headquarters: orgs.filter((o) => o.type === "headquarters").length,
   };
 
   const matchBase = {
@@ -361,6 +362,7 @@ export async function getDistributionSummary(days = 30) {
       distributor: revenueMap.distributor ?? { revenue: 0, orders: 0 },
       franchise: revenueMap.franchise ?? { revenue: 0, orders: 0 },
       partner: revenueMap.partner ?? { revenue: 0, orders: 0 },
+      headquarters: revenueMap.headquarters ?? { revenue: 0, orders: 0 },
     },
     commissions: totalCommissions ?? { total: 0, pending: 0 },
   };

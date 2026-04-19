@@ -42,6 +42,10 @@ interface Organization {
   _id: string;
   name: string;
   type: string;
+  settings: {
+    canDistribute: boolean;
+    canSubmitOrders: boolean;
+  };
 }
 
 interface Order {
@@ -516,7 +520,7 @@ export default function OrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {organizations
-                      .filter((o) => o._id !== b2bForm.buyerOrganizationId)
+                      .filter((o) => o.settings?.canDistribute && o._id !== b2bForm.buyerOrganizationId)
                       .map((o) => (
                         <SelectItem key={o._id} value={o._id}>
                           {o.name} ({o.type})
@@ -536,7 +540,7 @@ export default function OrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {organizations
-                      .filter((o) => o._id !== b2bForm.sellerOrganizationId)
+                      .filter((o) => o.settings?.canSubmitOrders && o._id !== b2bForm.sellerOrganizationId)
                       .map((o) => (
                         <SelectItem key={o._id} value={o._id}>
                           {o.name} ({o.type})

@@ -5,6 +5,8 @@ import { createUserSchema } from "@/lib/validations/user.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
+const ORG_ADMIN_ALLOWED_ROLES = ["BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER"];
+
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
@@ -13,7 +15,10 @@ const getHandler = async (req: AuthedRequest) => {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
-    const result = await getUsers(search, role, page, limit);
+    const organizationId =
+      req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
+
+    const result = await getUsers(search, role, page, limit, organizationId);
     return successResponse(result.users, undefined, 200, {
       page,
       limit,
@@ -27,8 +32,15 @@ const getHandler = async (req: AuthedRequest) => {
 const postHandler = async (req: AuthedRequest) => {
   try {
     const body = await req.json();
-    const parsed = createUserSchema.safeParse(body);
 
+    if (req.user.role === "ORG_ADMIN") {
+      if (!ORG_ADMIN_ALLOWED_ROLES.includes(body.role)) {
+        return errorResponse("You can only create Branch Manager, Staff, or Inventory Manager accounts");
+      }
+      body.organizationId = req.user.organizationId;
+    }
+
+    const parsed = createUserSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }

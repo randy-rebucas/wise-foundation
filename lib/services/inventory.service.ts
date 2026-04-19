@@ -290,7 +290,7 @@ export async function processStockMovement(
           previousQuantity,
           newQuantity,
           unitCost: input.unitCost,
-          toBranchId: input.toBranchId ?? null,
+          toBranchId: input.toBranchId || null,
           toOrganizationId: input.type === "TRANSFER" ? (await getOrgIdForBranch(input.toBranchId!)) : null,
           reference: input.reference,
           notes: input.notes,

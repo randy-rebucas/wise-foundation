@@ -11,8 +11,9 @@ import {
   Boxes,
   Clock,
   Building2,
-  ShoppingCart,
   BarChart3,
+  Store,
+  LayoutGrid,
 } from "lucide-react";
 import { connectDB } from "@/lib/db/connect";
 import { Order } from "@/lib/db/models/Order";
@@ -31,10 +32,19 @@ async function getOrgDashboardStats(organizationId: string) {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+  // Revenue queries: only where this org is the seller
+  const sellerMatch = {
+    $or: [
+      { organizationId: orgObjectId },
+      { sellerOrganizationId: orgObjectId },
+    ],
+  };
+  // Full match: any order involving this org (seller or buyer)
   const orgMatch = {
     $or: [
       { organizationId: orgObjectId },
       { sellerOrganizationId: orgObjectId },
+      { buyerOrganizationId: orgObjectId },
     ],
   };
 
@@ -49,11 +59,11 @@ async function getOrgDashboardStats(organizationId: string) {
   ] = await Promise.all([
     Organization.findById(organizationId).lean(),
     Order.aggregate([
-      { $match: { ...orgMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfDay }, deletedAt: null } },
+      { $match: { ...sellerMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfDay }, deletedAt: null } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.aggregate([
-      { $match: { ...orgMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfMonth }, deletedAt: null } },
+      { $match: { ...sellerMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfMonth }, deletedAt: null } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.countDocuments({ ...orgMatch, status: { $in: ["pending", "approved"] }, deletedAt: null }),
@@ -120,11 +130,19 @@ export default async function OrgDashboardPage() {
   if (!session?.user?.organizationId) redirect("/dashboard");
 
   const stats = await getOrgDashboardStats(session.user.organizationId);
-  const org = stats.org as { name: string; type: string } | null;
+  const org = stats.org as {
+    name: string;
+    type: string;
+    settings: { hasInventory: boolean; commissionEnabled: boolean };
+  } | null;
 
+  const hasInventory = org?.settings?.hasInventory ?? false;
+  const hasCommission = org?.settings?.commissionEnabled ?? false;
+
+  // Quick links aligned to ORG_ADMIN sidebar permissions
   const quickLinks = [
-    { label: "POS", href: "/pos", icon: ShoppingCart, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
-    { label: "Orders", href: "/orders", icon: Clock, color: "bg-yellow-50 hover:bg-yellow-100 text-yellow-700" },
+    { label: "My Panel", href: "/org-panel", icon: LayoutGrid, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
+    { label: "Reseller Sales", href: "/reseller-sales", icon: Store, color: "bg-orange-50 hover:bg-orange-100 text-orange-700" },
     { label: "Commissions", href: "/commissions", icon: Percent, color: "bg-green-50 hover:bg-green-100 text-green-700" },
     { label: "Reports", href: "/reports", icon: BarChart3, color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
   ];
@@ -150,7 +168,7 @@ export default async function OrgDashboardPage() {
           </div>
         )}
 
-        {/* KPI Cards */}
+        {/* KPI Cards — shown conditionally by org capabilities */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Today's Sales"
@@ -166,20 +184,40 @@ export default async function OrgDashboardPage() {
             icon={TrendingUp}
             iconClassName="bg-blue-100"
           />
-          <StatCard
-            title="Commission Earned"
-            value={formatCurrency(stats.totalEarned)}
-            description={`${formatCurrency(stats.pendingPayout)} pending payout`}
-            icon={Percent}
-            iconClassName="bg-yellow-100"
-          />
-          <StatCard
-            title="Inventory"
-            value={stats.inventoryUnits}
-            description={`${stats.inventoryProducts} products · ${stats.lowStockCount} low stock`}
-            icon={Boxes}
-            iconClassName="bg-purple-100"
-          />
+          {hasCommission ? (
+            <StatCard
+              title="Commission Earned"
+              value={formatCurrency(stats.totalEarned)}
+              description={`${formatCurrency(stats.pendingPayout)} pending payout`}
+              icon={Percent}
+              iconClassName="bg-yellow-100"
+            />
+          ) : (
+            <StatCard
+              title="Pending Orders"
+              value={stats.pendingOrders}
+              description="Awaiting approval or payment"
+              icon={Clock}
+              iconClassName="bg-yellow-100"
+            />
+          )}
+          {hasInventory ? (
+            <StatCard
+              title="Inventory"
+              value={stats.inventoryUnits}
+              description={`${stats.inventoryProducts} products · ${stats.lowStockCount} low stock`}
+              icon={Boxes}
+              iconClassName="bg-purple-100"
+            />
+          ) : (
+            <StatCard
+              title="Total Orders"
+              value={stats.monthlyOrders}
+              description="Orders this month"
+              icon={Clock}
+              iconClassName="bg-purple-100"
+            />
+          )}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -220,7 +258,7 @@ export default async function OrgDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
+          {/* Quick Actions — only pages ORG_ADMIN can access */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Quick Actions</CardTitle>

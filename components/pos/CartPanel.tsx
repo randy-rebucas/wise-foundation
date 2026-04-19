@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCartStore } from "@/store/cartStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,9 @@ interface CartPanelProps {
 }
 
 export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
   const {
     items,
     memberId,
@@ -38,9 +41,13 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
     getTotal,
   } = useCartStore();
 
-  const subtotal = getSubtotal();
-  const discount = getDiscount();
-  const total = getTotal();
+  const subtotal = hydrated ? getSubtotal() : 0;
+  const discount = hydrated ? getDiscount() : 0;
+  const total = hydrated ? getTotal() : 0;
+  const hydratedItems = hydrated ? items : [];
+  const hydratedMemberId = hydrated ? memberId : null;
+  const hydratedMemberName = hydrated ? memberName : null;
+  const hydratedDiscountPercent = hydrated ? discountPercent : 0;
 
   return (
     <div className="flex flex-col h-full border-l bg-background">
@@ -49,11 +56,11 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
         <div className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5" />
           <span className="font-semibold">Cart</span>
-          {items.length > 0 && (
-            <Badge variant="secondary">{items.length}</Badge>
+          {hydratedItems.length > 0 && (
+            <Badge variant="secondary">{hydratedItems.length}</Badge>
           )}
         </div>
-        {items.length > 0 && (
+        {hydratedItems.length > 0 && (
           <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground">
             <Trash2 className="h-4 w-4 mr-1" />
             Clear
@@ -63,13 +70,13 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
 
       {/* Member Section */}
       <div className="p-3 border-b bg-muted/30">
-        {memberId ? (
+        {hydratedMemberId ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
               <div>
-                <p className="text-sm font-medium">{memberName}</p>
-                <p className="text-xs text-muted-foreground">{discountPercent}% member discount</p>
+                <p className="text-sm font-medium">{hydratedMemberName}</p>
+                <p className="text-xs text-muted-foreground">{hydratedDiscountPercent}% member discount</p>
               </div>
             </div>
             <Button
@@ -91,7 +98,7 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
 
       {/* Cart Items */}
       <ScrollArea className="flex-1">
-        {items.length === 0 ? (
+        {hydratedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
             <ShoppingCart className="h-10 w-10 mb-2 opacity-30" />
             <p className="text-sm">Cart is empty</p>
@@ -99,7 +106,7 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
           </div>
         ) : (
           <div className="p-3 space-y-2">
-            {items.map((item) => (
+            {hydratedItems.map((item) => (
               <div
                 key={`${item.productId}-${item.variantId}`}
                 className="flex gap-3 p-3 rounded-lg border bg-card"
@@ -182,10 +189,10 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
         <Button
           className="w-full h-12 text-base font-semibold"
           onClick={onCheckout}
-          disabled={items.length === 0}
+          disabled={hydratedItems.length === 0}
         >
           <CreditCard className="h-5 w-5 mr-2" />
-          Checkout {items.length > 0 && `(${items.length})`}
+          Checkout {hydratedItems.length > 0 && `(${hydratedItems.length})`}
         </Button>
       </div>
     </div>

@@ -12,7 +12,7 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const branch = await getBranchById(id);
     if (!branch) return notFoundResponse("Branch not found");
     return successResponse(branch);
@@ -23,7 +23,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const parsed = updateBranchSchema.safeParse(body);
 
@@ -42,7 +42,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { id } = (ctx as { params: { id: string } }).params;
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     await deleteBranch(id);
     return successResponse(null, "Branch deleted");
   } catch (error) {

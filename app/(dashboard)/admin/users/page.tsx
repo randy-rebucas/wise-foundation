@@ -114,12 +114,22 @@ const defaultEdit: EditForm = {
   isActive: true,
 };
 
+const ORG_ADMIN_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "BRANCH_MANAGER", label: "Branch Manager" },
+  { value: "STAFF", label: "Staff" },
+  { value: "INVENTORY_MANAGER", label: "Inventory Manager" },
+];
+
 export default function UsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
+  const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
+  const sessionOrgId = session?.user?.organizationId ?? "";
+
+  const availableRoleOptions = isOrgAdmin ? ORG_ADMIN_ROLE_OPTIONS : ROLE_OPTIONS;
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -366,7 +376,10 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col">
-      <Header title="Users" subtitle="Manage team members and their roles" />
+      <Header
+        title="Users"
+        subtitle={isOrgAdmin ? "Manage your organization's team members" : "Manage team members and their roles"}
+      />
       <div className="flex-1 p-6 space-y-4">
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
@@ -386,7 +399,7 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
-                {ROLE_OPTIONS.map((r) => (
+                {availableRoleOptions.map((r) => (
                   <SelectItem key={r.value} value={r.value}>
                     {r.label}
                   </SelectItem>
@@ -395,7 +408,7 @@ export default function UsersPage() {
             </Select>
           </div>
           <RoleGuard requiredPermissions={["manage:users"]}>
-            <Button onClick={() => { setCreateForm(defaultCreate); setFormError(""); setCreateOpen(true); }}>
+            <Button onClick={() => { setCreateForm({ ...defaultCreate, organizationId: isOrgAdmin ? sessionOrgId : "" }); setFormError(""); setCreateOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add User
             </Button>
@@ -470,7 +483,7 @@ export default function UsersPage() {
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLE_OPTIONS.map((r) => (
+                    {availableRoleOptions.map((r) => (
                       <SelectItem key={r.value} value={r.value}>
                         {r.label}
                       </SelectItem>
@@ -478,7 +491,7 @@ export default function UsersPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {createForm.role === "ORG_ADMIN" && (
+              {!isOrgAdmin && createForm.role === "ORG_ADMIN" && (
                 <div className="space-y-2 col-span-2">
                   <Label>Organization *</Label>
                   <Select
@@ -574,7 +587,7 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ROLE_OPTIONS.map((r) => (
+                    {availableRoleOptions.map((r) => (
                       <SelectItem key={r.value} value={r.value}>
                         {r.label}
                       </SelectItem>
@@ -585,7 +598,7 @@ export default function UsersPage() {
                   Changing the role will automatically update this user&apos;s permissions.
                 </p>
               </div>
-              {editForm.role === "ORG_ADMIN" && (
+              {!isOrgAdmin && editForm.role === "ORG_ADMIN" && (
                 <div className="space-y-2 col-span-2">
                   <Label>Organization *</Label>
                   <Select

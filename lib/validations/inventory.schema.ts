@@ -6,7 +6,7 @@ export const stockMovementSchema = z.object({
   type: z.enum(["IN", "OUT", "TRANSFER", "ADJUSTMENT"]),
   quantity: z.number().int().positive("Quantity must be a positive integer"),
   unitCost: z.number().min(0).optional(),
-  toBranchId: z.string().optional(),
+  toBranchId: z.string().transform((v) => v || undefined).optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
 });

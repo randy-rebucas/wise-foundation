@@ -163,7 +163,7 @@ export async function processCheckout(input: CheckoutInput) {
       total: item.price * item.quantity,
     }));
 
-    await OrderItem.create(orderItems, { session });
+    await OrderItem.insertMany(orderItems, { session });
 
     await Transaction.create(
       [
