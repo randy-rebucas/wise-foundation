@@ -15,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useCartStore } from "@/store/cartStore";
 import { User, Search } from "lucide-react";
@@ -39,6 +46,11 @@ interface POSProduct {
   }[];
 }
 
+interface Branch {
+  _id: string;
+  name: string;
+}
+
 interface Member {
   _id: string;
   memberId: string;
@@ -50,8 +62,24 @@ interface Member {
 
 export default function POSPage() {
   const { data: session } = useSession();
-  const branchId = session?.user?.branchIds?.[0] ?? "";
+  const defaultBranchId = session?.user?.branchIds?.[0] ?? "";
   const { memberId: cartMemberId, setMember, setBranchId } = useCartStore();
+
+  // Users with an assigned branch use it automatically; admins pick from a list.
+  const [selectedBranchId, setSelectedBranchId] = useState(defaultBranchId);
+  const branchId = selectedBranchId || defaultBranchId;
+
+  const needsBranchSelect = !defaultBranchId;
+
+  const { data: branches = [] } = useQuery<Branch[]>({
+    queryKey: ["branches-for-pos"],
+    queryFn: async () => {
+      const res = await fetch("/api/branches?limit=100");
+      const data = await res.json();
+      return data.data ?? [];
+    },
+    enabled: needsBranchSelect,
+  });
 
   useEffect(() => {
     if (branchId) setBranchId(branchId);
@@ -73,7 +101,7 @@ export default function POSPage() {
       return data.data ?? [];
     },
     enabled: !!branchId,
-    staleTime: 30000,
+    staleTime: 30_000,
   });
 
   async function searchMembers() {
@@ -107,7 +135,22 @@ export default function POSPage() {
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <User className="h-4 w-4" />
             <span>{session?.user?.name}</span>
-            {branchId && <Badge variant="secondary">Branch Active</Badge>}
+            {needsBranchSelect ? (
+              <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+                <SelectTrigger className="h-7 text-xs w-44">
+                  <SelectValue placeholder="Select branch…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b._id} value={b._id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              branchId && <Badge variant="secondary">Branch Active</Badge>
+            )}
           </div>
         </div>
         <ProductGrid products={products} isMember={isMember} />

@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Wise Livelihood Platform
+
+A full-stack business management platform built for multi-branch and multi-organization operations. It includes a point-of-sale system, inventory management, member tracking, B2B order processing, commission tracking, and role-based access control.
+
+## Features
+
+- **Point of Sale** — Branch-scoped checkout with member discounts, variant selection, and real-time stock enforcement
+- **Inventory Management** — Per-branch stock tracking, low-stock alerts, and stock movement history
+- **Members** — Member registration, discount tiers, and commission tracking
+- **Orders** — POS orders, B2B orders, reseller sales, and purchase orders with status workflows
+- **Organizations** — Multi-org support (distributor, franchise, partner, headquarters) with org-level inventory
+- **Products** — Product catalog with variants, SKU management, and category filtering
+- **Reports** — Sales summaries, top products, branch performance, and inventory alerts
+- **Users & Roles** — ADMIN, ORG_ADMIN, BRANCH_MANAGER, INVENTORY_MANAGER, and STAFF roles with granular permissions
+- **Suppliers** — Supplier management linked to purchase orders
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Auth | NextAuth v5 (credentials provider, JWT sessions) |
+| Database | MongoDB via Mongoose |
+| Validation | Zod |
+| UI | Tailwind CSS + shadcn/ui (Radix UI) |
+| State | Zustand (cart), TanStack Query (server state) |
+| Images | Cloudinary |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- MongoDB instance (local or Atlas)
+
+### Environment Variables
+
+Create a `.env.local` file at the project root:
+
+```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<db>
+NEXTAUTH_SECRET=<random-secret>
+NEXTAUTH_URL=http://localhost:3000
+JWT_SECRET=<random-secret>
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Generate secrets with:
+```bash
+openssl rand -hex 32
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Install & Run
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+npm run dev
+```
 
-## Learn More
+Open [http://localhost:3000](http://localhost:3000). On first launch you will be redirected to the setup wizard to create the initial admin account and configure the app.
 
-To learn more about Next.js, take a look at the following resources:
+### Seed Data (optional)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run seed
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+app/
+  (auth)/         # Login page
+  (dashboard)/    # All protected pages (POS, inventory, orders, reports, …)
+  api/            # Route handlers
+lib/
+  db/             # Mongoose models and connection
+  middleware/     # withAuth / withPermission HOFs
+  services/       # Business logic (one file per domain)
+  utils/          # apiResponse, pagination, formatting helpers
+  validations/    # Zod schemas
+components/
+  pos/            # ProductGrid, CartPanel, CheckoutModal
+  ui/             # shadcn/ui components
+store/            # Zustand stores (cart)
+types/            # Shared TypeScript types
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Role Permissions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Role | Access |
+|---|---|
+| `ADMIN` | Full system access |
+| `ORG_ADMIN` | Scoped to their organization's branches, users, inventory, and orders |
+| `BRANCH_MANAGER` | Manage branch users, inventory, and orders |
+| `INVENTORY_MANAGER` | View and update inventory and products |
+| `STAFF` | POS checkout only |
+
+## API Overview
+
+All API routes live under `/api/` and are protected by `withAuth`. Routes that mutate data or access sensitive resources additionally require `withPermission("<permission-key>")`.
+
+Key permission keys: `manage:users`, `manage:branches`, `manage:products`, `manage:inventory`, `manage:orders`, `manage:members`, `use:pos`, `view:reports`.
+
+## Security Notes
+
+- Passwords are hashed with bcrypt (12 rounds)
+- JWT sessions — no server-side session storage
+- All list endpoints cap `limit` at 100 to prevent DoS
+- Security headers (CSP, HSTS, X-Frame-Options, etc.) set globally in `next.config.ts`
+- Setup endpoint is one-time and atomically guarded against concurrent runs
