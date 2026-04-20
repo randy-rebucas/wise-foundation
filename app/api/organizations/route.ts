@@ -10,8 +10,12 @@ const VALID_TYPES: OrganizationType[] = ["distributor", "franchise", "partner", 
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
-    const type = searchParams.get("type") as OrganizationType | null;
-    const organizations = await getOrganizations(type ?? undefined);
+    const rawType = searchParams.get("type");
+    const type: OrganizationType | undefined =
+      rawType && VALID_TYPES.includes(rawType as OrganizationType)
+        ? (rawType as OrganizationType)
+        : undefined;
+    const organizations = await getOrganizations(type);
     return successResponse(organizations);
   } catch {
     return serverErrorResponse();

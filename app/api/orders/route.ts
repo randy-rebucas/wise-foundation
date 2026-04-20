@@ -4,6 +4,7 @@ import { processCheckout } from "@/lib/services/pos.service";
 import { getOrders } from "@/lib/services/order.service";
 import { checkoutSchema } from "@/lib/validations/order.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -13,8 +14,7 @@ const getHandler = async (req: AuthedRequest) => {
     const status = searchParams.get("status") ?? undefined;
     const type = searchParams.get("type") ?? undefined;
     const memberId = searchParams.get("memberId") ?? undefined;
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "20");
+    const { page, limit } = parsePagination(searchParams);
 
     const organizationId =
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;

@@ -7,14 +7,14 @@ import {
   errorResponse,
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
+import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { ProductCategory } from "@/types";
 
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "20");
+    const { page, limit } = parsePagination(searchParams);
     const category = searchParams.get("category") as ProductCategory | null;
     const search = searchParams.get("search") ?? undefined;
     const isActive = searchParams.get("isActive");

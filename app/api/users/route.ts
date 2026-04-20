@@ -3,6 +3,7 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { getUsers, createUser } from "@/lib/services/user.service";
 import { createUserSchema } from "@/lib/validations/user.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const ORG_ADMIN_ALLOWED_ROLES = ["BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER"];
@@ -12,8 +13,7 @@ const getHandler = async (req: AuthedRequest) => {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") ?? undefined;
     const role = searchParams.get("role") ?? undefined;
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "20");
+    const { page, limit } = parsePagination(searchParams);
 
     const organizationId =
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;

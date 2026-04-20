@@ -18,7 +18,8 @@
       "Bash(node -e ' *)",
       "Bash(node -e \"console.log\\(require\\('c:/Users/corew/wise/node_modules/next-auth/package.json'\\).version\\)\")",
       "Bash(ls \"c:\\\\Users\\\\corew\\\\wise\\\\app\\\\api\\\\branches\\\\[id]\\\\\\\\\")",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(git -C /c/Users/corew/wise log --oneline -10)"
     ]
   }
 }

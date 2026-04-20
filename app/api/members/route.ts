@@ -3,6 +3,7 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { getMembers, createMember } from "@/lib/services/member.service";
 import { createMemberSchema } from "@/lib/validations/member.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -11,8 +12,7 @@ const getHandler = async (req: AuthedRequest) => {
     const search = searchParams.get("search") ?? undefined;
     const status = searchParams.get("status") ?? undefined;
     const branchId = searchParams.get("branchId") ?? undefined;
-    const page = parseInt(searchParams.get("page") ?? "1");
-    const limit = parseInt(searchParams.get("limit") ?? "20");
+    const { page, limit } = parsePagination(searchParams);
 
     const organizationId =
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;

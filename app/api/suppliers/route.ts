@@ -1,6 +1,7 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getSuppliers, createSupplier } from "@/lib/services/supplier.service";
+import { createSupplierSchema } from "@/lib/validations/supplier.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
@@ -16,8 +17,9 @@ const getHandler = async (req: AuthedRequest) => {
 const postHandler = async (req: AuthedRequest) => {
   try {
     const body = await req.json();
-    if (!body.name?.trim()) return errorResponse("Supplier name is required");
-    const supplier = await createSupplier(body);
+    const parsed = createSupplierSchema.safeParse(body);
+    if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
+    const supplier = await createSupplier(parsed.data);
     return successResponse(supplier, "Supplier created", 201);
   } catch {
     return serverErrorResponse();

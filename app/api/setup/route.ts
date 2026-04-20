@@ -40,11 +40,6 @@ const setupSchema = z.object({
 export async function POST(req: Request) {
   await connectDB();
 
-  const existing = await AppSettings.findOne().lean();
-  if (existing?.setupCompleted) {
-    return NextResponse.json({ success: false, error: "Setup already completed" }, { status: 400 });
-  }
-
   const body = await req.json();
   const parsed = setupSchema.safeParse(body);
   if (!parsed.success) {
@@ -52,6 +47,20 @@ export async function POST(req: Request) {
   }
 
   const { appName, currency, timezone, adminName, adminEmail, adminPassword } = parsed.data;
+
+  // Atomically claim setup using rawResult to distinguish "upsert created" from "filter not matched".
+  // If setupCompleted is already true, the filter won't match → lastErrorObject has neither
+  // updatedExisting nor upserted, meaning another request already completed setup.
+  const rawResult = await AppSettings.findOneAndUpdate(
+    { setupCompleted: { $ne: true } },
+    { $set: { appName, currency, timezone, setupCompleted: true } },
+    { upsert: true, new: false, rawResult: true }
+  );
+
+  const claimed = rawResult.lastErrorObject?.updatedExisting || rawResult.lastErrorObject?.upserted;
+  if (!claimed) {
+    return NextResponse.json({ success: false, error: "Setup already completed" }, { status: 400 });
+  }
 
   const existingAdmin = await User.findOne({ role: "ADMIN", deletedAt: null }).lean();
   if (existingAdmin) {
@@ -74,12 +83,6 @@ export async function POST(req: Request) {
     branchIds: [],
     isActive: true,
   });
-
-  await AppSettings.findOneAndUpdate(
-    {},
-    { appName, currency, timezone, setupCompleted: true },
-    { upsert: true, new: true }
-  );
 
   const response = NextResponse.json({ success: true });
   // Set a long-lived cookie so middleware knows setup is done without a DB call

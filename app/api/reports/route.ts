@@ -19,7 +19,7 @@ const getHandler = async (req: AuthedRequest) => {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") ?? "summary";
     const branchId = searchParams.get("branchId") ?? undefined;
-    const days = parseInt(searchParams.get("days") ?? "30");
+    const days = Math.min(Math.max(parseInt(searchParams.get("days") ?? "30") || 30, 1), 365);
 
     const organizationId =
       req.user.role === "ORG_ADMIN"
