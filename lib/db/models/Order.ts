@@ -23,6 +23,11 @@ export interface IOrder extends Document {
   approvedAt?: Date | null;
   paidAt?: Date | null;
   completedAt?: Date | null;
+  /** Recorded when status becomes `delivered` (delivery receipt). */
+  deliveryReceiptNumber?: string;
+  receivedByName?: string;
+  deliveredAt?: Date | null;
+  deliveredBy?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -44,7 +49,7 @@ const OrderSchema = new Schema<IOrder>(
     status: {
       type: String,
       required: true,
-      enum: ["pending", "approved", "paid", "completed", "cancelled", "refunded"] as OrderStatus[],
+      enum: ["pending", "approved", "paid", "delivered", "completed", "cancelled", "refunded"] as OrderStatus[],
       default: "pending",
     },
     memberId: { type: Schema.Types.ObjectId, ref: "Member", default: null },
@@ -65,6 +70,10 @@ const OrderSchema = new Schema<IOrder>(
     approvedAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
+    deliveryReceiptNumber: { type: String },
+    receivedByName: { type: String },
+    deliveredAt: { type: Date, default: null },
+    deliveredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

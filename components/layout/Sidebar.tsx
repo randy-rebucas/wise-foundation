@@ -130,12 +130,16 @@ export function Sidebar({ initialUser }: SidebarProps) {
     <aside className="flex flex-col w-64 min-h-screen bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-        <div className="p-2 bg-sidebar-primary rounded-lg">
-          <ShoppingBag className="h-5 w-5 text-sidebar-primary-foreground" />
+        <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
+          <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--wise-navy))" }} />
         </div>
         <div>
-          <p className="font-bold text-sm">Livelihood</p>
-          <p className="text-xs text-sidebar-accent-foreground opacity-70">POS System</p>
+          <p className="font-bold text-sm tracking-wide" style={{ color: "hsl(var(--wise-gold))" }}>
+            WISE
+          </p>
+          <p className="text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase">
+            Women in the Service
+          </p>
         </div>
       </div>
 

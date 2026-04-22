@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -24,7 +24,19 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, Loader2, Package, Search, Layers, X } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+  Package,
+  Search,
+  Layers,
+  X,
+  Download,
+  Upload,
+  FileSpreadsheet,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
@@ -118,6 +130,10 @@ const CATEGORY_COLORS: Record<ProductCategory, string> = {
   scent: "bg-purple-100 text-purple-800",
 };
 
+const CSV_TEMPLATE =
+  "sku,name,description,category,barcode,retailprice,memberprice,distributorprice,cost,isactive,tags\r\n" +
+  "EX-SKU-001,Example Product,,homecare,,12.99,10.99,8.5,5,true,demo\r\n";
+
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -135,6 +151,14 @@ export default function ProductsPage() {
   const [editVariantId, setEditVariantId] = useState<string | null>(null);
   const [variantForm, setVariantForm] = useState<VariantForm>(defaultVariantForm);
   const [variantError, setVariantError] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importSummary, setImportSummary] = useState<{
+    created: number;
+    updated: number;
+    errors: { row: number; sku?: string; message: string }[];
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products", activeCategory, search],
@@ -288,6 +312,86 @@ export default function ProductsPage() {
     setFormError("");
   }
 
+  async function handleExportCsv() {
+    try {
+      const res = await fetch("/api/products/export");
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error ?? `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition");
+      const m = cd?.match(/filename="([^"]+)"/);
+      const filename = m?.[1] ?? "products-export.csv";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Products exported", description: filename });
+    } catch (e) {
+      toast({
+        title: "Export failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function downloadTemplate() {
+    const blob = new Blob(["\uFEFF", CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "products-import-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Template downloaded" });
+  }
+
+  function openImportDialog() {
+    setImportSummary(null);
+    setImportOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleImportFile(file: File) {
+    setImportBusy(true);
+    setImportSummary(null);
+    try {
+      const csv = await file.text();
+      const res = await fetch("/api/products/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Import failed");
+      const result = data.data as {
+        created: number;
+        updated: number;
+        errors: { row: number; sku?: string; message: string }[];
+      };
+      setImportSummary(result);
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({
+        title: "Import complete",
+        description: `Created ${result.created}, updated ${result.updated}${
+          result.errors.length ? `, ${result.errors.length} row(s) skipped` : ""
+        }.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Import failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   function openEdit(product: Product) {
     setForm({
       name: product.name,
@@ -410,10 +514,24 @@ export default function ProductsPage() {
             />
           </div>
           <RoleGuard requiredPermissions={["manage:products"]}>
-            <Button onClick={() => { resetForm(); setOpen(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={handleExportCsv}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Template
+              </Button>
+              <Button variant="outline" size="sm" onClick={openImportDialog}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import CSV
+              </Button>
+              <Button onClick={() => { resetForm(); setOpen(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
           </RoleGuard>
         </div>
 
@@ -436,6 +554,74 @@ export default function ProductsPage() {
           emptyMessage="No products found."
         />
       </div>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import products (CSV)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p>
+              Required columns:{" "}
+              <span className="font-mono text-xs text-foreground">
+                sku, name, category, retailprice, memberprice, distributorprice, cost
+              </span>
+              . Optional: description, barcode, isactive (true/false), tags (separate with{" "}
+              <code className="text-xs">;</code>).
+            </p>
+            <p className="text-foreground">
+              Rows with an existing SKU update that product; new SKUs create rows. Product variants are not
+              imported here.
+            </p>
+            <div className="space-y-2">
+              <Label className="text-foreground">CSV file</Label>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                disabled={importBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleImportFile(f);
+                }}
+              />
+              {importBusy && (
+                <div className="flex items-center gap-2 text-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Importing…
+                </div>
+              )}
+            </div>
+            {importSummary && importSummary.errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  <p className="font-medium mb-2 text-foreground">Skipped rows</p>
+                  <ul className="max-h-44 overflow-y-auto space-y-1 text-xs">
+                    {importSummary.errors.map((err, idx) => (
+                      <li key={`${err.row}-${idx}`}>
+                        <span className="font-mono">Row {err.row}</span>
+                        {err.sku ? ` (${err.sku})` : ""}: {err.message}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+            {importSummary && importSummary.errors.length === 0 && (importSummary.created > 0 || importSummary.updated > 0) && (
+              <Alert>
+                <AlertDescription>
+                  Created {importSummary.created}, updated {importSummary.updated}. No row errors.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Variants Dialog */}
       <Dialog open={!!variantsProduct} onOpenChange={(o) => !o && setVariantsProduct(null)}>

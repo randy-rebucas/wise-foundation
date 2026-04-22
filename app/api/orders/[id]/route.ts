@@ -41,12 +41,38 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     if (!body.status) return errorResponse("Status is required");
 
-    const validStatuses: OrderStatus[] = ["pending", "approved", "paid", "completed", "cancelled", "refunded"];
+    const validStatuses: OrderStatus[] = [
+      "pending",
+      "approved",
+      "paid",
+      "delivered",
+      "completed",
+      "cancelled",
+      "refunded",
+    ];
     if (!validStatuses.includes(body.status)) {
       return errorResponse(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
     }
 
-    const order = await updateOrderStatus(id, body.status, req.user.id);
+    if (body.status === "delivered") {
+      const num = body.deliveryReceiptNumber;
+      if (typeof num !== "string" || !num.trim()) {
+        return errorResponse("deliveryReceiptNumber is required when status is delivered");
+      }
+    }
+
+    const delivery =
+      body.status === "delivered"
+        ? {
+            deliveryReceiptNumber: String(body.deliveryReceiptNumber).trim(),
+            receivedByName:
+              typeof body.receivedByName === "string" && body.receivedByName.trim()
+                ? body.receivedByName.trim()
+                : undefined,
+          }
+        : undefined;
+
+    const order = await updateOrderStatus(id, body.status, req.user.id, delivery);
     if (!order) return notFoundResponse("Order not found");
     return successResponse(order, "Order updated");
   } catch (error) {

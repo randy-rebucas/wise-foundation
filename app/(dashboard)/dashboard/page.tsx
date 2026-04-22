@@ -17,6 +17,7 @@ import { Order } from "@/lib/db/models/Order";
 import { Member } from "@/lib/db/models/Member";
 import { Inventory } from "@/lib/db/models/Inventory";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ORDER_PAID_STATUSES } from "@/types";
 
 async function getDashboardStats() {
   await connectDB();
@@ -30,7 +31,7 @@ async function getDashboardStats() {
       Order.aggregate([
         {
           $match: {
-            status: { $in: ["paid", "completed"] },
+            status: { $in: [...ORDER_PAID_STATUSES] },
             createdAt: { $gte: startOfDay },
           },
         },
@@ -39,7 +40,7 @@ async function getDashboardStats() {
       Order.aggregate([
         {
           $match: {
-            status: { $in: ["paid", "completed"] },
+            status: { $in: [...ORDER_PAID_STATUSES] },
             createdAt: { $gte: startOfMonth },
           },
         },
@@ -129,6 +130,8 @@ export default async function DashboardPage() {
                           variant={
                             order.status === "completed"
                               ? "success"
+                              : order.status === "delivered"
+                              ? "default"
                               : order.status === "paid"
                               ? "default"
                               : order.status === "cancelled"

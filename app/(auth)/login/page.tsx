@@ -49,14 +49,21 @@ function LoginForm() {
   return (
     <Card className="border-0 shadow-2xl">
       <CardHeader className="space-y-1 pb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="p-2 bg-primary rounded-lg">
-            <ShoppingBag className="h-5 w-5 text-white" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
+            <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--wise-navy))" }} />
           </div>
-          <span className="font-bold text-lg">Wise Livelihood Platform</span>
+          <div>
+            <p className="font-bold text-lg tracking-wide leading-none" style={{ color: "hsl(var(--wise-blue))" }}>
+              WISE
+            </p>
+            <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
+              Women in the Service for Everyone
+            </p>
+          </div>
         </div>
-        <CardTitle className="text-2xl font-bold">Distributor Portal</CardTitle>
-        <CardDescription>Sign in with your authorized distributor account</CardDescription>
+        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+        <CardDescription>Sign in with your authorized account</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

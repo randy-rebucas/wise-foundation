@@ -27,6 +27,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ORDER_PAID_STATUSES } from "@/types";
 import Link from "next/link";
 
 // ── shared types ─────────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   pending: "warning",
   approved: "default",
   paid: "default",
+  delivered: "default",
   completed: "success",
   cancelled: "destructive",
   refunded: "secondary",
@@ -280,7 +282,7 @@ function FranchisePanel({ org }: { org: OrgData }) {
 
   const orders = ordersData?.orders ?? [];
   const paidRevenue = orders
-    .filter((o) => ["paid", "completed"].includes(o.status))
+    .filter((o) => (ORDER_PAID_STATUSES as readonly string[]).includes(o.status))
     .reduce((s, o) => s + o.total, 0);
   const pendingCount = orders.filter((o) => ["pending", "approved"].includes(o.status)).length;
 

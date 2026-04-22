@@ -21,6 +21,7 @@ import { Commission } from "@/lib/db/models/Commission";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { Organization } from "@/lib/db/models/Organization";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ORDER_PAID_STATUSES } from "@/types";
 import mongoose from "mongoose";
 import Link from "next/link";
 
@@ -59,11 +60,11 @@ async function getOrgDashboardStats(organizationId: string) {
   ] = await Promise.all([
     Organization.findById(organizationId).lean(),
     Order.aggregate([
-      { $match: { ...sellerMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfDay }, deletedAt: null } },
+      { $match: { ...sellerMatch, status: { $in: [...ORDER_PAID_STATUSES] }, createdAt: { $gte: startOfDay }, deletedAt: null } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.aggregate([
-      { $match: { ...sellerMatch, status: { $in: ["paid", "completed"] }, createdAt: { $gte: startOfMonth }, deletedAt: null } },
+      { $match: { ...sellerMatch, status: { $in: [...ORDER_PAID_STATUSES] }, createdAt: { $gte: startOfMonth }, deletedAt: null } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.countDocuments({ ...orgMatch, status: { $in: ["pending", "approved"] }, deletedAt: null }),
@@ -114,6 +115,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   pending: "warning",
   approved: "default",
   paid: "default",
+  delivered: "default",
   completed: "success",
   cancelled: "destructive",
   refunded: "secondary",

@@ -8,6 +8,7 @@ import { Branch } from "@/lib/db/models/Branch";
 import { Organization } from "@/lib/db/models/Organization";
 import { Commission } from "@/lib/db/models/Commission";
 import mongoose from "mongoose";
+import { ORDER_PAID_STATUSES } from "@/types";
 
 // ─── Branch Reports ──────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ export async function getSalesSummary(branchId?: string, days = 30) {
   startDate.setHours(0, 0, 0, 0);
 
   const matchStage: Record<string, unknown> = {
-    status: { $in: ["paid", "completed"] },
+    status: { $in: [...ORDER_PAID_STATUSES] },
     createdAt: { $gte: startDate },
     deletedAt: null,
   };
@@ -104,7 +105,7 @@ export async function getBranchPerformance() {
     Order.aggregate([
       {
         $match: {
-          status: { $in: ["paid", "completed"] },
+          status: { $in: [...ORDER_PAID_STATUSES] },
           createdAt: { $gte: startOfMonth },
           deletedAt: null,
           branchId: { $ne: null },
@@ -174,7 +175,7 @@ export async function getOrgSalesSummary(organizationId?: string, days = 30) {
     : {};
 
   const matchStage: Record<string, unknown> = {
-    status: { $in: ["paid", "completed"] },
+    status: { $in: [...ORDER_PAID_STATUSES] },
     createdAt: { $gte: startDate },
     deletedAt: null,
     ...orgMatch,
@@ -231,7 +232,7 @@ export async function getTopOrganizations(days = 30) {
   startDate.setHours(0, 0, 0, 0);
 
   const matchBase = {
-    status: { $in: ["paid", "completed"] },
+    status: { $in: [...ORDER_PAID_STATUSES] },
     createdAt: { $gte: startDate },
     deletedAt: null,
   };
@@ -314,7 +315,7 @@ export async function getDistributionSummary(days = 30) {
   };
 
   const matchBase = {
-    status: { $in: ["paid", "completed"] },
+    status: { $in: [...ORDER_PAID_STATUSES] },
     createdAt: { $gte: startDate },
     deletedAt: null,
   };

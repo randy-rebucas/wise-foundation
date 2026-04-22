@@ -8,6 +8,11 @@ import mongoose from "mongoose";
 import type { ClientSession } from "mongoose";
 import type { OrderStatus } from "@/types";
 
+export interface OrderDeliveryPayload {
+  deliveryReceiptNumber: string;
+  receivedByName?: string;
+}
+
 interface OrderFilter {
   status?: string;
   type?: string;
@@ -19,7 +24,8 @@ interface OrderFilter {
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ["approved", "cancelled"],
   approved: ["paid", "cancelled"],
-  paid: ["completed", "refunded"],
+  paid: ["delivered", "completed", "refunded"],
+  delivered: ["completed"],
   completed: [],
   cancelled: [],
   refunded: [],
@@ -87,6 +93,7 @@ export async function getOrderById(orderId: string) {
   await connectDB();
   const order = await Order.findOne({ _id: orderId, deletedAt: null })
     .populate("cashierId", "name")
+    .populate("deliveredBy", "name")
     .populate("memberId", "name memberId")
     .populate("buyerOrganizationId", "name type")
     .populate("sellerOrganizationId", "name type")
@@ -104,7 +111,8 @@ export async function getOrderById(orderId: string) {
 export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
-  userId: string
+  userId: string,
+  delivery?: OrderDeliveryPayload
 ) {
   await connectDB();
 
@@ -116,10 +124,25 @@ export async function updateOrderStatus(
     throw new Error(`Cannot transition from "${order.status}" to "${newStatus}"`);
   }
 
+  if (newStatus === "delivered") {
+    const receipt = delivery?.deliveryReceiptNumber?.trim();
+    if (!receipt) {
+      throw new Error("Delivery receipt number is required to mark an order as delivered");
+    }
+  }
+
   const updates: Record<string, unknown> = { status: newStatus };
   if (newStatus === "approved") updates.approvedAt = new Date();
   if (newStatus === "paid") updates.paidAt = new Date();
   if (newStatus === "completed") updates.completedAt = new Date();
+  if (newStatus === "delivered") {
+    const receipt = delivery!.deliveryReceiptNumber.trim();
+    updates.deliveredAt = new Date();
+    updates.deliveryReceiptNumber = receipt;
+    updates.deliveredBy = new mongoose.Types.ObjectId(userId);
+    const receiver = delivery?.receivedByName?.trim();
+    updates.receivedByName = receiver || null;
+  }
 
   // B2B orders: transfer inventory from seller to buyer when payment is confirmed
   if (newStatus === "paid" && order.type === "B2B" && order.sellerOrganizationId && order.buyerOrganizationId) {

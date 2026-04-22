@@ -16,7 +16,17 @@ export type StockMovementType = "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT";
 
 export type OrderType = "POS" | "DISTRIBUTOR" | "B2B";
 
-export type OrderStatus = "pending" | "approved" | "paid" | "completed" | "cancelled" | "refunded";
+export type OrderStatus =
+  | "pending"
+  | "approved"
+  | "paid"
+  | "delivered"
+  | "completed"
+  | "cancelled"
+  | "refunded";
+
+/** Payment captured; includes fulfilled-but-not-closed orders. */
+export const ORDER_PAID_STATUSES: readonly OrderStatus[] = ["paid", "delivered", "completed"];
 
 export type MemberStatus = "active" | "inactive" | "suspended";
 

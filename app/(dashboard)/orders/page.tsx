@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -34,8 +34,10 @@ import {
   CheckCircle,
   Plus,
   Trash2,
+  Truck,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { ORDER_PAID_STATUSES } from "@/types";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
 interface Organization {
@@ -52,7 +54,7 @@ interface Order {
   _id: string;
   orderNumber: string;
   type: "POS" | "DISTRIBUTOR" | "B2B";
-  status: "pending" | "approved" | "paid" | "completed" | "cancelled" | "refunded";
+  status: "pending" | "approved" | "paid" | "delivered" | "completed" | "cancelled" | "refunded";
   memberName?: string;
   cashierId: { name: string };
   buyerOrganizationId?: { _id: string; name: string; type: string } | null;
@@ -65,6 +67,10 @@ interface Order {
 }
 
 interface OrderDetail extends Order {
+  deliveryReceiptNumber?: string;
+  receivedByName?: string;
+  deliveredAt?: string;
+  deliveredBy?: { name: string } | null;
   items: {
     _id: string;
     productName: string;
@@ -109,6 +115,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   pending: "warning",
   approved: "default",
   paid: "default",
+  delivered: "default",
   completed: "success",
   cancelled: "destructive",
   refunded: "secondary",
@@ -134,6 +141,10 @@ export default function OrdersPage() {
   const [b2bOpen, setB2bOpen] = useState(false);
   const [b2bForm, setB2bForm] = useState<B2BForm>(defaultB2BForm);
   const [b2bError, setB2bError] = useState("");
+  const [deliveryForId, setDeliveryForId] = useState<string | null>(null);
+  const [deliveryReceipt, setDeliveryReceipt] = useState("");
+  const [deliveryReceivedBy, setDeliveryReceivedBy] = useState("");
+  const [deliveryError, setDeliveryError] = useState("");
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["orders", branchId, statusFilter, page],
@@ -164,17 +175,56 @@ export default function OrdersPage() {
   const approvedCount = result?.meta?.approvedCount ?? 0;
 
   const statusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+    mutationFn: async ({
+      id,
+      status,
+      delivery,
+    }: {
+      id: string;
+      status: string;
+      delivery?: { deliveryReceiptNumber: string; receivedByName?: string };
+    }) => {
+      const body: Record<string, unknown> = { status };
+      if (delivery) {
+        body.deliveryReceiptNumber = delivery.deliveryReceiptNumber;
+        if (delivery.receivedByName) body.receivedByName = delivery.receivedByName;
+      }
       const res = await fetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["orders"] }),
   });
+
+  async function submitDelivery(e: FormEvent) {
+    e.preventDefault();
+    setDeliveryError("");
+    if (!deliveryForId) return;
+    const receipt = deliveryReceipt.trim();
+    if (!receipt) {
+      setDeliveryError("Delivery receipt number is required.");
+      return;
+    }
+    try {
+      await statusMutation.mutateAsync({
+        id: deliveryForId,
+        status: "delivered",
+        delivery: {
+          deliveryReceiptNumber: receipt,
+          receivedByName: deliveryReceivedBy.trim() || undefined,
+        },
+      });
+      setDeliveryForId(null);
+      setDeliveryReceipt("");
+      setDeliveryReceivedBy("");
+    } catch (err) {
+      setDeliveryError(err instanceof Error ? err.message : "Could not record delivery.");
+    }
+  }
 
   const b2bMutation = useMutation({
     mutationFn: async (payload: B2BForm) => {
@@ -312,6 +362,32 @@ export default function OrdersPage() {
                 </Select>
               )}
               {o.status === "paid" && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => {
+                      setDeliveryReceipt("");
+                      setDeliveryReceivedBy("");
+                      setDeliveryError("");
+                      setDeliveryForId(o._id);
+                    }}
+                  >
+                    <Truck className="h-3 w-3 mr-0.5" />
+                    Deliver
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => statusMutation.mutate({ id: o._id, status: "completed" })}
+                  >
+                    Complete
+                  </Button>
+                </div>
+              )}
+              {o.status === "delivered" && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -350,9 +426,13 @@ export default function OrdersPage() {
           />
           <StatCard
             title="Revenue"
-            value={formatCurrency(orders.filter((o) => ["paid", "completed"].includes(o.status)).reduce((s, o) => s + o.total, 0))}
+            value={formatCurrency(
+              orders
+                .filter((o) => (ORDER_PAID_STATUSES as readonly string[]).includes(o.status))
+                .reduce((s, o) => s + o.total, 0)
+            )}
             icon={DollarSign}
-            description="Paid orders (this page)"
+            description="Paid / delivered / completed (this page)"
             iconClassName="bg-green-100"
           />
           <StatCard
@@ -378,13 +458,14 @@ export default function OrdersPage() {
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="approved">Approved</TabsTrigger>
               <TabsTrigger value="paid">Paid</TabsTrigger>
+              <TabsTrigger value="delivered">Delivered</TabsTrigger>
               <TabsTrigger value="completed">Completed</TabsTrigger>
               <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
             </TabsList>
           </Tabs>
           <RoleGuard requiredPermissions={["manage:orders"]}>
             <Button size="sm" onClick={() => { setB2bForm(defaultB2BForm); setB2bError(""); setB2bOpen(true); }}>
-              <Plus className="h-4 w-4 mr-1" /> B2B Order
+              <Plus className="h-4 w-4 mr-1" /> Create Order
             </Button>
           </RoleGuard>
         </div>
@@ -496,8 +577,88 @@ export default function OrdersPage() {
                   Notes: {selectedOrder.notes}
                 </p>
               )}
+
+              {(selectedOrder.deliveryReceiptNumber || selectedOrder.deliveredAt) && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+                  <p className="font-medium text-foreground">Delivery receipt</p>
+                  {selectedOrder.deliveryReceiptNumber && (
+                    <p>
+                      <span className="text-muted-foreground">Receipt # </span>
+                      <span className="font-mono font-medium">{selectedOrder.deliveryReceiptNumber}</span>
+                    </p>
+                  )}
+                  {selectedOrder.receivedByName && (
+                    <p>
+                      <span className="text-muted-foreground">Received by </span>
+                      {selectedOrder.receivedByName}
+                    </p>
+                  )}
+                  {selectedOrder.deliveredAt && (
+                    <p>
+                      <span className="text-muted-foreground">Delivered </span>
+                      {formatDateTime(selectedOrder.deliveredAt)}
+                      {selectedOrder.deliveredBy?.name && (
+                        <span className="text-muted-foreground"> · {selectedOrder.deliveredBy.name}</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deliveryForId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeliveryForId(null);
+            setDeliveryError("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Record delivery
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitDelivery} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter the delivery receipt reference shown on the signed delivery document.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="delivery-receipt">Receipt number</Label>
+              <Input
+                id="delivery-receipt"
+                value={deliveryReceipt}
+                onChange={(e) => setDeliveryReceipt(e.target.value)}
+                placeholder="e.g. DR-2026-0042"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="delivery-received-by">Received by (optional)</Label>
+              <Input
+                id="delivery-received-by"
+                value={deliveryReceivedBy}
+                onChange={(e) => setDeliveryReceivedBy(e.target.value)}
+                placeholder="Signatory or contact name"
+                autoComplete="name"
+              />
+            </div>
+            {deliveryError && <p className="text-sm text-destructive">{deliveryError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDeliveryForId(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={statusMutation.isPending}>
+                {statusMutation.isPending ? "Saving…" : "Mark delivered"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
