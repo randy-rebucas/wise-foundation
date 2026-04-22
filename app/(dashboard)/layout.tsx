@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 
 const BLOCKED_ROLES = ["MEMBER"];
 
@@ -28,11 +28,8 @@ export default async function DashboardLayout({ children }: Props) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar initialUser={sidebarUser} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </div>
+    <DashboardShell initialUser={sidebarUser}>
+      {children}
+    </DashboardShell>
   );
 }

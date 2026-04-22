@@ -502,8 +502,8 @@ export default function ProductsPage() {
   return (
     <div className="flex flex-col">
       <Header title="Products" subtitle="Manage your product catalog" />
-      <div className="flex-1 p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+      <div className="flex-1 space-y-4 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -535,16 +535,20 @@ export default function ProductsPage() {
           </RoleGuard>
         </div>
 
-        <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            {CATEGORIES.map((c) => (
-              <TabsTrigger key={c.value} value={c.value}>
-                {c.label}
+        <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+            <TabsList className="inline-flex h-auto w-max min-w-full flex-wrap justify-start gap-1 p-1 sm:h-10 sm:w-auto sm:flex-nowrap">
+              <TabsTrigger value="all" className="text-xs sm:text-sm">
+                All
               </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+              {CATEGORIES.map((c) => (
+                <TabsTrigger key={c.value} value={c.value} className="text-xs sm:text-sm">
+                  {c.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
 
         <DataTable
           columns={columns}
@@ -563,7 +567,7 @@ export default function ProductsPage() {
           <div className="space-y-4 text-sm text-muted-foreground">
             <p>
               Required columns:{" "}
-              <span className="font-mono text-xs text-foreground">
+              <span className="break-all font-mono text-xs text-foreground">
                 sku, name, category, retailprice, memberprice, distributorprice, cost
               </span>
               . Optional: description, barcode, isactive (true/false), tags (separate with{" "}
@@ -627,7 +631,9 @@ export default function ProductsPage() {
       <Dialog open={!!variantsProduct} onOpenChange={(o) => !o && setVariantsProduct(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Variants — {variantsProduct?.name}</DialogTitle>
+            <DialogTitle className="min-w-0 truncate pr-8">
+              Variants — {variantsProduct?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2 max-h-[68vh] overflow-y-auto pr-1">
             <RoleGuard requiredPermissions={["manage:products"]}>
@@ -657,7 +663,7 @@ export default function ProductsPage() {
                     <AlertDescription>{variantError}</AlertDescription>
                   </Alert>
                 )}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label className="text-xs">Variant Name *</Label>
                     <Input
@@ -711,7 +717,7 @@ export default function ProductsPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {(
                     [
                       { key: "cost", label: "Cost" },
@@ -768,9 +774,9 @@ export default function ProductsPage() {
                 {variants.map((v) => (
                   <div
                     key={v._id}
-                    className="border rounded-lg px-4 py-3 flex items-start justify-between gap-3"
+                    className="flex flex-col gap-3 border rounded-lg px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium">{v.name}</p>
                         <span className="text-xs text-muted-foreground">{v.sku}</span>
@@ -794,7 +800,7 @@ export default function ProductsPage() {
                       </p>
                     </div>
                     <RoleGuard requiredPermissions={["manage:products"]}>
-                      <div className="flex gap-1">
+                      <div className="flex shrink-0 justify-end gap-1 sm:justify-start">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -840,8 +846,8 @@ export default function ProductsPage() {
               </Alert>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
                 <Label>Product Name *</Label>
                 <Input
                   value={form.name}
@@ -900,7 +906,7 @@ export default function ProductsPage() {
             {/* Pricing */}
             <div>
               <p className="text-sm font-semibold text-muted-foreground mb-3">Pricing</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {[
                   { key: "cost", label: "Cost Price" },
                   { key: "retailPrice", label: "Retail Price" },

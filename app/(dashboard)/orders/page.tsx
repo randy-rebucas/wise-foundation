@@ -300,14 +300,14 @@ export default function OrdersPage() {
       key: "customer",
       label: "Customer / Org",
       render: (o: Order) => (
-        <div className="text-sm">
+        <div className="max-w-[10rem] text-sm sm:max-w-[14rem] md:max-w-none">
           {o.type === "B2B" ? (
-            <div>
-              <p className="font-medium">{o.buyerOrganizationId?.name ?? "—"}</p>
-              <p className="text-xs text-muted-foreground">from {o.sellerOrganizationId?.name ?? "—"}</p>
+            <div className="min-w-0">
+              <p className="truncate font-medium">{o.buyerOrganizationId?.name ?? "—"}</p>
+              <p className="truncate text-xs text-muted-foreground">from {o.sellerOrganizationId?.name ?? "—"}</p>
             </div>
           ) : (
-            <span>{o.memberName ?? <span className="text-muted-foreground">Walk-in</span>}</span>
+            <span className="line-clamp-2">{o.memberName ?? <span className="text-muted-foreground">Walk-in</span>}</span>
           )}
         </div>
       ),
@@ -335,13 +335,13 @@ export default function OrdersPage() {
       key: "status",
       label: "Status",
       render: (o: Order) => (
-        <div className="flex items-center gap-2">
-          <Badge variant={STATUS_BADGE[o.status] ?? "secondary"}>{o.status}</Badge>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Badge variant={STATUS_BADGE[o.status] ?? "secondary"} className="w-fit">{o.status}</Badge>
           {canManageOrders && (
             <>
               {o.status === "pending" && (
                 <Select onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}>
-                  <SelectTrigger className="h-6 w-28 text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs sm:h-6 sm:w-28">
                     <SelectValue placeholder="Update" />
                   </SelectTrigger>
                   <SelectContent>
@@ -352,7 +352,7 @@ export default function OrdersPage() {
               )}
               {o.status === "approved" && (
                 <Select onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}>
-                  <SelectTrigger className="h-6 w-24 text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs sm:h-6 sm:w-24">
                     <SelectValue placeholder="Update" />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,11 +362,11 @@ export default function OrdersPage() {
                 </Select>
               )}
               {o.status === "paid" && (
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs"
+                    className="h-8 flex-1 text-xs sm:h-6 sm:flex-none"
                     onClick={() => {
                       setDeliveryReceipt("");
                       setDeliveryReceivedBy("");
@@ -380,7 +380,7 @@ export default function OrdersPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs"
+                    className="h-8 flex-1 text-xs sm:h-6 sm:flex-none"
                     onClick={() => statusMutation.mutate({ id: o._id, status: "completed" })}
                   >
                     Complete
@@ -391,7 +391,7 @@ export default function OrdersPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 text-xs"
+                  className="h-8 w-full text-xs sm:h-6 sm:w-auto"
                   onClick={() => statusMutation.mutate({ id: o._id, status: "completed" })}
                 >
                   Complete
@@ -416,8 +416,8 @@ export default function OrdersPage() {
   return (
     <div className="flex flex-col">
       <Header title="Orders" subtitle="Manage sales and order history" />
-      <div className="flex-1 p-6 space-y-6">
-        <div className="grid gap-4 md:grid-cols-4">
+      <div className="flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <StatCard
             title="Total Orders"
             value={total}
@@ -451,20 +451,22 @@ export default function OrdersPage() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="paid">Paid</TabsTrigger>
-              <TabsTrigger value="delivered">Delivered</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+            <Tabs value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+              <TabsList className="inline-flex h-auto w-max min-w-full flex-wrap justify-start gap-1 p-1 sm:h-10 sm:w-auto sm:flex-nowrap">
+                <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+                <TabsTrigger value="pending" className="text-xs sm:text-sm">Pending</TabsTrigger>
+                <TabsTrigger value="approved" className="text-xs sm:text-sm">Approved</TabsTrigger>
+                <TabsTrigger value="paid" className="text-xs sm:text-sm">Paid</TabsTrigger>
+                <TabsTrigger value="delivered" className="text-xs sm:text-sm">Delivered</TabsTrigger>
+                <TabsTrigger value="completed" className="text-xs sm:text-sm">Completed</TabsTrigger>
+                <TabsTrigger value="cancelled" className="text-xs sm:text-sm">Cancelled</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <RoleGuard requiredPermissions={["manage:orders"]}>
-            <Button size="sm" onClick={() => { setB2bForm(defaultB2BForm); setB2bError(""); setB2bOpen(true); }}>
+            <Button size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => { setB2bForm(defaultB2BForm); setB2bError(""); setB2bOpen(true); }}>
               <Plus className="h-4 w-4 mr-1" /> Create Order
             </Button>
           </RoleGuard>
@@ -486,14 +488,14 @@ export default function OrdersPage() {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
+            <DialogTitle className="flex flex-wrap items-center gap-2 break-all">
+              <ClipboardList className="h-5 w-5 shrink-0" />
               Order {selectedOrder?.orderNumber}
             </DialogTitle>
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-2">
                 {selectedOrder.type === "B2B" ? (
                   <>
                     <div>
@@ -669,7 +671,7 @@ export default function OrdersPage() {
             <DialogTitle>Create B2B Order</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Seller Organization</Label>
                 <Select
@@ -712,7 +714,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Payment Method</Label>
                 <Select
@@ -751,8 +753,11 @@ export default function OrdersPage() {
                 </Button>
               </div>
               {b2bForm.items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-end border rounded p-2">
-                  <div className="col-span-4 space-y-1">
+                <div
+                  key={idx}
+                  className="flex flex-col gap-2 border rounded p-2 sm:grid sm:grid-cols-12 sm:items-end sm:gap-2"
+                >
+                  <div className="space-y-1 sm:col-span-4">
                     <Label className="text-xs">Product Name</Label>
                     <Input
                       placeholder="Product name"
@@ -760,7 +765,7 @@ export default function OrdersPage() {
                       onChange={(e) => updateB2BItem(idx, "productName", e.target.value)}
                     />
                   </div>
-                  <div className="col-span-2 space-y-1">
+                  <div className="space-y-1 sm:col-span-2">
                     <Label className="text-xs">SKU</Label>
                     <Input
                       placeholder="SKU"
@@ -768,7 +773,7 @@ export default function OrdersPage() {
                       onChange={(e) => updateB2BItem(idx, "sku", e.target.value)}
                     />
                   </div>
-                  <div className="col-span-2 space-y-1">
+                  <div className="space-y-1 sm:col-span-2">
                     <Label className="text-xs">Qty</Label>
                     <Input
                       type="number"
@@ -777,7 +782,7 @@ export default function OrdersPage() {
                       onChange={(e) => updateB2BItem(idx, "quantity", Number(e.target.value))}
                     />
                   </div>
-                  <div className="col-span-3 space-y-1">
+                  <div className="space-y-1 sm:col-span-3">
                     <Label className="text-xs">Unit Price</Label>
                     <Input
                       type="number"
@@ -787,7 +792,7 @@ export default function OrdersPage() {
                       onChange={(e) => updateB2BItem(idx, "unitPrice", Number(e.target.value))}
                     />
                   </div>
-                  <div className="col-span-1 flex justify-end">
+                  <div className="flex justify-end sm:col-span-1 sm:justify-end">
                     <Button
                       type="button"
                       variant="ghost"

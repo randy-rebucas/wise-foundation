@@ -71,8 +71,8 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col">
       <Header title="Dashboard" subtitle={`Welcome back, ${session!.user.name}`} />
-      <div className="flex-1 p-6 space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <StatCard
             title="Today's Sales"
             value={formatCurrency(stats.todaySales)}
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

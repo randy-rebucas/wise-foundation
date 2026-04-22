@@ -42,7 +42,7 @@ export function DataTable<T>({
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
-        <Table>
+        <Table className="min-w-[52rem]">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (
@@ -83,11 +83,11 @@ export function DataTable<T>({
       </div>
 
       {totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </p>
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2 sm:justify-start">
             <Button
               variant="outline"
               size="sm"

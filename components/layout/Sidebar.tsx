@@ -60,7 +60,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 
-interface SidebarUser {
+export interface SidebarUser {
   id?: string;
   name?: string | null;
   email?: string | null;
@@ -70,9 +70,11 @@ interface SidebarUser {
 
 interface SidebarProps {
   initialUser: SidebarUser;
+  className?: string;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ initialUser }: SidebarProps) {
+export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
@@ -109,7 +111,7 @@ export function Sidebar({ initialUser }: SidebarProps) {
   function NavLink({ item }: { item: NavItem }) {
     const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
     return (
-      <Link href={item.path}>
+      <Link href={item.path} onClick={() => onNavigate?.()}>
         <span
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -127,7 +129,12 @@ export function Sidebar({ initialUser }: SidebarProps) {
   }
 
   return (
-    <aside className="flex flex-col w-64 min-h-screen bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border">
+    <aside
+      className={cn(
+        "flex min-h-0 flex-col w-64 max-w-[85vw] bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border",
+        className
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
         <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
@@ -143,7 +150,7 @@ export function Sidebar({ initialUser }: SidebarProps) {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-3 py-4">
+      <ScrollArea className="min-h-0 flex-1 px-3 py-4">
         {/* Main Navigation */}
         <nav className="space-y-1">
           <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
