@@ -4,6 +4,13 @@ import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 
+/** Mongoose cannot cast "" to ObjectId; treat blank as null. */
+function toOrganizationIdRef(id: string | null | undefined): string | null {
+  if (id === undefined || id === null) return null;
+  const t = String(id).trim();
+  return t === "" ? null : t;
+}
+
 export async function getUsers(search?: string, role?: string, page = 1, limit = 20, organizationId?: string) {
   await connectDB();
   const skip = (page - 1) * limit;
@@ -55,7 +62,7 @@ export async function createUser(data: CreateUserInput) {
     role: data.role,
     permissions,
     branchIds: data.branchIds,
-    organizationId: data.organizationId ?? null,
+    organizationId: toOrganizationIdRef(data.organizationId),
     phone: data.phone,
     isActive: true,
   });
@@ -72,6 +79,12 @@ export async function updateUser(userId: string, data: UpdateUserInput) {
   if (existing.role === "ADMIN") throw new Error("The admin account cannot be modified");
 
   const update: Record<string, unknown> = { ...data };
+
+  if (Object.prototype.hasOwnProperty.call(data, "organizationId")) {
+    update.organizationId = toOrganizationIdRef(
+      data.organizationId as string | null | undefined
+    );
+  }
 
   if (data.role) {
     update.permissions = DEFAULT_ROLE_PERMISSIONS[data.role] ?? [];
