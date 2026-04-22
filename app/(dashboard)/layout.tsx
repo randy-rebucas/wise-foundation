@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 
 const BLOCKED_ROLES = ["MEMBER"];
@@ -13,6 +14,11 @@ export default async function DashboardLayout({ children }: Props) {
 
   if (!session?.user) {
     redirect("/login");
+  }
+
+  // Ensure no access if maintenance is enabled
+  if (isMaintenanceMode()) {
+    redirect("/maintenance");
   }
 
   if (BLOCKED_ROLES.includes(session.user.role)) {
