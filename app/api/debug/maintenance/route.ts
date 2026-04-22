@@ -1,23 +1,19 @@
 import { auth } from '@/auth';
-import { apiResponse } from '@/lib/utils/apiResponse';
-import { isMaintenanceMode, MAINTENANCE_BYPASS_ROLES } from '@/lib/utils/maintenance';
+import { successResponse } from '@/lib/utils/apiResponse';
+import { isMaintenanceMode } from '@/lib/utils/maintenance';
 
 export const GET = auth(async (req) => {
-  const session = req.auth;
-  
-  return apiResponse(200, {
+  return successResponse({
     maintenanceActive: isMaintenanceMode(),
     maintenanceEnvValue: process.env.MAINTENANCE_MODE,
-    bypassRoles: MAINTENANCE_BYPASS_ROLES,
     sessionUser: {
-      id: session?.user?.id,
-      name: session?.user?.name,
-      email: session?.user?.email,
-      role: session?.user?.role,
+      id: req.auth?.user?.id,
+      name: req.auth?.user?.name,
+      email: req.auth?.user?.email,
+      role: req.auth?.user?.role,
     },
-    isAdminBypassAllowed: session?.user?.role ? MAINTENANCE_BYPASS_ROLES.includes(session.user.role) : false,
     message: isMaintenanceMode() 
-      ? `Maintenance active. User role: ${session?.user?.role}. Can bypass: ${session?.user?.role ? MAINTENANCE_BYPASS_ROLES.includes(session.user.role) : false}`
+      ? `Maintenance active. User: ${req.auth?.user?.name} (${req.auth?.user?.role})`
       : 'System running normally',
   });
 });
