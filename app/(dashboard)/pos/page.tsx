@@ -153,7 +153,7 @@ export default function POSPage() {
             )}
           </div>
         </div>
-        <ProductGrid products={products} isMember={isMember} />
+        <ProductGrid products={products} isMember={isMember} branchId={branchId} />
       </div>
 
       {/* Cart Panel */}

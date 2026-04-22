@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Package, ShoppingCart } from "lucide-react";
+import { Search, Package, ShoppingCart, Loader2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { formatCurrency } from "@/lib/utils";
 import type { ProductCategory } from "@/types";
@@ -38,9 +39,19 @@ interface POSProduct {
   variants: POSVariant[];
 }
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 interface ProductGridProps {
   products: POSProduct[];
   isMember: boolean;
+  branchId: string;
 }
 
 const CATEGORY_FILTERS = [
@@ -51,11 +62,31 @@ const CATEGORY_FILTERS = [
   { value: "scent", label: "Scents" },
 ];
 
-export function ProductGrid({ products, isMember }: ProductGridProps) {
+export function ProductGrid({ products, isMember, branchId }: ProductGridProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [variantProduct, setVariantProduct] = useState<POSProduct | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const { addItem, items } = useCartStore();
+
+  const debouncedSearch = useDebouncedValue(search.trim(), 280);
+  const { data: searchHits = [], isFetching: posSearchLoading } = useQuery({
+    queryKey: ["pos-product-suggest", branchId, debouncedSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        branchId,
+        search: debouncedSearch,
+      });
+      const res = await fetch(`/api/products/pos?${params}`);
+      const data = await res.json();
+      return (data.data ?? []) as POSProduct[];
+    },
+    enabled: !!branchId && debouncedSearch.length >= 2,
+    staleTime: 15_000,
+  });
+
+  const showSuggestDropdown =
+    searchFocused && !!branchId && debouncedSearch.length >= 2;
 
   const filtered = products.filter((p) => {
     const matchesSearch =
@@ -73,6 +104,12 @@ export function ProductGrid({ products, isMember }: ProductGridProps) {
     } else {
       addBaseToCart(product);
     }
+  }
+
+  function selectFromSuggest(product: POSProduct) {
+    handleProductClick(product);
+    setSearch("");
+    setSearchFocused(false);
   }
 
   function addBaseToCart(product: POSProduct) {
@@ -117,16 +154,65 @@ export function ProductGrid({ products, isMember }: ProductGridProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search + filter */}
-      <div className="p-4 border-b space-y-3">
+      {/* Search + filter — z-index keeps suggest dropdown above the scrollable grid */}
+      <div className="relative z-30 border-b space-y-3 bg-background p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products or scan barcode..."
             value={search}
+            autoComplete="off"
             onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => {
+              window.setTimeout(() => setSearchFocused(false), 180);
+            }}
             className="pl-9"
           />
+          {showSuggestDropdown && (
+            <div
+              className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+              role="listbox"
+            >
+              {posSearchLoading ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Searching…
+                </div>
+              ) : searchHits.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-muted-foreground">No products match this branch.</p>
+              ) : (
+                searchHits.map((p) => {
+                  const hasVariants = p.variants.length > 0;
+                  const totalStock = hasVariants
+                    ? p.variants.reduce((s, v) => s + v.stock, 0)
+                    : p.stock;
+                  const out = totalStock === 0;
+                  const price = isMember ? p.memberPrice : p.retailPrice;
+                  return (
+                    <button
+                      key={p._id}
+                      type="button"
+                      role="option"
+                      disabled={out}
+                      className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => !out && selectFromSuggest(p)}
+                    >
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {p.sku}
+                        {" · "}
+                        {hasVariants ? `${p.variants.length} variants` : `${p.stock} in stock`}
+                        {" · "}
+                        {hasVariants ? `from ${formatCurrency(price)}` : formatCurrency(price)}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
         <Tabs value={category} onValueChange={setCategory}>
           <TabsList className="w-full">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -33,6 +33,7 @@ import {
   Clock,
   CheckCircle,
   PackageCheck,
+  Loader2,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import Link from "next/link";
@@ -45,11 +46,12 @@ interface Organization {
   type: OrganizationType;
 }
 
-interface Product {
+interface ProductHit {
   _id: string;
   name: string;
   sku: string;
   retailPrice: number;
+  cost: number;
 }
 
 interface POItem {
@@ -58,6 +60,15 @@ interface POItem {
   sku: string;
   quantity: number;
   unitCost: number;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 interface PurchaseOrder {
@@ -101,6 +112,28 @@ export default function PurchaseOrdersPage() {
   const [poItems, setPOItems] = useState<POItem[]>([
     { productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 },
   ]);
+  const [poSuggestRow, setPoSuggestRow] = useState<number | null>(null);
+
+  const poSuggestQuery =
+    poSuggestRow !== null ? (poItems[poSuggestRow]?.productName ?? "").trim() : "";
+  const debouncedPOSuggestQuery = useDebouncedValue(poSuggestQuery, 280);
+
+  const { data: poProductHits = [], isFetching: poProductsLoading } = useQuery({
+    queryKey: ["purchase-order-product-search", debouncedPOSuggestQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "30",
+        search: debouncedPOSuggestQuery,
+        isActive: "true",
+      });
+      const res = await fetch(`/api/products?${params}`);
+      const j = await res.json();
+      if (!j.success) return [];
+      return (j.data ?? []) as ProductHit[];
+    },
+    enabled: createOpen && debouncedPOSuggestQuery.length >= 2,
+  });
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["purchase-orders", statusFilter, page],
@@ -112,27 +145,18 @@ export default function PurchaseOrdersPage() {
     },
   });
 
-  const { data: orgsResult } = useQuery({
+  const { data: organizations = [] } = useQuery({
     queryKey: ["organizations"],
     queryFn: async () => {
       const res = await fetch("/api/organizations");
-      return res.json();
+      const json = await res.json();
+      const raw = json?.data;
+      return Array.isArray(raw) ? raw : [];
     },
-  });
-
-  const { data: productsResult } = useQuery({
-    queryKey: ["products-list"],
-    queryFn: async () => {
-      const res = await fetch("/api/products?limit=200");
-      return res.json();
-    },
-    enabled: createOpen,
   });
 
   const orders: PurchaseOrder[] = result?.data ?? [];
   const total = result?.meta?.total ?? 0;
-  const organizations: Organization[] = orgsResult?.data ?? [];
-  const products: Product[] = productsResult?.data ?? [];
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -174,19 +198,25 @@ export default function PurchaseOrdersPage() {
     setSelectedOrgId("");
     setPONotes("");
     setExpectedDate("");
+    setPoSuggestRow(null);
     setPOItems([{ productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 }]);
   }
 
-  function setItemProduct(index: number, productId: string) {
-    const product = products.find((p) => p._id === productId);
-    if (!product) return;
+  function patchPOItem(index: number, patch: Partial<POItem>) {
     setPOItems((prev) =>
-      prev.map((item, i) =>
-        i === index
-          ? { ...item, productId, productName: product.name, sku: product.sku, unitCost: product.retailPrice }
-          : item
-      )
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item))
     );
+  }
+
+  function selectPOProduct(index: number, p: ProductHit) {
+    const unitCost = p.cost > 0 ? p.cost : p.retailPrice;
+    patchPOItem(index, {
+      productId: p._id,
+      productName: p.name,
+      sku: p.sku,
+      unitCost,
+    });
+    setPoSuggestRow(null);
   }
 
   function updateItem(index: number, field: keyof POItem, value: string | number) {
@@ -296,7 +326,12 @@ export default function PurchaseOrdersPage() {
       <Header title="Purchase Orders" subtitle="Manage orders from distributors, franchises, and partners" />
       <div className="flex-1 p-6 space-y-6">
         <div className="flex justify-end">
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button
+            onClick={() => {
+              setPoSuggestRow(null);
+              setCreateOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             New PO
           </Button>
@@ -333,8 +368,17 @@ export default function PurchaseOrdersPage() {
       </div>
 
       {/* Create PO Dialog */}
-      <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={createOpen}
+        onOpenChange={(v) => {
+          setCreateOpen(v);
+          if (!v) {
+            setPoSuggestRow(null);
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl overflow-y-visible sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5" />
@@ -342,7 +386,7 @@ export default function PurchaseOrdersPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1 sm:max-h-[min(75vh,40rem)]">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Organization</Label>
@@ -383,23 +427,58 @@ export default function PurchaseOrdersPage() {
                 {poItems.map((item, index) => (
                   <div key={index} className="p-3 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
+                      <div className="relative">
                         <Label className="text-xs">Product</Label>
-                        <Select
-                          value={item.productId}
-                          onValueChange={(v) => setItemProduct(index, v)}
-                        >
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((p) => (
-                              <SelectItem key={p._id} value={p._id}>
-                                {p.name} ({p.sku})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Input
+                          className="h-8 text-sm"
+                          placeholder="Type to search catalog…"
+                          value={item.productName}
+                          autoComplete="off"
+                          onFocus={() => setPoSuggestRow(index)}
+                          onChange={(e) => {
+                            updateItem(index, "productName", e.target.value);
+                            setPoSuggestRow(index);
+                            if (e.target.value.trim() === "") {
+                              patchPOItem(index, { productId: "" });
+                            }
+                          }}
+                          onBlur={() => {
+                            window.setTimeout(() => {
+                              setPoSuggestRow((cur) => (cur === index ? null : cur));
+                            }, 180);
+                          }}
+                        />
+                        {poSuggestRow === index && poSuggestQuery.length >= 2 && (
+                          <div
+                            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+                            role="listbox"
+                          >
+                            {poProductsLoading ? (
+                              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Searching…
+                              </div>
+                            ) : poProductHits.length === 0 ? (
+                              <p className="px-3 py-3 text-sm text-muted-foreground">No matching products.</p>
+                            ) : (
+                              poProductHits.map((p) => (
+                                <button
+                                  key={p._id}
+                                  type="button"
+                                  role="option"
+                                  className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => selectPOProduct(index, p)}
+                                >
+                                  <span className="font-medium">{p.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {p.sku} · {formatCurrency(p.cost > 0 ? p.cost : p.retailPrice)}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-1">
                         <div>
@@ -413,7 +492,7 @@ export default function PurchaseOrdersPage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Unit Price</Label>
+                          <Label className="text-xs">Unit cost</Label>
                           <Input
                             type="number"
                             min={0}

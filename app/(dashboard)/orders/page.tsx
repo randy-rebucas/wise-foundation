@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -35,6 +35,7 @@ import {
   Plus,
   Trash2,
   Truck,
+  Loader2,
 } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { ORDER_PAID_STATUSES } from "@/types";
@@ -127,6 +128,24 @@ const TYPE_BADGE_CLASS: Record<string, string> = {
   B2B: "bg-orange-100 text-orange-800",
 };
 
+interface ProductHit {
+  _id: string;
+  name: string;
+  sku: string;
+  retailPrice: number;
+  memberPrice: number;
+  distributorPrice: number;
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export default function OrdersPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -145,6 +164,28 @@ export default function OrdersPage() {
   const [deliveryReceipt, setDeliveryReceipt] = useState("");
   const [deliveryReceivedBy, setDeliveryReceivedBy] = useState("");
   const [deliveryError, setDeliveryError] = useState("");
+  const [b2bSuggestRow, setB2bSuggestRow] = useState<number | null>(null);
+
+  const b2bSuggestQuery =
+    b2bSuggestRow !== null ? (b2bForm.items[b2bSuggestRow]?.productName ?? "").trim() : "";
+  const debouncedB2bSuggestQuery = useDebouncedValue(b2bSuggestQuery, 280);
+
+  const { data: b2bProductHits = [], isFetching: b2bProductsLoading } = useQuery({
+    queryKey: ["products-b2b-autocomplete", debouncedB2bSuggestQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "30",
+        search: debouncedB2bSuggestQuery,
+        isActive: "true",
+      });
+      const res = await fetch(`/api/products?${params}`);
+      const j = await res.json();
+      if (!j.success) return [];
+      return (j.data ?? []) as ProductHit[];
+    },
+    enabled: b2bOpen && debouncedB2bSuggestQuery.length >= 2,
+  });
 
   const { data: result, isLoading } = useQuery({
     queryKey: ["orders", branchId, statusFilter, page],
@@ -242,6 +283,7 @@ export default function OrdersPage() {
       setB2bOpen(false);
       setB2bForm(defaultB2BForm);
       setB2bError("");
+      setB2bSuggestRow(null);
     },
     onError: (err: Error) => setB2bError(err.message),
   });
@@ -261,6 +303,25 @@ export default function OrdersPage() {
       items[idx] = { ...items[idx], [field]: value };
       return { ...prev, items };
     });
+  }
+
+  function patchB2BItem(idx: number, patch: Partial<B2BItem>) {
+    setB2bForm((prev) => {
+      const items = [...prev.items];
+      items[idx] = { ...items[idx], ...patch };
+      return { ...prev, items };
+    });
+  }
+
+  function selectB2BProduct(idx: number, p: ProductHit) {
+    patchB2BItem(idx, {
+      productId: p._id,
+      productName: p.name,
+      sku: p.sku,
+      variantId: undefined,
+      unitPrice: p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice,
+    });
+    setB2bSuggestRow(null);
   }
 
   function addB2BItem() {
@@ -466,7 +527,16 @@ export default function OrdersPage() {
             </Tabs>
           </div>
           <RoleGuard requiredPermissions={["manage:orders"]}>
-            <Button size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => { setB2bForm(defaultB2BForm); setB2bError(""); setB2bOpen(true); }}>
+            <Button
+              size="sm"
+              className="w-full shrink-0 sm:w-auto"
+              onClick={() => {
+                setB2bForm(defaultB2BForm);
+                setB2bError("");
+                setB2bSuggestRow(null);
+                setB2bOpen(true);
+              }}
+            >
               <Plus className="h-4 w-4 mr-1" /> Create Order
             </Button>
           </RoleGuard>
@@ -665,12 +735,18 @@ export default function OrdersPage() {
       </Dialog>
 
       {/* B2B Order Dialog */}
-      <Dialog open={b2bOpen} onOpenChange={setB2bOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={b2bOpen}
+        onOpenChange={(open) => {
+          setB2bOpen(open);
+          if (!open) setB2bSuggestRow(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl overflow-y-visible sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create B2B Order</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1 sm:max-h-[min(75vh,40rem)]">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Seller Organization</Label>
@@ -757,13 +833,57 @@ export default function OrdersPage() {
                   key={idx}
                   className="flex flex-col gap-2 border rounded p-2 sm:grid sm:grid-cols-12 sm:items-end sm:gap-2"
                 >
-                  <div className="space-y-1 sm:col-span-4">
+                  <div className="relative space-y-1 sm:col-span-4">
                     <Label className="text-xs">Product Name</Label>
                     <Input
-                      placeholder="Product name"
+                      placeholder="Type to search catalog…"
                       value={item.productName}
-                      onChange={(e) => updateB2BItem(idx, "productName", e.target.value)}
+                      autoComplete="off"
+                      onFocus={() => setB2bSuggestRow(idx)}
+                      onChange={(e) => {
+                        updateB2BItem(idx, "productName", e.target.value);
+                        setB2bSuggestRow(idx);
+                        if (e.target.value.trim() === "") {
+                          patchB2BItem(idx, { productId: "", variantId: undefined });
+                        }
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(() => {
+                          setB2bSuggestRow((cur) => (cur === idx ? null : cur));
+                        }, 180);
+                      }}
                     />
+                    {b2bSuggestRow === idx && b2bSuggestQuery.length >= 2 && (
+                      <div
+                        className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
+                        role="listbox"
+                      >
+                        {b2bProductsLoading ? (
+                          <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Searching…
+                          </div>
+                        ) : b2bProductHits.length === 0 ? (
+                          <p className="px-3 py-3 text-sm text-muted-foreground">No matching products.</p>
+                        ) : (
+                          b2bProductHits.map((p) => (
+                            <button
+                              key={p._id}
+                              type="button"
+                              role="option"
+                              className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectB2BProduct(idx, p)}
+                            >
+                              <span className="font-medium">{p.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {p.sku} · {formatCurrency(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1 sm:col-span-2">
                     <Label className="text-xs">SKU</Label>
