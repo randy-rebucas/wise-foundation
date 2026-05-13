@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
+import { getDefaultLowStockThreshold } from "@/lib/services/appSettings.service";
 import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
 import { PurchaseOrderItem } from "@/lib/db/models/PurchaseOrderItem";
 import { Inventory } from "@/lib/db/models/Inventory";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
-import type { PurchaseOrderStatus } from "@/types";
+import type { PurchaseOrderStatus, SessionUser } from "@/types";
 import type {
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
@@ -18,7 +19,35 @@ async function generatePONumber(): Promise<string> {
   return `PO-${pad}`;
 }
 
+function refEntityId(field: unknown): string | null {
+  if (field == null) return null;
+  if (typeof field === "object" && field !== null && "_id" in field) {
+    return String((field as { _id: unknown })._id);
+  }
+  if (typeof field === "object" && field !== null && "toString" in field) {
+    return (field as { toString(): string }).toString();
+  }
+  return String(field);
+}
+
+/** Whether the user may read or mutate this purchase order (org- or branch-scoped). */
+export function canUserAccessPurchaseOrder(
+  po: { organizationId?: unknown; branchId?: unknown },
+  user: SessionUser
+): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.role === "ORG_ADMIN") {
+    const oid = user.organizationId;
+    if (!oid) return false;
+    return refEntityId(po.organizationId) === String(oid);
+  }
+  const bid = refEntityId(po.branchId);
+  if (!bid) return false;
+  return (user.branchIds ?? []).map(String).includes(bid);
+}
+
 export async function getPurchaseOrders(
+  user: SessionUser,
   branchId?: string,
   status?: string,
   page = 1,
@@ -28,9 +57,27 @@ export async function getPurchaseOrders(
   await connectDB();
 
   const query: Record<string, unknown> = { deletedAt: null };
-  if (branchId) query.branchId = branchId;
-  if (organizationId) query.organizationId = organizationId;
   if (status) query.status = status;
+
+  if (user.role === "ADMIN") {
+    if (branchId) query.branchId = branchId;
+    if (organizationId) query.organizationId = organizationId;
+  } else if (user.role === "ORG_ADMIN" && user.organizationId) {
+    query.organizationId = user.organizationId;
+  } else {
+    const bids = (user.branchIds ?? []).map(String).filter(Boolean);
+    if (bids.length === 0) {
+      return { orders: [], total: 0, pages: 0 };
+    }
+    if (branchId) {
+      if (!bids.includes(branchId)) {
+        return { orders: [], total: 0, pages: 0 };
+      }
+      query.branchId = branchId;
+    } else {
+      query.branchId = { $in: bids };
+    }
+  }
 
   const skip = (page - 1) * limit;
   const [orders, total] = await Promise.all([
@@ -66,6 +113,13 @@ export async function getPurchaseOrderById(poId: string) {
     .lean();
 
   return { ...po, items };
+}
+
+export async function getPurchaseOrderByIdForUser(poId: string, user: SessionUser) {
+  const po = await getPurchaseOrderById(poId);
+  if (!po) return null;
+  if (!canUserAccessPurchaseOrder(po, user)) return null;
+  return po;
 }
 
 export async function createPurchaseOrder(userId: string, input: CreatePurchaseOrderInput) {
@@ -177,6 +231,7 @@ export async function receivePurchaseOrder(
   input: ReceivePurchaseOrderInput
 ) {
   await connectDB();
+  const defaultLowStockThreshold = await getDefaultLowStockThreshold();
   const session = await mongoose.startSession();
 
   try {
@@ -233,7 +288,7 @@ export async function receivePurchaseOrder(
           ...inventoryFilter,
           quantity: 0,
           reservedQuantity: 0,
-          lowStockThreshold: 10,
+          lowStockThreshold: defaultLowStockThreshold,
         });
       }
 

@@ -35,10 +35,12 @@ import {
   PackageCheck,
   Loader2,
 } from "lucide-react";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
-type OrganizationType = "distributor" | "franchise" | "partner";
+type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
 interface Organization {
   _id: string;
@@ -100,7 +102,10 @@ const STATUS_NEXT: Record<string, { label: string; value: string } | null> = {
 };
 
 export default function PurchaseOrdersPage() {
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -118,7 +123,12 @@ export default function PurchaseOrdersPage() {
     poSuggestRow !== null ? (poItems[poSuggestRow]?.productName ?? "").trim() : "";
   const debouncedPOSuggestQuery = useDebouncedValue(poSuggestQuery, 280);
 
-  const { data: poProductHits = [], isFetching: poProductsLoading } = useQuery({
+  const {
+    data: poProductHits = [],
+    isFetching: poProductsLoading,
+    isError: isProductSearchError,
+    error: productSearchError,
+  } = useQuery({
     queryKey: ["purchase-order-product-search", debouncedPOSuggestQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -129,34 +139,46 @@ export default function PurchaseOrdersPage() {
       });
       const res = await fetch(`/api/products?${params}`);
       const j = await res.json();
-      if (!j.success) return [];
-      return (j.data ?? []) as ProductHit[];
+      if (!j.success) throw new Error(j.error ?? `Product search failed (${res.status})`);
+      const raw = j.data;
+      return Array.isArray(raw) ? (raw as ProductHit[]) : [];
     },
     enabled: createOpen && debouncedPOSuggestQuery.length >= 2,
   });
 
-  const { data: result, isLoading } = useQuery({
+  const {
+    data: listResult,
+    isLoading,
+    isError: isListError,
+    error: listError,
+  } = useQuery({
     queryKey: ["purchase-orders", statusFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/purchase-orders?${params}`);
-      return res.json();
-    },
-  });
-
-  const { data: organizations = [] } = useQuery({
-    queryKey: ["organizations"],
-    queryFn: async () => {
-      const res = await fetch("/api/organizations");
       const json = await res.json();
-      const raw = json?.data;
-      return Array.isArray(raw) ? raw : [];
+      if (!json.success) throw new Error(json.error ?? `Failed to load purchase orders (${res.status})`);
+      return json as { data: PurchaseOrder[]; meta?: { total: number } };
     },
   });
 
-  const orders: PurchaseOrder[] = result?.data ?? [];
-  const total = result?.meta?.total ?? 0;
+  const {
+    data: organizations = [],
+    isError: isOrgsError,
+    error: orgsError,
+  } = useQuery({
+    queryKey: ["organizations-for-purchase-orders"],
+    queryFn: async () => {
+      const res = await fetch("/api/organizations/for-purchase-orders");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
+      return (json.data ?? []) as Organization[];
+    },
+  });
+
+  const orders: PurchaseOrder[] = listResult?.data ?? [];
+  const total = listResult?.meta?.total ?? 0;
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -166,9 +188,10 @@ export default function PurchaseOrdersPage() {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
+    onError: (err: Error) => toast({ variant: "destructive", title: "Status update failed", description: err.message }),
   });
 
   const createMutation = useMutation({
@@ -184,7 +207,7 @@ export default function PurchaseOrdersPage() {
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Create failed (${res.status})`);
       return data;
     },
     onSuccess: () => {
@@ -192,6 +215,7 @@ export default function PurchaseOrdersPage() {
       setCreateOpen(false);
       resetForm();
     },
+    onError: (err: Error) => toast({ variant: "destructive", title: "Could not create PO", description: err.message }),
   });
 
   function resetForm() {
@@ -250,7 +274,7 @@ export default function PurchaseOrdersPage() {
       render: (o: PurchaseOrder) => (
         <div>
           <p className="font-mono font-medium text-sm">{o.poNumber}</p>
-          <p className="text-xs text-muted-foreground">{formatDateTime(o.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
     },
@@ -271,7 +295,7 @@ export default function PurchaseOrdersPage() {
       key: "total",
       label: "Total",
       render: (o: PurchaseOrder) => (
-        <span className="font-semibold">{formatCurrency(o.total)}</span>
+        <span className="font-semibold">{money(o.total)}</span>
       ),
     },
     {
@@ -325,6 +349,13 @@ export default function PurchaseOrdersPage() {
     <div className="flex flex-col">
       <Header title="Purchase Orders" subtitle="Manage orders from distributors, franchises, and partners" />
       <div className="flex-1 p-6 space-y-6">
+        {isListError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {listError instanceof Error ? listError.message : "Unable to load purchase orders."}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex justify-end">
           <Button
             onClick={() => {
@@ -387,6 +418,13 @@ export default function PurchaseOrdersPage() {
           </DialogHeader>
 
           <div className="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1 sm:max-h-[min(75vh,40rem)]">
+            {isOrgsError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {orgsError instanceof Error ? orgsError.message : "Unable to load organizations."}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Organization</Label>
@@ -458,6 +496,12 @@ export default function PurchaseOrdersPage() {
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Searching…
                               </div>
+                            ) : isProductSearchError ? (
+                              <p className="px-3 py-3 text-sm text-destructive">
+                                {productSearchError instanceof Error
+                                  ? productSearchError.message
+                                  : "Product search failed."}
+                              </p>
                             ) : poProductHits.length === 0 ? (
                               <p className="px-3 py-3 text-sm text-muted-foreground">No matching products.</p>
                             ) : (
@@ -472,7 +516,7 @@ export default function PurchaseOrdersPage() {
                                 >
                                   <span className="font-medium">{p.name}</span>
                                   <span className="text-xs text-muted-foreground">
-                                    {p.sku} · {formatCurrency(p.cost > 0 ? p.cost : p.retailPrice)}
+                                    {p.sku} · {money(p.cost > 0 ? p.cost : p.retailPrice)}
                                   </span>
                                 </button>
                               ))
@@ -506,7 +550,7 @@ export default function PurchaseOrdersPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
-                        Subtotal: {formatCurrency(item.quantity * item.unitCost)}
+                        Subtotal: {money(item.quantity * item.unitCost)}
                       </span>
                       {poItems.length > 1 && (
                         <Button
@@ -524,7 +568,7 @@ export default function PurchaseOrdersPage() {
               </div>
 
               <div className="flex justify-end text-sm font-semibold">
-                Total: {formatCurrency(itemsTotal)}
+                Total: {money(itemsTotal)}
               </div>
             </div>
 

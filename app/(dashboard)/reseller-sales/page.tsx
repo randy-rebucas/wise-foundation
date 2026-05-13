@@ -26,7 +26,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Plus, Loader2, X, CheckCircle, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 type PaymentMethod = "cash" | "gcash" | "card" | "bank_transfer" | "credit";
@@ -97,6 +97,7 @@ const defaultSaleItem: SaleItem = {
 };
 
 export default function ResellerSalesPage() {
+  const money = useFormatCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,38 +115,41 @@ export default function ResellerSalesPage() {
     productSuggestRow !== null ? (saleItems[productSuggestRow]?.productName ?? "").trim() : "";
   const debouncedProductSuggest = useDebouncedValue(productSuggestQuery, 280);
 
-  const { data: organizationsRaw } = useQuery({
-    queryKey: ["organizations"],
+  const {
+    data: organizations = [],
+    isError: isOrgsError,
+    error: orgsError,
+  } = useQuery({
+    queryKey: ["organizations-for-orders"],
     queryFn: async () => {
-      const res = await fetch("/api/organizations");
+      const res = await fetch("/api/organizations/for-orders");
       const json = await res.json();
-      const raw = json?.data;
-      return Array.isArray(raw) ? (raw as Organization[]) : [];
+      if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
+      return (json.data ?? []) as Organization[];
     },
   });
 
-  /** Same query key as other pages; cache may briefly hold a full API envelope instead of an array. */
-  const organizations: Organization[] = (() => {
-    const x = organizationsRaw as unknown;
-    if (Array.isArray(x)) return x as Organization[];
-    if (x && typeof x === "object" && "data" in x) {
-      const inner = (x as { data: unknown }).data;
-      if (Array.isArray(inner)) return inner as Organization[];
-    }
-    return [];
-  })();
-
-  const { data: orgInventory = [] } = useQuery<OrgInventoryItem[]>({
+  const {
+    data: orgInventory = [],
+    isError: isInventoryError,
+    error: inventoryError,
+  } = useQuery<OrgInventoryItem[]>({
     queryKey: ["org-inventory-sale", selectedOrg],
     queryFn: async () => {
       const res = await fetch(`/api/organization-inventory?organizationId=${selectedOrg}`);
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load inventory (${res.status})`);
+      return (data.data ?? []) as OrgInventoryItem[];
     },
     enabled: !!selectedOrg,
   });
 
-  const { data: resellerProductHitsRaw = [], isFetching: resellerProductsLoading } = useQuery({
+  const {
+    data: resellerProductHitsRaw = [],
+    isFetching: resellerProductsLoading,
+    isError: isProductSearchError,
+    error: productSearchError,
+  } = useQuery({
     queryKey: ["reseller-product-search", debouncedProductSuggest, selectedOrg],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -156,7 +160,8 @@ export default function ResellerSalesPage() {
       });
       const res = await fetch(`/api/products?${params}`);
       const json = await res.json();
-      const raw = json?.data;
+      if (!json.success) throw new Error(json.error ?? `Product search failed (${res.status})`);
+      const raw = json.data;
       return Array.isArray(raw) ? (raw as ProductHit[]) : [];
     },
     enabled: saleOpen && !!selectedOrg && debouncedProductSuggest.length >= 2,
@@ -172,11 +177,12 @@ export default function ResellerSalesPage() {
     [resellerProductHitsRaw, orgInventoryProductIds]
   );
 
-  const { data: resellerOrdersData, isLoading } = useQuery({
+  const { data: resellerOrdersData, isLoading, isError, error } = useQuery({
     queryKey: ["reseller-orders"],
     queryFn: async () => {
       const res = await fetch("/api/orders?type=DISTRIBUTOR&limit=50");
       const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Failed to load sales (${res.status})`);
       return (data.data ?? []) as ResellerOrder[];
     },
   });
@@ -203,7 +209,7 @@ export default function ResellerSalesPage() {
         }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Failed to record sale (${res.status})`);
       return data.data as SaleResult;
     },
     onSuccess: (result) => {
@@ -289,7 +295,7 @@ export default function ResellerSalesPage() {
       key: "total",
       label: "Total",
       render: (o: ResellerOrder) => (
-        <span className="font-semibold">{formatCurrency(o.total)}</span>
+        <span className="font-semibold">{money(o.total)}</span>
       ),
     },
     {
@@ -324,6 +330,20 @@ export default function ResellerSalesPage() {
         subtitle="Record community sales by distributors, franchises, and partners"
       />
       <div className="flex-1 p-6 space-y-4">
+        {isOrgsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {orgsError instanceof Error ? orgsError.message : "Unable to load organizations."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load reseller sales."}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex justify-end">
           <Button
             onClick={() => {
@@ -372,12 +392,12 @@ export default function ResellerSalesPage() {
               <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Total</span>
-                  <span className="font-semibold">{formatCurrency(saleResult.total)}</span>
+                  <span className="font-semibold">{money(saleResult.total)}</span>
                 </div>
                 {saleResult.paymentMethod === "cash" && saleResult.change > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Change</span>
-                    <span className="font-semibold">{formatCurrency(saleResult.change)}</span>
+                    <span className="font-semibold">{money(saleResult.change)}</span>
                   </div>
                 )}
               </div>
@@ -396,6 +416,15 @@ export default function ResellerSalesPage() {
                 {formError && (
                   <Alert variant="destructive">
                     <AlertDescription>{formError}</AlertDescription>
+                  </Alert>
+                )}
+                {selectedOrg && isInventoryError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {inventoryError instanceof Error
+                        ? inventoryError.message
+                        : "Unable to load inventory for this organization."}
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -492,6 +521,12 @@ export default function ResellerSalesPage() {
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                     Searching…
                                   </div>
+                                ) : isProductSearchError ? (
+                                  <p className="px-3 py-3 text-sm text-destructive">
+                                    {productSearchError instanceof Error
+                                      ? productSearchError.message
+                                      : "Product search failed. Try again."}
+                                  </p>
                                 ) : resellerProductHits.length === 0 ? (
                                   <p className="px-3 py-3 text-sm text-muted-foreground">
                                     No in-stock products match. Try another name or SKU.
@@ -513,7 +548,7 @@ export default function ResellerSalesPage() {
                                         <span className="font-medium">{p.name}</span>
                                         <span className="text-xs text-muted-foreground">
                                           {p.sku} · {q} in stock ·{" "}
-                                          {formatCurrency(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
+                                          {money(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
                                         </span>
                                       </button>
                                     );
@@ -558,14 +593,14 @@ export default function ResellerSalesPage() {
                         </div>
                         {item.productId && (
                           <div className="col-span-12 text-right text-xs text-muted-foreground">
-                            Line total: {formatCurrency(item.quantity * item.unitPrice)}
+                            Line total: {money(item.quantity * item.unitPrice)}
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
                   <div className="text-right text-sm font-medium">
-                    Total: {formatCurrency(total)}
+                    Total: {money(total)}
                   </div>
                 </div>
 
@@ -593,13 +628,13 @@ export default function ResellerSalesPage() {
                         type="number"
                         min={total}
                         step={0.01}
-                        placeholder={`Min: ${formatCurrency(total)}`}
+                        placeholder={`Min: ${money(total)}`}
                         value={amountPaid}
                         onChange={(e) => setAmountPaid(e.target.value)}
                       />
                       {paid >= total && total > 0 && (
                         <p className="text-xs text-green-600 font-medium">
-                          Change: {formatCurrency(change)}
+                          Change: {money(change)}
                         </p>
                       )}
                     </div>

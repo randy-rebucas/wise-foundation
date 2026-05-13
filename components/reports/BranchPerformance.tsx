@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
+import { formatCurrencyCompactAxis } from "@/lib/utils";
 
 interface BranchData {
   branchId: string;
@@ -25,6 +26,8 @@ interface BranchPerformanceProps {
 }
 
 export function BranchPerformance({ data }: BranchPerformanceProps) {
+  const formatMoney = useFormatCurrency();
+  const { currency } = useTenant();
   const chartData = data.map((d) => ({
     name: d.branchCode,
     Revenue: d.revenue,
@@ -49,11 +52,11 @@ export function BranchPerformance({ data }: BranchPerformanceProps) {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis
                 tick={{ fontSize: 11 }}
-                tickFormatter={(v) => `₱${(v / 1000).toFixed(0)}k`}
+                tickFormatter={(v) => formatCurrencyCompactAxis(Number(v), currency)}
               />
               <Tooltip
                 formatter={(value, name) => [
-                  String(name) === "Revenue" ? formatCurrency(Number(value)) : value,
+                  String(name) === "Revenue" ? formatMoney(Number(value)) : value,
                   String(name ?? ""),
                 ]}
                 contentStyle={{

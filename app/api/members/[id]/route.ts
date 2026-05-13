@@ -1,6 +1,6 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getMemberById, updateMember, deleteMember } from "@/lib/services/member.service";
+import { canUserAccessMember, deleteMember, getMemberById, updateMember } from "@/lib/services/member.service";
 import { updateMemberSchema } from "@/lib/validations/member.schema";
 import {
   successResponse,
@@ -14,7 +14,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const member = await getMemberById(id);
-    if (!member) return notFoundResponse("Member not found");
+    if (!member || !canUserAccessMember(member, req.user)) return notFoundResponse("Member not found");
     return successResponse(member);
   } catch {
     return serverErrorResponse();
@@ -28,7 +28,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateMemberSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const member = await updateMember(id, parsed.data);
+    const member = await updateMember(id, req.user, parsed.data);
     if (!member) return notFoundResponse("Member not found");
     return successResponse(member, "Member updated");
   } catch (error) {
@@ -40,13 +40,14 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await deleteMember(id);
+    const member = await deleteMember(id, req.user);
+    if (!member) return notFoundResponse("Member not found");
     return successResponse(null, "Member removed");
   } catch {
     return serverErrorResponse();
   }
 };
 
-export const GET = withAuth(getHandler);
+export const GET = withAuth(withPermission("manage:members")(getHandler));
 export const PATCH = withAuth(withPermission("manage:members")(patchHandler));
 export const DELETE = withAuth(withPermission("manage:members")(deleteHandler));

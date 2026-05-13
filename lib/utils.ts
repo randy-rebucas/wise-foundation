@@ -5,12 +5,33 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function toFiniteCurrencyAmount(amount: unknown): number {
+  const n = typeof amount === "number" ? amount : Number(amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function formatCurrency(amount: number, currency = "PHP"): string {
+  const safe = toFiniteCurrencyAmount(amount);
   return new Intl.NumberFormat("en-PH", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(safe);
+}
+
+/** Short currency labels for chart axes (uses app currency). */
+export function formatCurrencyCompactAxis(amount: number, currency: string): string {
+  const safe = toFiniteCurrencyAmount(amount);
+  try {
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(safe);
+  } catch {
+    return formatCurrency(safe, currency);
+  }
 }
 
 export function formatDate(date: Date | string): string {
@@ -28,6 +49,26 @@ export function formatDateTime(date: Date | string): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(new Date(date));
+}
+
+export function formatDateTimeInTimezone(date: Date | string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(date));
+}
+
+export function formatDateInTimezone(date: Date | string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone,
   }).format(new Date(date));
 }
 

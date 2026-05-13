@@ -26,9 +26,11 @@ import {
   ArrowRight,
   CheckCircle,
 } from "lucide-react";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { ORDER_PAID_STATUSES } from "@/types";
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 // ── shared types ─────────────────────────────────────────────────────────────
 
@@ -86,22 +88,37 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 // ── Distributor Panel ─────────────────────────────────────────────────────────
 
 function DistributorPanel({ org }: { org: OrgData }) {
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: inventoryData = [], isLoading: invLoading } = useQuery<OrgInventoryItem[]>({
+  const {
+    data: inventoryData = [],
+    isLoading: invLoading,
+    isError: isInvError,
+    error: invError,
+  } = useQuery<OrgInventoryItem[]>({
     queryKey: ["org-inventory", org._id],
     queryFn: async () => {
       const res = await fetch(`/api/organization-inventory?organizationId=${org._id}`);
       const d = await res.json();
-      return d.data ?? [];
+      if (!d.success) throw new Error(d.error ?? `Failed to load inventory (${res.status})`);
+      return (d.data ?? []) as OrgInventoryItem[];
     },
   });
 
-  const { data: ordersData, isLoading: ordersLoading } = useQuery({
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    isError: isOrdersError,
+    error: ordersError,
+  } = useQuery({
     queryKey: ["org-outbound-orders", org._id],
     queryFn: async () => {
-      const res = await fetch(`/api/orders?limit=20`);
+      const res = await fetch(`/api/orders?type=B2B&limit=20`);
       const d = await res.json();
+      if (!d.success) throw new Error(d.error ?? `Failed to load orders (${res.status})`);
       return (d.data ?? []) as OrderRow[];
     },
   });
@@ -114,12 +131,14 @@ function DistributorPanel({ org }: { org: OrgData }) {
         body: JSON.stringify({ status }),
       });
       const d = await res.json();
-      if (!d.success) throw new Error(d.error);
+      if (!d.success) throw new Error(d.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["org-outbound-orders"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["org-outbound-orders", org._id] }),
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Order update failed", description: err.message }),
   });
 
-  const b2bOrders = (ordersData ?? []).filter((o) => o.type === "B2B");
+  const b2bOrders = ordersData ?? [];
   const totalUnits = inventoryData.reduce((s, i) => s + i.quantity, 0);
   const lowStock = inventoryData.filter((i) => i.quantity <= 5).length;
 
@@ -155,7 +174,7 @@ function DistributorPanel({ org }: { org: OrgData }) {
       key: "price",
       label: "Distributor Price",
       render: (i: OrgInventoryItem) => (
-        <span className="text-sm">{formatCurrency(i.productId?.distributorPrice ?? 0)}</span>
+        <span className="text-sm">{money(i.productId?.distributorPrice ?? 0)}</span>
       ),
     },
   ];
@@ -167,7 +186,7 @@ function DistributorPanel({ org }: { org: OrgData }) {
       render: (o: OrderRow) => (
         <div>
           <p className="font-mono text-sm font-medium">{o.orderNumber}</p>
-          <p className="text-xs text-muted-foreground">{formatDateTime(o.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
     },
@@ -184,7 +203,7 @@ function DistributorPanel({ org }: { org: OrgData }) {
     {
       key: "total",
       label: "Total",
-      render: (o: OrderRow) => <span className="font-semibold text-sm">{formatCurrency(o.total)}</span>,
+      render: (o: OrderRow) => <span className="font-semibold text-sm">{money(o.total)}</span>,
     },
     {
       key: "status",
@@ -220,6 +239,24 @@ function DistributorPanel({ org }: { org: OrgData }) {
 
   return (
     <div className="space-y-6">
+      {(isInvError || isOrdersError) && (
+        <div className="space-y-2">
+          {isInvError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {invError instanceof Error ? invError.message : "Unable to load inventory."}
+              </AlertDescription>
+            </Alert>
+          )}
+          {isOrdersError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {ordersError instanceof Error ? ordersError.message : "Unable to load B2B orders."}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard title="Products in Stock" value={inventoryData.length} icon={Package} description="SKUs available" />
         <StatCard title="Total Units" value={totalUnits} icon={Boxes} description="Across all products" iconClassName="bg-blue-100" />
@@ -271,11 +308,19 @@ function DistributorPanel({ org }: { org: OrgData }) {
 // ── Franchise Panel ───────────────────────────────────────────────────────────
 
 function FranchisePanel({ org }: { org: OrgData }) {
-  const { data: ordersData, isLoading } = useQuery({
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
+  const {
+    data: ordersData,
+    isLoading,
+    isError: isOrdersError,
+    error: ordersError,
+  } = useQuery({
     queryKey: ["franchise-orders", org._id],
     queryFn: async () => {
       const res = await fetch("/api/orders?limit=20");
       const d = await res.json();
+      if (!d.success) throw new Error(d.error ?? `Failed to load orders (${res.status})`);
       return { orders: (d.data ?? []) as OrderRow[], meta: d.meta ?? {} };
     },
   });
@@ -293,7 +338,7 @@ function FranchisePanel({ org }: { org: OrgData }) {
       render: (o: OrderRow) => (
         <div>
           <p className="font-mono text-sm font-medium">{o.orderNumber}</p>
-          <p className="text-xs text-muted-foreground">{formatDateTime(o.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
     },
@@ -307,7 +352,7 @@ function FranchisePanel({ org }: { org: OrgData }) {
     {
       key: "total",
       label: "Total",
-      render: (o: OrderRow) => <span className="font-semibold text-sm">{formatCurrency(o.total)}</span>,
+      render: (o: OrderRow) => <span className="font-semibold text-sm">{money(o.total)}</span>,
     },
     {
       key: "status",
@@ -320,8 +365,15 @@ function FranchisePanel({ org }: { org: OrgData }) {
 
   return (
     <div className="space-y-6">
+      {isOrdersError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {ordersError instanceof Error ? ordersError.message : "Unable to load orders."}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard title="Revenue (page)" value={formatCurrency(paidRevenue)} icon={DollarSign} description="Paid orders shown" iconClassName="bg-green-100" />
+        <StatCard title="Revenue (page)" value={money(paidRevenue)} icon={DollarSign} description="Paid orders shown" iconClassName="bg-green-100" />
         <StatCard title="Pending Orders" value={pendingCount} icon={Clock} description="Awaiting action" iconClassName="bg-yellow-100" />
         <StatCard title="Total Orders" value={ordersData?.meta?.total ?? 0} icon={Clock} description="All time" iconClassName="bg-blue-100" />
       </div>
@@ -386,30 +438,53 @@ function FranchisePanel({ org }: { org: OrgData }) {
 // ── Partner Panel ─────────────────────────────────────────────────────────────
 
 function PartnerPanel({ org }: { org: OrgData }) {
-  const { data: ordersData, isLoading: ordersLoading } = useQuery({
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    isError: isOrdersError,
+    error: ordersError,
+  } = useQuery({
     queryKey: ["partner-orders", org._id],
     queryFn: async () => {
       const res = await fetch("/api/orders?limit=20");
       const d = await res.json();
+      if (!d.success) throw new Error(d.error ?? `Failed to load orders (${res.status})`);
       return (d.data ?? []) as OrderRow[];
     },
   });
 
-  const { data: commissionsData, isLoading: commLoading } = useQuery({
+  const {
+    data: commissionsData,
+    isLoading: commLoading,
+    isError: isCommError,
+    error: commError,
+  } = useQuery({
     queryKey: ["partner-commissions", org._id],
     queryFn: async () => {
       const res = await fetch("/api/commissions?limit=10");
       const d = await res.json();
-      return d.data ?? [];
+      if (!d.success) throw new Error(d.error ?? `Failed to load commissions (${res.status})`);
+      return (d.data ?? []) as CommissionRow[];
     },
   });
 
-  const { data: commSummary } = useQuery({
+  const {
+    data: commSummary,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
     queryKey: ["partner-comm-summary", org._id],
     queryFn: async () => {
       const res = await fetch("/api/commissions?summary=true");
       const d = await res.json();
-      return d.data ?? { totalEarned: 0, totalPaid: 0, totalPending: 0 };
+      if (!d.success) throw new Error(d.error ?? `Failed to load commission summary (${res.status})`);
+      return (d.data ?? { totalEarned: 0, totalPaid: 0, totalPending: 0 }) as {
+        totalEarned: number;
+        totalPaid: number;
+        totalPending: number;
+      };
     },
   });
 
@@ -423,7 +498,7 @@ function PartnerPanel({ org }: { org: OrgData }) {
       render: (o: OrderRow) => (
         <div>
           <p className="font-mono text-sm font-medium">{o.orderNumber}</p>
-          <p className="text-xs text-muted-foreground">{formatDateTime(o.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
     },
@@ -435,7 +510,7 @@ function PartnerPanel({ org }: { org: OrgData }) {
     {
       key: "total",
       label: "Total",
-      render: (o: OrderRow) => <span className="font-semibold">{formatCurrency(o.total)}</span>,
+      render: (o: OrderRow) => <span className="font-semibold">{money(o.total)}</span>,
     },
     {
       key: "status",
@@ -457,7 +532,7 @@ function PartnerPanel({ org }: { org: OrgData }) {
     {
       key: "sale",
       label: "Sale",
-      render: (c: CommissionRow) => <span className="text-sm">{formatCurrency(c.saleAmount)}</span>,
+      render: (c: CommissionRow) => <span className="text-sm">{money(c.saleAmount)}</span>,
     },
     {
       key: "rate",
@@ -467,7 +542,7 @@ function PartnerPanel({ org }: { org: OrgData }) {
     {
       key: "amount",
       label: "Earned",
-      render: (c: CommissionRow) => <span className="font-semibold text-sm">{formatCurrency(c.amount)}</span>,
+      render: (c: CommissionRow) => <span className="font-semibold text-sm">{money(c.amount)}</span>,
     },
     {
       key: "status",
@@ -482,24 +557,49 @@ function PartnerPanel({ org }: { org: OrgData }) {
 
   return (
     <div className="space-y-6">
+      {(isOrdersError || isCommError || isSummaryError) && (
+        <div className="space-y-2">
+          {isOrdersError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {ordersError instanceof Error ? ordersError.message : "Unable to load orders."}
+              </AlertDescription>
+            </Alert>
+          )}
+          {isCommError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {commError instanceof Error ? commError.message : "Unable to load commissions."}
+              </AlertDescription>
+            </Alert>
+          )}
+          {isSummaryError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {summaryError instanceof Error ? summaryError.message : "Unable to load commission summary."}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Commission Earned"
-          value={formatCurrency(commSummary?.totalEarned ?? 0)}
+          value={money(commSummary?.totalEarned ?? 0)}
           icon={Percent}
           description={`Rate: ${org.commissionRate}%`}
           iconClassName="bg-green-100"
         />
         <StatCard
           title="Pending Payout"
-          value={formatCurrency(commSummary?.totalPending ?? 0)}
+          value={money(commSummary?.totalPending ?? 0)}
           icon={Clock}
           description="Awaiting payment"
           iconClassName="bg-yellow-100"
         />
         <StatCard
           title="Total Paid Out"
-          value={formatCurrency(commSummary?.totalPaid ?? 0)}
+          value={money(commSummary?.totalPaid ?? 0)}
           icon={CheckCircle}
           description="Received so far"
           iconClassName="bg-blue-100"
@@ -561,12 +661,13 @@ export default function OrgPanelPage() {
   const { data: session } = useSession();
   const orgId = session?.user?.organizationId;
 
-  const { data: orgData, isLoading } = useQuery<OrgData>({
+  const { data: orgData, isLoading, isError, error } = useQuery<OrgData>({
     queryKey: ["my-org", orgId],
     queryFn: async () => {
       const res = await fetch(`/api/organizations/${orgId}`);
       const d = await res.json();
-      return d.data;
+      if (!d.success) throw new Error(d.error ?? `Failed to load organization (${res.status})`);
+      return d.data as OrgData;
     },
     enabled: !!orgId,
   });
@@ -577,6 +678,21 @@ export default function OrgPanelPage() {
         <Header title="Organization Panel" subtitle="Your organization workspace" />
         <div className="flex-1 p-6 flex items-center justify-center">
           <p className="text-muted-foreground text-sm">No organization assigned to your account.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col">
+        <Header title="Organization Panel" subtitle="Your organization workspace" />
+        <div className="flex-1 p-6">
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load your organization."}
+            </AlertDescription>
+          </Alert>
         </div>
       </div>
     );

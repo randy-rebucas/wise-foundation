@@ -1,5 +1,6 @@
 import mongoose, { type ClientSession } from "mongoose";
 import { connectDB } from "@/lib/db/connect";
+import { getDefaultLowStockThreshold } from "@/lib/services/appSettings.service";
 import { Inventory } from "@/lib/db/models/Inventory";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
@@ -160,6 +161,7 @@ export async function processStockMovement(
   input: StockMovementInput
 ) {
   await connectDB();
+  const defaultLowStockThreshold = await getDefaultLowStockThreshold();
   const organizationId = await getOrgIdForBranch(branchId);
   const session = await mongoose.startSession();
 
@@ -184,7 +186,7 @@ export async function processStockMovement(
         organizationId,
         quantity: 0,
         reservedQuantity: 0,
-        lowStockThreshold: 10,
+        lowStockThreshold: defaultLowStockThreshold,
       });
     }
 
@@ -236,7 +238,12 @@ export async function processStockMovement(
         };
         let destInventory = await Inventory.findOne(destFilter).session(session);
         if (!destInventory) {
-          destInventory = new Inventory({ ...destFilter, quantity: 0, reservedQuantity: 0, lowStockThreshold: 10 });
+          destInventory = new Inventory({
+            ...destFilter,
+            quantity: 0,
+            reservedQuantity: 0,
+            lowStockThreshold: defaultLowStockThreshold,
+          });
         }
         const destPrev = destInventory.quantity;
         destInventory.quantity = destPrev + input.quantity;

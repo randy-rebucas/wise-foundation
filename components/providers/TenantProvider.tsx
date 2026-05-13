@@ -1,37 +1,48 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext } from "react";
+import type { PublicAppSettings } from "@/lib/types/appSettings";
+import { formatCurrency, formatDateInTimezone, formatDateTimeInTimezone } from "@/lib/utils";
 
-interface AppSettings {
-  currency: string;
-  timezone: string;
-  memberDiscount: number;
-  lowStockThreshold: number;
-}
-
-const DEFAULT_SETTINGS: AppSettings = {
+const DEFAULT_SETTINGS: PublicAppSettings = {
+  appName: "Wise POS",
+  appTagline: "Women in the Service",
   currency: "PHP",
   timezone: "Asia/Manila",
-  memberDiscount: 10,
-  lowStockThreshold: 10,
+  memberDefaultDiscountPercent: 10,
+  defaultLowStockThreshold: 10,
+  receiptFooter: "",
 };
 
-const AppSettingsContext = createContext<AppSettings>(DEFAULT_SETTINGS);
+const TenantContext = createContext<PublicAppSettings>(DEFAULT_SETTINGS);
 
 export function TenantProvider({
   children,
   value,
 }: {
   children: React.ReactNode;
-  value?: Partial<AppSettings>;
+  value?: Partial<PublicAppSettings> | null;
 }) {
-  return (
-    <AppSettingsContext.Provider value={{ ...DEFAULT_SETTINGS, ...value }}>
-      {children}
-    </AppSettingsContext.Provider>
-  );
+  const merged: PublicAppSettings = { ...DEFAULT_SETTINGS, ...(value ?? {}) };
+  return <TenantContext.Provider value={merged}>{children}</TenantContext.Provider>;
 }
 
-export function useTenant(): AppSettings {
-  return useContext(AppSettingsContext);
+/** Application / tenant settings (currency, timezone, branding, POS defaults). */
+export function useTenant(): PublicAppSettings {
+  return useContext(TenantContext);
+}
+
+export function useFormatCurrency() {
+  const { currency } = useTenant();
+  return useCallback((amount: number) => formatCurrency(amount, currency), [currency]);
+}
+
+export function useFormatDateTime() {
+  const { timezone } = useTenant();
+  return useCallback((date: Date | string) => formatDateTimeInTimezone(date, timezone), [timezone]);
+}
+
+export function useFormatDate() {
+  const { timezone } = useTenant();
+  return useCallback((date: Date | string) => formatDateInTimezone(date, timezone), [timezone]);
 }

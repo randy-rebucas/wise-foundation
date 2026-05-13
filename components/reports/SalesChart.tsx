@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency, useFormatDate, useTenant } from "@/components/providers/TenantProvider";
+import { formatCurrencyCompactAxis } from "@/lib/utils";
 
 interface SalesData {
   _id: string;
@@ -22,13 +23,12 @@ interface SalesChartProps {
   data: SalesData[];
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
-}
-
 export function SalesChart({ data }: SalesChartProps) {
+  const formatMoney = useFormatCurrency();
+  const formatDay = useFormatDate();
+  const { currency } = useTenant();
   const chartData = data.map((d) => ({
-    date: formatDate(d._id),
+    date: formatDay(d._id),
     Revenue: d.revenue,
     Orders: d.orders,
   }));
@@ -51,10 +51,10 @@ export function SalesChart({ data }: SalesChartProps) {
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis
               tick={{ fontSize: 11 }}
-              tickFormatter={(v) => `₱${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v) => formatCurrencyCompactAxis(Number(v), currency)}
             />
             <Tooltip
-              formatter={(value) => [formatCurrency(Number(value)), "Revenue"]}
+              formatter={(value) => [formatMoney(Number(value)), "Revenue"]}
               labelStyle={{ fontWeight: 600 }}
               contentStyle={{
                 borderRadius: 8,

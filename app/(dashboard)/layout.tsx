@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 
 const BLOCKED_ROLES = ["MEMBER"];
 
@@ -33,8 +34,10 @@ export default async function DashboardLayout({ children }: Props) {
     permissions: session.user.permissions,
   };
 
+  const tenantSettings = await getPublicAppSettings();
+
   return (
-    <DashboardShell initialUser={sidebarUser}>
+    <DashboardShell initialUser={sidebarUser} tenantSettings={tenantSettings}>
       {children}
     </DashboardShell>
   );

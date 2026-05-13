@@ -16,7 +16,7 @@ import {
   X,
   CreditCard,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
 interface CartPanelProps {
   onCheckout: () => void;
@@ -24,6 +24,7 @@ interface CartPanelProps {
 }
 
 export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
+  const formatMoney = useFormatCurrency();
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
 
@@ -115,7 +116,7 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
                   <p className="text-sm font-medium truncate">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.sku}</p>
                   <p className="text-sm font-semibold text-primary mt-1">
-                    {formatCurrency(item.price)}
+                    {formatMoney(item.price)}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -157,7 +158,7 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
                     </Button>
                   </div>
                   <p className="text-xs font-medium">
-                    {formatCurrency(item.price * item.quantity)}
+                    {formatMoney(item.price * item.quantity)}
                   </p>
                 </div>
               </div>
@@ -171,18 +172,18 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal</span>
-            <span>{formatCurrency(subtotal)}</span>
+            <span>{formatMoney(subtotal)}</span>
           </div>
           {discount > 0 && (
             <div className="flex justify-between text-green-600">
               <span>Discount ({discountPercent}%)</span>
-              <span>-{formatCurrency(discount)}</span>
+              <span>-{formatMoney(discount)}</span>
             </div>
           )}
           <Separator />
           <div className="flex justify-between font-bold text-lg">
             <span>Total</span>
-            <span>{formatCurrency(total)}</span>
+            <span>{formatMoney(total)}</span>
           </div>
         </div>
 

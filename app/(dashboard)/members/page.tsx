@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useTenant, useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 
 type MemberStatus = "active" | "inactive" | "suspended";
 
@@ -86,15 +86,23 @@ const STATUS_CONFIG: Record<MemberStatus, { label: string; variant: "success" | 
 
 export default function MembersPage() {
   const { data: session } = useSession();
+  const { memberDefaultDiscountPercent } = useTenant();
+  const money = useFormatCurrency();
+  const dateFmt = useFormatDate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const branchId = session?.user?.branchIds?.[0] ?? "";
+  const primaryBranchId = session?.user?.branchIds?.[0] ?? "";
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<MemberForm>({
-    name: "", email: "", phone: "", address: "", discountPercent: 10, branchId,
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    discountPercent: memberDefaultDiscountPercent,
+    branchId: primaryBranchId,
   });
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
@@ -103,13 +111,18 @@ export default function MembersPage() {
   const [historyMember, setHistoryMember] = useState<Member | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
 
-  const { data: result, isLoading } = useQuery({
+  const { data: result, isLoading, isError, error } = useQuery({
     queryKey: ["members", search, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (search) params.set("search", search);
       const res = await fetch(`/api/members?${params}`);
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load members (${res.status})`);
+      return json as {
+        data: Member[];
+        meta?: { total: number; activeCount: number; inactiveCount: number };
+      };
     },
   });
 
@@ -122,7 +135,12 @@ export default function MembersPage() {
         limit: "10",
       });
       const res = await fetch(`/api/orders?${params}`);
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load orders (${res.status})`);
+      return json as {
+        data: MemberOrder[];
+        meta?: { total: number };
+      };
     },
     enabled: !!historyMember,
   });
@@ -133,6 +151,17 @@ export default function MembersPage() {
   const inactiveCount: number = result?.meta?.inactiveCount ?? 0;
   const orders: MemberOrder[] = historyResult?.data ?? [];
   const ordersTotal: number = historyResult?.meta?.total ?? 0;
+
+  useEffect(() => {
+    if (open) return;
+    const b = session?.user?.branchIds?.[0] ?? "";
+    setForm((f) => ({ ...f, branchId: b }));
+  }, [session?.user?.branchIds, open]);
+
+  useEffect(() => {
+    if (open) return;
+    setForm((f) => ({ ...f, discountPercent: memberDefaultDiscountPercent }));
+  }, [memberDefaultDiscountPercent, open]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -171,25 +200,34 @@ export default function MembersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["member-orders"] });
       toast({ title: "Member status updated" });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
   function resetForm() {
-    setForm({ name: "", email: "", phone: "", address: "", discountPercent: 10, branchId });
+    setForm({
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      discountPercent: memberDefaultDiscountPercent,
+      branchId: primaryBranchId,
+    });
     setEditId(null);
     setFormError("");
   }
 
   function openEdit(member: Member) {
+    const dp = Number(member.discountPercent);
     setForm({
       name: member.name,
       email: member.email ?? "",
       phone: member.phone,
       address: member.address ?? "",
-      discountPercent: member.discountPercent,
-      branchId,
+      discountPercent: Number.isFinite(dp) ? dp : memberDefaultDiscountPercent,
+      branchId: primaryBranchId,
     });
     setEditId(member._id);
     setFormError("");
@@ -200,6 +238,11 @@ export default function MembersPage() {
     setHistoryMember(member);
     setHistoryPage(1);
   }
+
+  const canSubmitMember =
+    form.name.trim().length >= 2 &&
+    form.phone.trim().length >= 7 &&
+    (!!editId || !!form.branchId.trim());
 
   const columns = [
     {
@@ -225,15 +268,19 @@ export default function MembersPage() {
     {
       key: "discount",
       label: "Discount",
-      render: (m: Member) => <Badge variant="secondary">{m.discountPercent}% off</Badge>,
+      render: (m: Member) => (
+        <Badge variant="secondary">
+          {(Number.isFinite(Number(m.discountPercent)) ? m.discountPercent : memberDefaultDiscountPercent)}% off
+        </Badge>
+      ),
     },
     {
       key: "purchases",
       label: "Purchases",
       render: (m: Member) => (
         <div className="text-sm">
-          <p className="font-medium">{formatCurrency(m.totalSpent)}</p>
-          <p className="text-xs text-muted-foreground">{m.totalPurchases} orders</p>
+          <p className="font-medium">{money(m.totalSpent ?? 0)}</p>
+          <p className="text-xs text-muted-foreground">{(m.totalPurchases ?? 0)} orders</p>
         </div>
       ),
     },
@@ -241,7 +288,11 @@ export default function MembersPage() {
       key: "status",
       label: "Status",
       render: (m: Member) => {
-        const cfg = STATUS_CONFIG[m.status];
+        const cfg =
+          STATUS_CONFIG[m.status as MemberStatus] ?? {
+            label: String(m.status ?? "Unknown"),
+            variant: "secondary" as const,
+          };
         return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
       },
     },
@@ -249,7 +300,7 @@ export default function MembersPage() {
       key: "joined",
       label: "Joined",
       render: (m: Member) => (
-        <span className="text-sm text-muted-foreground">{formatDate(m.joinedAt)}</span>
+        <span className="text-sm text-muted-foreground">{dateFmt(m.joinedAt)}</span>
       ),
     },
     {
@@ -305,8 +356,14 @@ export default function MembersPage() {
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={async () => {
-                    await fetch(`/api/members/${m._id}`, { method: "DELETE" });
+                    const res = await fetch(`/api/members/${m._id}`, { method: "DELETE" });
+                    const json = await res.json();
+                    if (!json.success) {
+                      toast({ title: json.error ?? "Could not remove member", variant: "destructive" });
+                      return;
+                    }
                     queryClient.invalidateQueries({ queryKey: ["members"] });
+                    queryClient.invalidateQueries({ queryKey: ["member-orders"] });
                     toast({ title: "Member removed" });
                   }}
                 >
@@ -324,6 +381,13 @@ export default function MembersPage() {
     <div className="flex flex-col">
       <Header title="Members" subtitle="Manage your member database" />
       <div className="flex-1 p-6 space-y-6">
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load members."}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid gap-4 md:grid-cols-3">
           <StatCard title="Total Members" value={total} icon={Users} description="Registered" />
           <StatCard
@@ -419,7 +483,7 @@ export default function MembersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Discount % (default 10%)</Label>
+                <Label>Discount % (default {memberDefaultDiscountPercent}% from application settings)</Label>
                 <Input
                   type="number"
                   min={0}
@@ -436,7 +500,13 @@ export default function MembersPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button
+              onClick={() => {
+                setFormError("");
+                saveMutation.mutate();
+              }}
+              disabled={saveMutation.isPending || !canSubmitMember}
+            >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {editId ? "Update" : "Register"}
             </Button>
@@ -453,13 +523,20 @@ export default function MembersPage() {
           <div className="py-2 space-y-3">
             <div className="flex gap-4 text-sm">
               <span className="text-muted-foreground">
-                Total spent: <span className="font-semibold text-foreground">{formatCurrency(historyMember?.totalSpent ?? 0)}</span>
+                Total spent: <span className="font-semibold text-foreground">{money(historyMember?.totalSpent ?? 0)}</span>
               </span>
               <span className="text-muted-foreground">
                 Orders: <span className="font-semibold text-foreground">{historyMember?.totalPurchases ?? 0}</span>
               </span>
               <span className="text-muted-foreground">
-                Discount: <span className="font-semibold text-foreground">{historyMember?.discountPercent}%</span>
+                Discount:{" "}
+                <span className="font-semibold text-foreground">
+                  {historyMember &&
+                  Number.isFinite(Number(historyMember.discountPercent))
+                    ? historyMember.discountPercent
+                    : memberDefaultDiscountPercent}
+                  %
+                </span>
               </span>
             </div>
 
@@ -485,11 +562,11 @@ export default function MembersPage() {
                     {orders.map((o) => (
                       <tr key={o._id} className="hover:bg-muted/50">
                         <td className="px-4 py-3 font-medium">{o.orderNumber}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatDate(o.createdAt)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{dateFmt(o.createdAt)}</td>
                         <td className="px-4 py-3 text-right text-green-600">
-                          {o.discountAmount > 0 ? `-${formatCurrency(o.discountAmount)}` : "—"}
+                          {(o.discountAmount ?? 0) > 0 ? `-${money(o.discountAmount ?? 0)}` : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatCurrency(o.total)}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{money(o.total ?? 0)}</td>
                         <td className="px-4 py-3 capitalize text-muted-foreground">{o.paymentMethod}</td>
                       </tr>
                     ))}

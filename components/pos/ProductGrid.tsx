@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Search, Package, ShoppingCart, Loader2 } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import type { ProductCategory } from "@/types";
 
 interface POSVariant {
@@ -63,6 +63,7 @@ const CATEGORY_FILTERS = [
 ];
 
 export function ProductGrid({ products, isMember, branchId }: ProductGridProps) {
+  const formatMoney = useFormatCurrency();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [variantProduct, setVariantProduct] = useState<POSProduct | null>(null);
@@ -70,7 +71,12 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
   const { addItem, items } = useCartStore();
 
   const debouncedSearch = useDebouncedValue(search.trim(), 280);
-  const { data: searchHits = [], isFetching: posSearchLoading } = useQuery({
+  const {
+    data: searchHits = [],
+    isFetching: posSearchLoading,
+    isError: isPosSearchError,
+    error: posSearchError,
+  } = useQuery({
     queryKey: ["pos-product-suggest", branchId, debouncedSearch],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -79,6 +85,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
       });
       const res = await fetch(`/api/products/pos?${params}`);
       const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Product search failed (${res.status})`);
       return (data.data ?? []) as POSProduct[];
     },
     enabled: !!branchId && debouncedSearch.length >= 2,
@@ -179,6 +186,10 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Searching…
                 </div>
+              ) : isPosSearchError ? (
+                <p className="px-3 py-3 text-sm text-destructive">
+                  {posSearchError instanceof Error ? posSearchError.message : "Search failed. Try again."}
+                </p>
               ) : searchHits.length === 0 ? (
                 <p className="px-3 py-3 text-sm text-muted-foreground">No products match this branch.</p>
               ) : (
@@ -205,7 +216,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                         {" · "}
                         {hasVariants ? `${p.variants.length} variants` : `${p.stock} in stock`}
                         {" · "}
-                        {hasVariants ? `from ${formatCurrency(price)}` : formatCurrency(price)}
+                        {hasVariants ? `from ${formatMoney(price)}` : formatMoney(price)}
                       </span>
                     </button>
                   );
@@ -275,7 +286,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                   <p className="text-xs text-muted-foreground mt-0.5">{product.sku}</p>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-sm font-bold text-primary">
-                      {hasVariants ? "from " : ""}{formatCurrency(price)}
+                      {hasVariants ? "from " : ""}{formatMoney(price)}
                     </span>
                     <Badge
                       variant={outOfStock ? "destructive" : totalStock <= 5 ? "warning" : "secondary"}
@@ -316,7 +327,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-primary">
-                    {formatCurrency(isMember ? variantProduct.memberPrice : variantProduct.retailPrice)}
+                    {formatMoney(isMember ? variantProduct.memberPrice : variantProduct.retailPrice)}
                   </p>
                   <p className="text-xs text-muted-foreground">{variantProduct.stock} in stock</p>
                 </div>
@@ -357,7 +368,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-primary">
-                      {formatCurrency(isMember ? v.memberPrice : v.retailPrice)}
+                      {formatMoney(isMember ? v.memberPrice : v.retailPrice)}
                     </p>
                     <p className={`text-xs ${outOfStock ? "text-destructive" : "text-muted-foreground"}`}>
                       {outOfStock ? "Out of stock" : `${v.stock} left`}

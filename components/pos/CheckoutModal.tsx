@@ -22,8 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle, Loader2, Printer } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-
+import { useFormatCurrency, useFormatDateTime, useTenant } from "@/components/providers/TenantProvider";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -49,15 +48,35 @@ interface CompletedOrder {
   discountPercent: number;
 }
 
-function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore.getState>["items"], memberName: string | null, discountPercent: number) {
+function printReceipt(
+  result: OrderResult,
+  items: ReturnType<typeof useCartStore.getState>["items"],
+  memberName: string | null,
+  discountPercent: number,
+  print: {
+    storeTitle: string;
+    formatMoney: (n: number) => string;
+    whenLabel: string;
+    receiptFooter: string;
+  }
+) {
   const w = window.open("", "_blank", "width=400,height=600");
   if (!w) return;
+  const fmt = print.formatMoney;
+  const safeFooter = print.receiptFooter
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
   const lines = items
     .map(
       (i) =>
-        `<tr><td>${i.name}<br/><small>${i.sku}</small></td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">₱${(i.price * i.quantity).toFixed(2)}</td></tr>`
+        `<tr><td>${i.name}<br/><small>${i.sku}</small></td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">${fmt(i.price * i.quantity)}</td></tr>`
     )
     .join("");
+  const footerBlock = print.receiptFooter.trim()
+    ? `<p style="margin-top:10px;font-size:11px;white-space:pre-wrap">${safeFooter}</p><p style="margin-top:8px">Thank you for your purchase!</p>`
+    : `<p style="margin-top:12px">Thank you for your purchase!</p>`;
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
   <style>
     body{font-family:monospace;font-size:13px;width:320px;margin:0 auto;padding:16px}
@@ -70,8 +89,8 @@ function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore
     .change{color:#16a34a;font-weight:bold}
     @media print{button{display:none}}
   </style></head><body>
-  <h2>Livelihood POS</h2>
-  <p>${new Date().toLocaleString()}</p>
+  <h2>${print.storeTitle}</h2>
+  <p>${print.whenLabel}</p>
   <p>Order: <strong>${result.orderNumber}</strong></p>
   ${memberName ? `<p>Member: ${memberName} (${discountPercent}% off)</p>` : ""}
   <hr/>
@@ -79,14 +98,14 @@ function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore
   <tbody>${lines}</tbody></table>
   <hr/>
   <table>
-    <tr><td>Subtotal</td><td style="text-align:right">₱${result.subtotal.toFixed(2)}</td></tr>
-    ${result.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-₱${result.discountAmount.toFixed(2)}</td></tr>` : ""}
-    <tr class="total"><td>Total</td><td style="text-align:right">₱${result.total.toFixed(2)}</td></tr>
-    ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td style="text-align:right">₱${result.change.toFixed(2)}</td></tr>` : ""}
+    <tr><td>Subtotal</td><td style="text-align:right">${fmt(result.subtotal)}</td></tr>
+    ${result.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${fmt(result.discountAmount)}</td></tr>` : ""}
+    <tr class="total"><td>Total</td><td style="text-align:right">${fmt(result.total)}</td></tr>
+    ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td style="text-align:right">${fmt(result.change)}</td></tr>` : ""}
   </table>
   <hr/>
   <p>Payment: ${result.paymentMethod.toUpperCase()}</p>
-  <p style="margin-top:12px">Thank you for your purchase!</p>
+  ${footerBlock}
   <br/><button onclick="window.print()">Print</button>
   </body></html>`);
   w.document.close();
@@ -95,10 +114,11 @@ function printReceipt(result: OrderResult, items: ReturnType<typeof useCartStore
 }
 
 export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
+  const formatMoney = useFormatCurrency();
+  const formatWhen = useFormatDateTime();
+  const { appName, receiptFooter } = useTenant();
   const { items, memberId, memberName, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
     useCartStore();
-  
-
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amountPaid, setAmountPaid] = useState("");
   const [notes, setNotes] = useState("");
@@ -136,11 +156,11 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string; data?: OrderResult };
 
       if (!data.success) {
-        setError(data.error);
-      } else {
+        setError(data.error ?? `Checkout failed (${res.status})`);
+      } else if (data.data) {
         const snapshot: CompletedOrder = {
           order: data.data,
           items: [...items],
@@ -149,9 +169,11 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
         };
         clearCart();
         setCompleted(snapshot);
+      } else {
+        setError(`Checkout failed (${res.status})`);
       }
-    } catch {
-      setError("An unexpected error occurred");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -181,12 +203,12 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
             <div className="bg-muted rounded-lg p-4 text-left space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Total</span>
-                <span className="font-semibold">{formatCurrency(order.total)}</span>
+                <span className="font-semibold">{formatMoney(order.total)}</span>
               </div>
               {order.paymentMethod === "cash" && order.change > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Change</span>
-                  <span className="font-semibold">{formatCurrency(order.change)}</span>
+                  <span className="font-semibold">{formatMoney(order.change)}</span>
                 </div>
               )}
             </div>
@@ -194,7 +216,14 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => printReceipt(order, receiptItems, receiptMemberName, receiptDiscount)}
+                onClick={() =>
+                  printReceipt(order, receiptItems, receiptMemberName, receiptDiscount, {
+                    storeTitle: appName,
+                    formatMoney,
+                    whenLabel: formatWhen(new Date()),
+                    receiptFooter,
+                  })
+                }
               >
                 <Printer className="h-4 w-4 mr-2" />
                 Print Receipt
@@ -231,18 +260,18 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(subtotal)}</span>
+              <span>{formatMoney(subtotal)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-green-600">
                 <span>Discount ({discountPercent}%)</span>
-                <span>-{formatCurrency(discount)}</span>
+                <span>-{formatMoney(discount)}</span>
               </div>
             )}
             <Separator />
             <div className="flex justify-between font-bold text-base">
               <span>Total</span>
-              <span>{formatCurrency(total)}</span>
+              <span>{formatMoney(total)}</span>
             </div>
           </div>
 
@@ -274,14 +303,14 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
                 type="number"
                 min={total}
                 step={0.01}
-                placeholder={`Min: ${formatCurrency(total)}`}
+                placeholder={`Min: ${formatMoney(total)}`}
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
                 className="text-lg font-semibold h-12"
               />
               {paid >= total && (
                 <p className="text-sm text-green-600 font-medium">
-                  Change: {formatCurrency(change)}
+                  Change: {formatMoney(change)}
                 </p>
               )}
             </div>
@@ -310,7 +339,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              `Confirm ${formatCurrency(total)}`
+              `Confirm ${formatMoney(total)}`
             )}
           </Button>
         </DialogFooter>

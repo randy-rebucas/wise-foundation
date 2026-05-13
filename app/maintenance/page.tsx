@@ -1,13 +1,19 @@
-import { AlertTriangle } from 'lucide-react';
-import { auth } from '@/auth';
+import { AlertTriangle } from "lucide-react";
+import type { Session } from "next-auth";
+import { auth } from "@/auth";
 
 export const metadata = {
-  title: 'Under Maintenance',
-  description: 'Our system is currently under maintenance. Please try again later.',
+  title: "Under Maintenance",
+  description: "Our system is currently under maintenance. Please try again later.",
 };
 
 export default async function MaintenancePage() {
-  const session = await auth();
+  let session: Session | null = null;
+  try {
+    session = await auth();
+  } catch (err) {
+    console.error("[maintenance page] auth failed", err);
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">

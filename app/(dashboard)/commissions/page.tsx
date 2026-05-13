@@ -31,9 +31,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MoreHorizontal, DollarSign, Clock, CheckCircle, TrendingUp } from "lucide-react";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { useToast } from "@/hooks/use-toast";
 
 interface CommissionRecord {
   _id: string;
@@ -55,9 +57,26 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   cancelled: "destructive",
 };
 
+interface CommissionSummary {
+  totalEarned: number;
+  totalPaid: number;
+  totalPending: number;
+  count: number;
+}
+
+const emptySummary: CommissionSummary = {
+  totalEarned: 0,
+  totalPaid: 0,
+  totalPending: 0,
+  count: 0,
+};
+
 export default function CommissionsPage() {
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const userRole = session?.user?.role ?? "";
 
   const [statusFilter, setStatusFilter] = useState("all");
@@ -70,41 +89,54 @@ export default function CommissionsPage() {
 
   const orgId = userRole === "ORG_ADMIN" ? (session?.user?.organizationId ?? undefined) : orgFilter || undefined;
 
-  const { data: summaryData } = useQuery({
+  const {
+    data: summaryData,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
     queryKey: ["commissions-summary", orgId],
     queryFn: async () => {
       const params = new URLSearchParams({ summary: "true" });
       if (orgId) params.set("organizationId", orgId);
       const res = await fetch(`/api/commissions?${params}`);
       const data = await res.json();
-      return data.data ?? { totalEarned: 0, totalPaid: 0, totalPending: 0, count: 0 };
+      if (!data.success) throw new Error(data.error ?? `Failed to load commission summary (${res.status})`);
+      return (data.data ?? emptySummary) as CommissionSummary;
     },
   });
 
-  const { data: result, isLoading } = useQuery({
+  const {
+    data: listResult,
+    isLoading,
+    isError: isListError,
+    error: listError,
+  } = useQuery({
     queryKey: ["commissions", orgId, statusFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (orgId) params.set("organizationId", orgId);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/commissions?${params}`);
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load commissions (${res.status})`);
+      return json as { data: CommissionRecord[]; meta?: { total: number } };
     },
   });
 
-  const { data: orgsData } = useQuery({
-    queryKey: ["organizations-list"],
+  const {
+    data: organizations = [],
+    isError: isOrgsError,
+    error: orgsError,
+  } = useQuery({
+    queryKey: ["organizations-for-commissions"],
     queryFn: async () => {
-      const res = await fetch("/api/organizations?limit=100");
-      return res.json();
+      const res = await fetch("/api/organizations");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
+      return (json.data ?? []) as { _id: string; name: string; type: string }[];
     },
     enabled: userRole === "ADMIN",
   });
-
-  const organizations = orgsData?.data ?? [];
-  const records: CommissionRecord[] = result?.data ?? [];
-  const total = result?.meta?.total ?? 0;
-  const summary = summaryData ?? { totalEarned: 0, totalPaid: 0, totalPending: 0, count: 0 };
 
   const actionMutation = useMutation({
     mutationFn: async ({ id, action, notes }: { id: string; action: "pay" | "cancel"; notes?: string }) => {
@@ -114,7 +146,7 @@ export default function CommissionsPage() {
         body: JSON.stringify({ action, notes }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commissions"] });
@@ -123,7 +155,10 @@ export default function CommissionsPage() {
       setPayNotes("");
       setActionError("");
     },
-    onError: (err: Error) => setActionError(err.message),
+    onError: (err: Error) => {
+      setActionError(err.message);
+      toast({ variant: "destructive", title: "Commission update failed", description: err.message });
+    },
   });
 
   function openPayDialog(id: string) {
@@ -132,6 +167,10 @@ export default function CommissionsPage() {
     setActionError("");
     setPayOpen(true);
   }
+
+  const records: CommissionRecord[] = listResult?.data ?? [];
+  const total = listResult?.meta?.total ?? 0;
+  const summary = summaryData ?? emptySummary;
 
   const columns = [
     {
@@ -150,14 +189,14 @@ export default function CommissionsPage() {
       render: (r: CommissionRecord) => (
         <div>
           <p className="font-mono text-sm">{r.orderId?.orderNumber ?? "—"}</p>
-          <p className="text-xs text-muted-foreground">{r.orderId?.createdAt ? formatDateTime(r.orderId.createdAt) : ""}</p>
+          <p className="text-xs text-muted-foreground">{r.orderId?.createdAt ? dateTime(r.orderId.createdAt) : ""}</p>
         </div>
       ),
     },
     {
       key: "sale",
       label: "Sale Amount",
-      render: (r: CommissionRecord) => <span className="text-sm">{formatCurrency(r.saleAmount)}</span>,
+      render: (r: CommissionRecord) => <span className="text-sm">{money(r.saleAmount)}</span>,
     },
     {
       key: "rate",
@@ -168,7 +207,7 @@ export default function CommissionsPage() {
       key: "amount",
       label: "Commission",
       render: (r: CommissionRecord) => (
-        <span className="font-semibold text-sm">{formatCurrency(r.amount)}</span>
+        <span className="font-semibold text-sm">{money(r.amount)}</span>
       ),
     },
     {
@@ -178,7 +217,7 @@ export default function CommissionsPage() {
         <div className="flex items-center gap-2">
           <Badge variant={STATUS_BADGE[r.status] ?? "secondary"}>{r.status}</Badge>
           {r.status === "paid" && r.paidAt && (
-            <span className="text-xs text-muted-foreground">{formatDateTime(r.paidAt)}</span>
+            <span className="text-xs text-muted-foreground">{dateTime(r.paidAt)}</span>
           )}
         </div>
       ),
@@ -201,7 +240,10 @@ export default function CommissionsPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
-                  onClick={() => actionMutation.mutate({ id: r._id, action: "cancel" })}
+                  onClick={() => {
+                    setActionError("");
+                    actionMutation.mutate({ id: r._id, action: "cancel" });
+                  }}
                 >
                   Cancel
                 </DropdownMenuItem>
@@ -217,24 +259,46 @@ export default function CommissionsPage() {
     <div className="flex flex-col">
       <Header title="Commissions" subtitle="Track and manage partner earnings" />
       <div className="flex-1 p-6 space-y-6">
+        {isSummaryError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {summaryError instanceof Error ? summaryError.message : "Unable to load commission summary."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isListError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {listError instanceof Error ? listError.message : "Unable to load commission records."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {userRole === "ADMIN" && isOrgsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {orgsError instanceof Error ? orgsError.message : "Unable to load organizations for filtering."}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard
             title="Total Earned"
-            value={formatCurrency(summary.totalEarned)}
+            value={money(summary.totalEarned)}
             icon={TrendingUp}
             description="All active commissions"
             iconClassName="bg-blue-100"
           />
           <StatCard
             title="Pending Payout"
-            value={formatCurrency(summary.totalPending)}
+            value={money(summary.totalPending)}
             icon={Clock}
             description="Awaiting payment"
             iconClassName="bg-yellow-100"
           />
           <StatCard
             title="Total Paid"
-            value={formatCurrency(summary.totalPaid)}
+            value={money(summary.totalPaid)}
             icon={CheckCircle}
             description="Paid out"
             iconClassName="bg-green-100"
@@ -257,15 +321,15 @@ export default function CommissionsPage() {
             </TabsList>
           </Tabs>
 
-          {userRole === "ADMIN" && organizations.length > 0 && (
+          {userRole === "ADMIN" && (organizations.length > 0 || !isOrgsError) && (
             <div className="w-56">
-              <Select value={orgFilter} onValueChange={(v) => { setOrgFilter(v === "all" ? "" : v); setPage(1); }}>
+              <Select value={orgFilter || "all"} onValueChange={(v) => { setOrgFilter(v === "all" ? "" : v); setPage(1); }}>
                 <SelectTrigger>
                   <SelectValue placeholder="All organizations" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All organizations</SelectItem>
-                  {organizations.map((o: { _id: string; name: string; type: string }) => (
+                  {organizations.map((o) => (
                     <SelectItem key={o._id} value={o._id}>
                       {o.name} ({o.type})
                     </SelectItem>
@@ -289,7 +353,16 @@ export default function CommissionsPage() {
       </div>
 
       {/* Mark Paid Dialog */}
-      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+      <Dialog
+        open={payOpen}
+        onOpenChange={(v) => {
+          setPayOpen(v);
+          if (!v) {
+            setPayNotes("");
+            setActionError("");
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Mark Commission as Paid</DialogTitle>
@@ -303,12 +376,19 @@ export default function CommissionsPage() {
                 onChange={(e) => setPayNotes(e.target.value)}
               />
             </div>
-            {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+            {actionError && (
+              <Alert variant="destructive">
+                <AlertDescription>{actionError}</AlertDescription>
+              </Alert>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>
             <Button
-              onClick={() => actionMutation.mutate({ id: selectedId, action: "pay", notes: payNotes || undefined })}
+              onClick={() => {
+                setActionError("");
+                actionMutation.mutate({ id: selectedId, action: "pay", notes: payNotes || undefined });
+              }}
               disabled={actionMutation.isPending}
             >
               {actionMutation.isPending ? "Saving…" : "Confirm Payment"}

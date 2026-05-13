@@ -29,7 +29,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { Boxes, AlertTriangle, TrendingDown, ArrowDownUp, Loader2, Building2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
 interface OrgInventoryItem {
   _id: string;
@@ -91,13 +91,45 @@ interface Branch {
   code: string;
 }
 
+interface InventoryItem {
+  _id: string;
+  quantity: number;
+  lowStockThreshold: number;
+  productId: {
+    _id: string;
+    name: string;
+    sku: string;
+    category: string;
+    retailPrice: number;
+  };
+  variantId?: { name: string; sku: string };
+}
+
+interface StockMovement {
+  _id: string;
+  type: "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT";
+  quantity: number;
+  previousQuantity: number;
+  newQuantity: number;
+  productId: { name: string; sku: string };
+  performedBy: { name: string };
+  fromBranchId?: { name: string; code: string };
+  toBranchId?: { name: string; code: string };
+  reference?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export default function InventoryPage() {
+  const money = useFormatCurrency();
   const { data: session } = useSession();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const branchId = session?.user?.branchIds?.[0];
   const isAdmin = session?.user?.role === "ADMIN";
+  const isOrgAdmin = session?.user?.role === "ORG_ADMIN" && !!session?.user?.organizationId;
+  const inventoryQueryEnabled = !!branchId || isOrgAdmin;
 
   const [orgFilter, setOrgFilter] = useState("all");
 
@@ -111,68 +143,109 @@ export default function InventoryPage() {
   const [orgTransferForm, setOrgTransferForm] = useState<OrgTransferForm>(defaultOrgTransferForm);
   const [orgTransferError, setOrgTransferError] = useState("");
 
-  const { data: inventoryData, isLoading: inventoryLoading } = useQuery({
-    queryKey: ["inventory", branchId, page],
+  const {
+    data: inventoryData,
+    isLoading: inventoryLoading,
+    isError: isInventoryError,
+    error: inventoryError,
+  } = useQuery({
+    queryKey: ["inventory", branchId, session?.user?.organizationId, page],
     queryFn: async () => {
-      const res = await fetch(`/api/inventory?branchId=${branchId}&page=${page}&limit=20`);
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (branchId) params.set("branchId", branchId);
+      const res = await fetch(`/api/inventory?${params}`);
       const data = await res.json();
-      return data;
+      if (!data.success) throw new Error(data.error ?? `Failed to load inventory (${res.status})`);
+      return {
+        data: (data.data ?? []) as InventoryItem[],
+        meta: data.meta as { total: number } | undefined,
+      };
     },
-    enabled: !!branchId,
+    enabled: inventoryQueryEnabled,
   });
 
-  const { data: movementsData, isLoading: movementsLoading } = useQuery({
-    queryKey: ["movements", branchId, movPage],
+  const {
+    data: movementsData,
+    isLoading: movementsLoading,
+    isError: isMovementsError,
+    error: movementsError,
+  } = useQuery({
+    queryKey: ["movements", branchId, session?.user?.organizationId, movPage],
     queryFn: async () => {
-      const res = await fetch(
-        `/api/inventory/movements?branchId=${branchId}&page=${movPage}&limit=20`
-      );
+      const params = new URLSearchParams({ page: String(movPage), limit: "20" });
+      if (branchId) params.set("branchId", branchId);
+      const res = await fetch(`/api/inventory/movements?${params}`);
       const data = await res.json();
-      return data;
+      if (!data.success) throw new Error(data.error ?? `Failed to load movements (${res.status})`);
+      return {
+        data: (data.data ?? []) as StockMovement[],
+        meta: data.meta as { total: number } | undefined,
+      };
     },
-    enabled: !!branchId,
+    enabled: inventoryQueryEnabled,
   });
 
-  const { data: products = [] } = useQuery<Product[]>({
+  const {
+    data: products = [],
+    isError: isProductsError,
+    error: productsError,
+  } = useQuery<Product[]>({
     queryKey: ["products-simple"],
     queryFn: async () => {
       const res = await fetch("/api/products?limit=100&isActive=true");
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
+      return (data.data ?? []) as Product[];
     },
   });
 
-  const { data: branches = [] } = useQuery<Branch[]>({
+  const {
+    data: branches = [],
+    isError: isBranchesError,
+    error: branchesError,
+  } = useQuery<Branch[]>({
     queryKey: ["branches"],
     queryFn: async () => {
-      const res = await fetch("/api/branches");
+      const res = await fetch("/api/branches?limit=100");
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
+      return (data.data ?? []) as Branch[];
     },
   });
 
-  const { data: orgInventory = [], isLoading: orgInventoryLoading } = useQuery<OrgInventoryItem[]>({
+  const {
+    data: orgInventory = [],
+    isLoading: orgInventoryLoading,
+    isError: isOrgInventoryError,
+    error: orgInventoryError,
+  } = useQuery<OrgInventoryItem[]>({
     queryKey: ["org-inventory", orgFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (orgFilter !== "all") params.set("organizationId", orgFilter);
       const res = await fetch(`/api/organization-inventory?${params}`);
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load organization inventory (${res.status})`);
+      return (data.data ?? []) as OrgInventoryItem[];
     },
     enabled: isAdmin,
   });
 
-  const { data: orgsResult } = useQuery({
-    queryKey: ["organizations"],
+  const {
+    data: orgsResult,
+    isError: isOrgsError,
+    error: orgsError,
+  } = useQuery({
+    queryKey: ["organizations-for-purchase-orders"],
     queryFn: async () => {
-      const res = await fetch("/api/organizations");
+      const res = await fetch("/api/organizations/for-purchase-orders");
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load organizations (${res.status})`);
+      return (data.data ?? []) as { _id: string; name: string; type: string }[];
     },
     enabled: isAdmin,
   });
-  const organizations = (orgsResult ?? []) as { _id: string; name: string; type: string }[];
+  const organizations = orgsResult ?? [];
 
   const movementMutation = useMutation({
     mutationFn: async (form: MovementForm) => {
@@ -182,7 +255,7 @@ export default function InventoryPage() {
         body: JSON.stringify({ ...form, branchId }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Movement failed (${res.status})`);
       return data.data;
     },
     onSuccess: () => {
@@ -203,7 +276,7 @@ export default function InventoryPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Transfer failed (${res.status})`);
       return data.data;
     },
     onSuccess: (result) => {
@@ -220,16 +293,43 @@ export default function InventoryPage() {
   const movements = movementsData?.data ?? [];
   const totalInventory = inventoryData?.meta?.total ?? 0;
   const lowStockCount = inventoryItems.filter(
-    (i: { quantity: number; lowStockThreshold: number }) => i.quantity <= i.lowStockThreshold
+    (i) => i.quantity <= i.lowStockThreshold
   ).length;
-  const outOfStockCount = inventoryItems.filter(
-    (i: { quantity: number }) => i.quantity === 0
-  ).length;
+  const outOfStockCount = inventoryItems.filter((i) => i.quantity === 0).length;
 
   return (
     <div className="flex flex-col">
       <Header title="Inventory" subtitle="Track stock levels and movements" />
       <div className="flex-1 p-6 space-y-6">
+        {isInventoryError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {inventoryError instanceof Error ? inventoryError.message : "Unable to load branch inventory."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isMovementsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {movementsError instanceof Error ? movementsError.message : "Unable to load stock movements."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isProductsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {productsError instanceof Error ? productsError.message : "Unable to load product list for forms."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isBranchesError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {branchesError instanceof Error ? branchesError.message : "Unable to load branches for transfers."}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard
@@ -308,6 +408,13 @@ export default function InventoryPage() {
 
           {isAdmin && (
             <TabsContent value="organizations" className="mt-4 space-y-4">
+              {isOrgsError && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {orgsError instanceof Error ? orgsError.message : "Unable to load organizations."}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="flex gap-2">
                 <Select value={orgFilter} onValueChange={setOrgFilter}>
                   <SelectTrigger className="w-52">
@@ -324,7 +431,15 @@ export default function InventoryPage() {
                 </Select>
               </div>
 
-              {orgInventoryLoading ? (
+              {isOrgInventoryError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {orgInventoryError instanceof Error
+                      ? orgInventoryError.message
+                      : "Unable to load organization inventory."}
+                  </AlertDescription>
+                </Alert>
+              ) : orgInventoryLoading ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -365,7 +480,7 @@ export default function InventoryPage() {
                           <td className="px-4 py-3 text-right text-muted-foreground">{item.totalReceived}</td>
                           <td className="px-4 py-3 text-right text-muted-foreground">{item.totalSold}</td>
                           <td className="px-4 py-3 text-right font-medium">
-                            {formatCurrency(item.quantity * (item.productId?.distributorPrice ?? item.productId?.retailPrice ?? 0))}
+                            {money(item.quantity * (item.productId?.distributorPrice ?? item.productId?.retailPrice ?? 0))}
                           </td>
                         </tr>
                       ))}
@@ -379,7 +494,13 @@ export default function InventoryPage() {
       </div>
 
       {/* Org Transfer Dialog */}
-      <Dialog open={orgTransferOpen} onOpenChange={setOrgTransferOpen}>
+      <Dialog
+        open={orgTransferOpen}
+        onOpenChange={(v) => {
+          setOrgTransferOpen(v);
+          if (!v) setOrgTransferError("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Organization Stock Transfer</DialogTitle>
@@ -488,7 +609,10 @@ export default function InventoryPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => orgTransferMutation.mutate(orgTransferForm)}
+              onClick={() => {
+                setOrgTransferError("");
+                orgTransferMutation.mutate(orgTransferForm);
+              }}
               disabled={orgTransferMutation.isPending}
             >
               {orgTransferMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -499,7 +623,13 @@ export default function InventoryPage() {
       </Dialog>
 
       {/* Record Movement Dialog */}
-      <Dialog open={movementOpen} onOpenChange={setMovementOpen}>
+      <Dialog
+        open={movementOpen}
+        onOpenChange={(v) => {
+          setMovementOpen(v);
+          if (!v) setFormError("");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record Stock Movement</DialogTitle>
@@ -626,7 +756,10 @@ export default function InventoryPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => movementMutation.mutate(movementForm)}
+              onClick={() => {
+                setFormError("");
+                movementMutation.mutate(movementForm);
+              }}
               disabled={movementMutation.isPending}
             >
               {movementMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

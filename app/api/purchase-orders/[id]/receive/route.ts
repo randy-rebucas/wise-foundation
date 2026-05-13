@@ -1,13 +1,15 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
+import { getPurchaseOrderByIdForUser, receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { receivePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    const existing = await getPurchaseOrderByIdForUser(id, req.user);
+    if (!existing) return notFoundResponse("Purchase order not found");
     const body = await req.json();
     const parsed = receivePurchaseOrderSchema.safeParse(body);
     if (!parsed.success) {

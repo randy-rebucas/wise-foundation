@@ -32,6 +32,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { RoleGuard } from "@/components/layout/RoleGuard";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -319,35 +320,37 @@ export default function OrganizationsPage() {
       label: "",
       className: "w-12",
       render: (org: Organization) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => openEdit(org)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            {hqOrg && org.type !== "headquarters" && org.parentOrganizationId?._id !== hqOrg._id && (
-              <DropdownMenuItem
-                onClick={() => setParentMutation.mutate({ childId: org._id, parentId: hqOrg._id })}
-              >
-                <Building2 className="h-4 w-4 mr-2" />
-                Set HQ as Parent
+        <RoleGuard requiredPermissions={["manage:organizations"]}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openEdit(org)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => deleteMutation.mutate(org._id)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Remove
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {hqOrg && org.type !== "headquarters" && org.parentOrganizationId?._id !== hqOrg._id && (
+                <DropdownMenuItem
+                  onClick={() => setParentMutation.mutate({ childId: org._id, parentId: hqOrg._id })}
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Set HQ as Parent
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => deleteMutation.mutate(org._id)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </RoleGuard>
       ),
     },
   ];
@@ -373,16 +376,18 @@ export default function OrganizationsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button
-            onClick={() => {
-              setCreateForm(defaultForm);
-              setFormError("");
-              setCreateOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Organization
-          </Button>
+          <RoleGuard requiredPermissions={["manage:organizations"]}>
+            <Button
+              onClick={() => {
+                setCreateForm(defaultForm);
+                setFormError("");
+                setCreateOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Organization
+            </Button>
+          </RoleGuard>
         </div>
 
         <p className="text-sm text-muted-foreground">

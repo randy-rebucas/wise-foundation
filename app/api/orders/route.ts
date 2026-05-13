@@ -3,17 +3,24 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { processCheckout } from "@/lib/services/pos.service";
 import { getOrders } from "@/lib/services/order.service";
 import { checkoutSchema } from "@/lib/validations/order.schema";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
+    const memberId = searchParams.get("memberId") ?? undefined;
+    const perms = req.user.permissions ?? [];
+    const canOrders = perms.includes("manage:orders");
+    const canMemberHistory = !!memberId && perms.includes("manage:members");
+    if (!canOrders && !canMemberHistory) {
+      return forbiddenResponse();
+    }
+
     const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
     const status = searchParams.get("status") ?? undefined;
     const type = searchParams.get("type") ?? undefined;
-    const memberId = searchParams.get("memberId") ?? undefined;
     const { page, limit } = parsePagination(searchParams);
 
     const organizationId =

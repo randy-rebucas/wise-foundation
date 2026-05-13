@@ -5,7 +5,8 @@ export const createMemberSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().min(7, "Phone number is required"),
   address: z.string().optional(),
-  discountPercent: z.number().min(0).max(100).default(10),
+  /** When omitted, server uses application default from settings. */
+  discountPercent: z.number().min(0).max(100).optional(),
   branchId: z.string().min(1, "Branch is required"),
   organizationId: z.string().optional().nullable(),
 });

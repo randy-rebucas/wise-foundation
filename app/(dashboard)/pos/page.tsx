@@ -23,9 +23,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useCartStore } from "@/store/cartStore";
 import { User, Search } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
 interface POSProduct {
   _id: string;
   name: string;
@@ -71,12 +71,17 @@ export default function POSPage() {
 
   const needsBranchSelect = !defaultBranchId;
 
-  const { data: branches = [] } = useQuery<Branch[]>({
+  const {
+    data: branches = [],
+    isError: isBranchesError,
+    error: branchesError,
+  } = useQuery<Branch[]>({
     queryKey: ["branches-for-pos"],
     queryFn: async () => {
       const res = await fetch("/api/branches?limit=100");
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
+      return (data.data ?? []) as Branch[];
     },
     enabled: needsBranchSelect,
   });
@@ -90,15 +95,21 @@ export default function POSPage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [memberResults, setMemberResults] = useState<Member[]>([]);
   const [searching, setSearching] = useState(false);
+  const [memberSearchError, setMemberSearchError] = useState("");
 
   const isMember = !!cartMemberId;
 
-  const { data: products = [] } = useQuery<POSProduct[]>({
+  const {
+    data: products = [],
+    isError: isProductsError,
+    error: productsError,
+  } = useQuery<POSProduct[]>({
     queryKey: ["pos-products", branchId],
     queryFn: async () => {
       const res = await fetch(`/api/products/pos?branchId=${branchId}`);
       const data = await res.json();
-      return data.data ?? [];
+      if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
+      return (data.data ?? []) as POSProduct[];
     },
     enabled: !!branchId,
     staleTime: 30_000,
@@ -107,12 +118,21 @@ export default function POSPage() {
   async function searchMembers() {
     if (!memberSearch.trim()) return;
     setSearching(true);
+    setMemberSearchError("");
     try {
       const res = await fetch(
         `/api/members?search=${encodeURIComponent(memberSearch)}&status=active&branchId=${branchId}`
       );
       const data = await res.json();
-      setMemberResults(data.data ?? []);
+      if (!data.success) {
+        setMemberResults([]);
+        setMemberSearchError(data.error ?? `Search failed (${res.status})`);
+        return;
+      }
+      setMemberResults((data.data ?? []) as Member[]);
+    } catch (e) {
+      setMemberResults([]);
+      setMemberSearchError(e instanceof Error ? e.message : "Member search failed.");
     } finally {
       setSearching(false);
     }
@@ -123,6 +143,7 @@ export default function POSPage() {
     setMemberSearchOpen(false);
     setMemberSearch("");
     setMemberResults([]);
+    setMemberSearchError("");
   }
 
   return (
@@ -153,7 +174,23 @@ export default function POSPage() {
             )}
           </div>
         </div>
-        <ProductGrid products={products} isMember={isMember} branchId={branchId} />
+        {needsBranchSelect && isBranchesError && (
+          <Alert variant="destructive" className="mx-4 shrink-0">
+            <AlertDescription>
+              {branchesError instanceof Error ? branchesError.message : "Unable to load branches."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {!!branchId && isProductsError && (
+          <Alert variant="destructive" className="mx-4 shrink-0">
+            <AlertDescription>
+              {productsError instanceof Error ? productsError.message : "Unable to load products for this branch."}
+            </AlertDescription>
+          </Alert>
+        )}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ProductGrid products={products} isMember={isMember} branchId={branchId} />
+        </div>
       </div>
 
       {/* Cart Panel */}
@@ -172,12 +209,27 @@ export default function POSPage() {
       />
 
       {/* Member Search Modal */}
-      <Dialog open={memberSearchOpen} onOpenChange={setMemberSearchOpen}>
+      <Dialog
+        open={memberSearchOpen}
+        onOpenChange={(v) => {
+          setMemberSearchOpen(v);
+          if (!v) {
+            setMemberSearch("");
+            setMemberResults([]);
+            setMemberSearchError("");
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Find Member</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {memberSearchError && (
+              <Alert variant="destructive">
+                <AlertDescription>{memberSearchError}</AlertDescription>
+              </Alert>
+            )}
             <div className="flex gap-2">
               <Input
                 placeholder="Search by name, phone, or member ID..."
@@ -212,7 +264,7 @@ export default function POSPage() {
               </div>
             )}
 
-            {memberSearch && memberResults.length === 0 && !searching && (
+            {memberSearch && memberResults.length === 0 && !searching && !memberSearchError && (
               <p className="text-sm text-muted-foreground text-center py-4">No members found</p>
             )}
           </div>

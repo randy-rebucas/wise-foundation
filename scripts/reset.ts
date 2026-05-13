@@ -1,4 +1,6 @@
 import "dotenv/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -7,7 +9,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-async function reset() {
+export async function runReset(): Promise<void> {
   console.log("Connecting to MongoDB…");
   await mongoose.connect(MONGODB_URI!);
   console.log("Connected.\n");
@@ -27,10 +29,20 @@ async function reset() {
   }
 
   await mongoose.disconnect();
-  process.exit(0);
 }
 
-reset().catch((err) => {
-  console.error("Reset failed:", err);
-  process.exit(1);
-});
+function isInvokedDirectly(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  const here = fileURLToPath(import.meta.url);
+  return path.resolve(invoked) === path.resolve(here);
+}
+
+if (isInvokedDirectly()) {
+  runReset()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("Reset failed:", err);
+      process.exit(1);
+    });
+}

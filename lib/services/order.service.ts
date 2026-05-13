@@ -6,7 +6,45 @@ import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import mongoose from "mongoose";
 import type { ClientSession } from "mongoose";
-import type { OrderStatus } from "@/types";
+import type { OrderStatus, SessionUser } from "@/types";
+
+function refEntityId(field: unknown): string | null {
+  if (field == null) return null;
+  if (typeof field === "object" && field !== null && "_id" in field) {
+    return String((field as { _id: unknown })._id);
+  }
+  if (typeof field === "object" && field !== null && "toString" in field) {
+    return (field as { toString(): string }).toString();
+  }
+  return String(field);
+}
+
+/** Whether the user may read or transition this order (branch- or org-scoped). */
+export function canUserAccessOrder(
+  order: {
+    branchId?: unknown;
+    organizationId?: unknown;
+    buyerOrganizationId?: unknown;
+    sellerOrganizationId?: unknown;
+  },
+  user: SessionUser
+): boolean {
+  if (user.role === "ADMIN") return true;
+  if (user.role === "ORG_ADMIN") {
+    const oid = user.organizationId;
+    if (!oid) return false;
+    const orgStr = oid.toString();
+    if (refEntityId(order.organizationId) === orgStr) return true;
+    if (refEntityId(order.buyerOrganizationId) === orgStr) return true;
+    if (refEntityId(order.sellerOrganizationId) === orgStr) return true;
+    const bid = refEntityId(order.branchId);
+    if (bid && (user.branchIds ?? []).map(String).includes(bid)) return true;
+    return false;
+  }
+  const bid = refEntityId(order.branchId);
+  if (!bid) return false;
+  return (user.branchIds ?? []).map(String).includes(bid);
+}
 
 export interface OrderDeliveryPayload {
   deliveryReceiptNumber: string;

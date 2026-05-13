@@ -25,6 +25,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTenant } from "@/components/providers/TenantProvider";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -50,14 +51,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
   { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
+  { label: "Settings", path: "/settings", icon: Settings },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
   { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
   { label: "Users", path: "/admin/users", icon: Users, roles: ["ADMIN"] },
-  { label: "Team", path: "/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
+  { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
   { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
-  { label: "Settings", path: "/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 
 export interface SidebarUser {
@@ -78,6 +79,7 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
+  const { appName, appTagline } = useTenant();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -140,12 +142,12 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
         <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
           <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--wise-navy))" }} />
         </div>
-        <div>
-          <p className="font-bold text-sm tracking-wide" style={{ color: "hsl(var(--wise-gold))" }}>
-            WISE
+        <div className="min-w-0">
+          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--wise-gold))" }}>
+            {appName}
           </p>
-          <p className="text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase">
-            Women in the Service
+          <p className="text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase truncate">
+            {appTagline}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getOrderById, updateOrderStatus } from "@/lib/services/order.service";
-import { successResponse, errorResponse, notFoundResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { canUserAccessOrder, getOrderById, updateOrderStatus } from "@/lib/services/order.service";
+import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrderStatus } from "@/types";
 
@@ -9,24 +9,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const order = await getOrderById(id);
-    if (!order) return notFoundResponse("Order not found");
-
-    const { role, organizationId, branchIds } = req.user;
-
-    if (role === "ORG_ADMIN" && organizationId) {
-      const orgId = organizationId.toString();
-      const toId = (f: unknown) => (f && typeof f === "object" && "_id" in f ? String((f as { _id: unknown })._id) : f ? String(f) : null);
-      const buyerOrgId = toId(order.buyerOrganizationId);
-      const sellerOrgId = toId(order.sellerOrganizationId);
-      if (buyerOrgId !== orgId && sellerOrgId !== orgId) {
-        return forbiddenResponse("Access denied");
-      }
-    } else if (role !== "ADMIN" && order.branchId) {
-      const orderBranchId = String(order.branchId);
-      if (!branchIds.map(String).includes(orderBranchId)) {
-        return forbiddenResponse("Access denied");
-      }
-    }
+    if (!order || !canUserAccessOrder(order, req.user)) return notFoundResponse("Order not found");
 
     return successResponse(order);
   } catch {
@@ -40,6 +23,11 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const body = await req.json();
 
     if (!body.status) return errorResponse("Status is required");
+
+    const existing = await getOrderById(id);
+    if (!existing || !canUserAccessOrder(existing, req.user)) {
+      return notFoundResponse("Order not found");
+    }
 
     const validStatuses: OrderStatus[] = [
       "pending",
@@ -81,5 +69,5 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(getHandler);
+export const GET = withAuth(withPermission("manage:orders")(getHandler));
 export const PATCH = withAuth(withPermission("manage:orders")(patchHandler));

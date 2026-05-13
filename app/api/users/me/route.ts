@@ -1,6 +1,7 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import { serializeMeUser } from "@/lib/utils/serializeMeUser";
 import { z } from "zod";
 import {
   successResponse,
@@ -20,9 +21,10 @@ const getHandler = async (req: AuthedRequest) => {
     await connectDB();
     const user = await User.findOne({ _id: req.user.id, deletedAt: null })
       .select("-password")
+      .populate({ path: "organizationId", select: "name" })
       .lean();
     if (!user) return errorResponse("User not found", 404);
-    return successResponse(user);
+    return successResponse(serializeMeUser(user as Record<string, unknown>));
   } catch {
     return serverErrorResponse();
   }
@@ -43,9 +45,11 @@ const patchHandler = async (req: AuthedRequest) => {
       { new: true, runValidators: true }
     )
       .select("-password")
+      .populate({ path: "organizationId", select: "name" })
       .lean();
 
-    return successResponse(user, "Profile updated");
+    if (!user) return errorResponse("User not found", 404);
+    return successResponse(serializeMeUser(user as Record<string, unknown>), "Profile updated");
   } catch {
     return serverErrorResponse();
   }

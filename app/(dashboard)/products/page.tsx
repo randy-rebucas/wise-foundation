@@ -40,7 +40,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import type { ProductCategory } from "@/types";
 
 interface Product {
@@ -135,9 +135,9 @@ const CSV_TEMPLATE =
   "EX-SKU-001,Example Product,,homecare,,12.99,10.99,8.5,5,true,demo\r\n";
 
 export default function ProductsPage() {
+  const money = useFormatCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -160,7 +160,12 @@ export default function ProductsPage() {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: products = [], isLoading } = useQuery({
+  const {
+    data: products = [],
+    isLoading,
+    isError: isProductsError,
+    error: productsError,
+  } = useQuery({
     queryKey: ["products", activeCategory, search],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -168,6 +173,7 @@ export default function ProductsPage() {
       if (search) params.set("search", search);
       const res = await fetch(`/api/products?${params}`);
       const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
       return (data.data ?? []) as Product[];
     },
   });
@@ -187,7 +193,7 @@ export default function ProductsPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Save failed (${res.status})`);
       return data.data;
     },
     onSuccess: () => {
@@ -203,7 +209,7 @@ export default function ProductsPage() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -212,11 +218,17 @@ export default function ProductsPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  const { data: variants = [], isLoading: variantsLoading } = useQuery({
+  const {
+    data: variants = [],
+    isLoading: variantsLoading,
+    isError: isVariantsError,
+    error: variantsError,
+  } = useQuery({
     queryKey: ["variants", variantsProduct?._id],
     queryFn: async () => {
       const res = await fetch(`/api/products/${variantsProduct!._id}/variants`);
       const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Failed to load variants (${res.status})`);
       return (data.data ?? []) as Variant[];
     },
     enabled: !!variantsProduct,
@@ -239,7 +251,7 @@ export default function ProductsPage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Variant save failed (${res.status})`);
       return data.data;
     },
     onSuccess: () => {
@@ -259,7 +271,7 @@ export default function ProductsPage() {
         { method: "DELETE" }
       );
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Delete variant failed (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["variants", variantsProduct?._id] });
@@ -367,7 +379,7 @@ export default function ProductsPage() {
         body: JSON.stringify({ csv }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? "Import failed");
+      if (!data.success) throw new Error(data.error ?? `Import failed (${res.status})`);
       const result = data.data as {
         created: number;
         updated: number;
@@ -445,11 +457,11 @@ export default function ProductsPage() {
         <div className="text-sm space-y-0.5">
           <div>
             <span className="text-muted-foreground">Retail: </span>
-            <span className="font-medium">{formatCurrency(p.retailPrice)}</span>
+            <span className="font-medium">{money(p.retailPrice)}</span>
           </div>
           <div>
             <span className="text-muted-foreground">Member: </span>
-            <span className="text-primary font-medium">{formatCurrency(p.memberPrice)}</span>
+            <span className="text-primary font-medium">{money(p.memberPrice)}</span>
           </div>
         </div>
       ),
@@ -503,6 +515,13 @@ export default function ProductsPage() {
     <div className="flex flex-col">
       <Header title="Products" subtitle="Manage your product catalog" />
       <div className="flex-1 space-y-4 p-4 sm:p-6">
+        {isProductsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {productsError instanceof Error ? productsError.message : "Unable to load products."}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -653,6 +672,14 @@ export default function ProductsPage() {
               </Button>
             </RoleGuard>
 
+            {isVariantsError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {variantsError instanceof Error ? variantsError.message : "Unable to load variants."}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {variantFormOpen && (
               <div className="border rounded-lg p-4 space-y-3">
                 <p className="text-sm font-semibold">
@@ -751,7 +778,10 @@ export default function ProductsPage() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => saveVariantMutation.mutate()}
+                    onClick={() => {
+                      setVariantError("");
+                      saveVariantMutation.mutate();
+                    }}
                     disabled={saveVariantMutation.isPending}
                   >
                     {saveVariantMutation.isPending && (
@@ -767,7 +797,7 @@ export default function ProductsPage() {
               <div className="flex justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : variants.length === 0 ? (
+            ) : isVariantsError ? null : variants.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">No variants yet.</p>
             ) : (
               <div className="space-y-2">
@@ -794,9 +824,9 @@ export default function ProductsPage() {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        {formatCurrency(v.retailPrice)} retail ·{" "}
-                        {formatCurrency(v.memberPrice)} member ·{" "}
-                        {formatCurrency(v.distributorPrice)} dist.
+                        {money(v.retailPrice)} retail ·{" "}
+                        {money(v.memberPrice)} member ·{" "}
+                        {money(v.distributorPrice)} dist.
                       </p>
                     </div>
                     <RoleGuard requiredPermissions={["manage:products"]}>
@@ -942,7 +972,7 @@ export default function ProductsPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            <Button onClick={() => { setFormError(""); saveMutation.mutate(); }} disabled={saveMutation.isPending}>
               {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {editId ? "Update" : "Create"}
             </Button>

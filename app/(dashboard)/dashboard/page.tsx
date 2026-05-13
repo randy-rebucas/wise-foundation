@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Users,
   DollarSign,
@@ -16,10 +17,40 @@ import { connectDB } from "@/lib/db/connect";
 import { Order } from "@/lib/db/models/Order";
 import { Member } from "@/lib/db/models/Member";
 import { Inventory } from "@/lib/db/models/Inventory";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { getPublicAppSettings, toPublicAppSettings } from "@/lib/services/appSettings.service";
+import type { PublicAppSettings } from "@/lib/types/appSettings";
+import { formatCurrency, formatDateTimeInTimezone } from "@/lib/utils";
 import { ORDER_PAID_STATUSES } from "@/types";
 
-async function getDashboardStats() {
+interface RecentOrderRow {
+  _id: { toString(): string };
+  orderNumber: string;
+  total: number;
+  createdAt: Date;
+  status: string;
+}
+
+interface DashboardStats {
+  todaySales: number;
+  todayOrders: number;
+  monthlySales: number;
+  monthlyOrders: number;
+  totalMembers: number;
+  lowStockCount: number;
+  recentOrders: RecentOrderRow[];
+}
+
+const emptyDashboardStats: DashboardStats = {
+  todaySales: 0,
+  todayOrders: 0,
+  monthlySales: 0,
+  monthlyOrders: 0,
+  totalMembers: 0,
+  lowStockCount: 0,
+  recentOrders: [],
+};
+
+async function getDashboardStats(): Promise<DashboardStats> {
   await connectDB();
 
   const now = new Date();
@@ -60,29 +91,55 @@ async function getDashboardStats() {
     monthlyOrders: monthlyOrders[0]?.count ?? 0,
     totalMembers,
     lowStockCount,
-    recentOrders,
+    recentOrders: recentOrders as RecentOrderRow[],
   };
 }
 
 export default async function DashboardPage() {
   const session = await auth();
-  const stats = await getDashboardStats();
+
+  let settings: PublicAppSettings;
+  try {
+    settings = await getPublicAppSettings();
+  } catch {
+    settings = toPublicAppSettings(null);
+  }
+  const { currency, timezone } = settings;
+
+  let stats = emptyDashboardStats;
+  let statsError: string | null = null;
+  try {
+    stats = await getDashboardStats();
+  } catch (err) {
+    console.error("[dashboard] getDashboardStats failed", err);
+    statsError =
+      err instanceof Error ? err.message : "Unable to load dashboard statistics.";
+  }
+
+  const displayName = session?.user?.name?.trim() || "there";
 
   return (
     <div className="flex flex-col">
-      <Header title="Dashboard" subtitle={`Welcome back, ${session!.user.name}`} />
+      <Header title="Dashboard" subtitle={`Welcome back, ${displayName}`} />
       <div className="flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6">
+        {statsError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {statsError} Statistics below show zeros until this is resolved.
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <StatCard
             title="Today's Sales"
-            value={formatCurrency(stats.todaySales)}
+            value={formatCurrency(stats.todaySales, currency)}
             description={`${stats.todayOrders} orders today`}
             icon={DollarSign}
             iconClassName="bg-green-100"
           />
           <StatCard
             title="Monthly Revenue"
-            value={formatCurrency(stats.monthlySales)}
+            value={formatCurrency(stats.monthlySales, currency)}
             description={`${stats.monthlyOrders} orders this month`}
             icon={TrendingUp}
             iconClassName="bg-blue-100"
@@ -121,11 +178,11 @@ export default async function DashboardPage() {
                       <div>
                         <p className="text-sm font-medium">{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDateTime(order.createdAt)}
+                          {formatDateTimeInTimezone(order.createdAt, timezone)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold">{formatCurrency(order.total)}</p>
+                        <p className="text-sm font-semibold">{formatCurrency(order.total, currency)}</p>
                         <Badge
                           variant={
                             order.status === "completed"

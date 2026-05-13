@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,26 +13,36 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   User,
   Lock,
   Building2,
-  Bell,
   Shield,
   Loader2,
   CheckCircle,
+  Globe2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { PublicAppSettings } from "@/lib/types/appSettings";
+import { APP_TIMEZONE_OPTIONS } from "@/lib/constants/timezones";
+import { isValidCurrencyCode, isValidIanaTimezone } from "@/lib/utils/intlValidation";
+import { cn } from "@/lib/utils";
+
+interface MeUser {
+  name: string;
+  email: string;
+  phone?: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
   const user = session?.user;
 
-  const [profileForm, setProfileForm] = useState({
-    name: user?.name ?? "",
-    email: user?.email ?? "",
-    phone: "",
-  });
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "" });
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -40,6 +51,92 @@ export default function SettingsPage() {
   });
 
   const [passwordError, setPasswordError] = useState("");
+
+  const isAdmin = user?.role === "ADMIN";
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const { data: meUser, isLoading: meLoading } = useQuery({
+    queryKey: ["me-profile"],
+    queryFn: async () => {
+      const res = await fetch("/api/users/me");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data as MeUser;
+    },
+    enabled: !!session?.user,
+  });
+
+  useEffect(() => {
+    if (meUser) {
+      setProfileForm({ name: meUser.name ?? "", phone: meUser.phone ?? "" });
+      return;
+    }
+    if (user?.name) {
+      setProfileForm((prev) => ({ ...prev, name: user.name }));
+    }
+  }, [meUser, user?.name]);
+
+  const { data: appSettings, isLoading: appSettingsLoading } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/app");
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as PublicAppSettings;
+    },
+    enabled: !!isAdmin,
+  });
+
+  const [appForm, setAppForm] = useState({
+    appName: "",
+    appTagline: "",
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    memberDefaultDiscountPercent: 10,
+    defaultLowStockThreshold: 10,
+    receiptFooter: "",
+  });
+
+  useEffect(() => {
+    if (!appSettings) return;
+    setAppForm({
+      appName: appSettings.appName,
+      appTagline: appSettings.appTagline,
+      currency: appSettings.currency,
+      timezone: appSettings.timezone,
+      memberDefaultDiscountPercent: appSettings.memberDefaultDiscountPercent,
+      defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
+      receiptFooter: appSettings.receiptFooter,
+    });
+  }, [appSettings]);
+
+  const appSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/settings/app", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appName: appForm.appName.trim(),
+          appTagline: appForm.appTagline.trim(),
+          currency: appForm.currency.trim().toUpperCase(),
+          timezone: appForm.timezone.trim(),
+          memberDefaultDiscountPercent: Number(appForm.memberDefaultDiscountPercent),
+          defaultLowStockThreshold: Number(appForm.defaultLowStockThreshold),
+          receiptFooter: appForm.receiptFooter.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as PublicAppSettings;
+    },
+    onSuccess: () => {
+      toast({ title: "Application settings saved" });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      router.refresh();
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const profileMutation = useMutation({
     mutationFn: async () => {
@@ -52,7 +149,10 @@ export default function SettingsPage() {
       if (!data.success) throw new Error(data.error);
       return data.data;
     },
-    onSuccess: () => toast({ title: "Profile updated successfully" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["me-profile"] });
+      toast({ title: "Profile updated successfully" });
+    },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
@@ -94,6 +194,17 @@ export default function SettingsPage() {
     passwordMutation.mutate();
   }
 
+  const appIntlValid = useMemo(
+    () => ({
+      currency: isValidCurrencyCode(appForm.currency),
+      timezone: isValidIanaTimezone(appForm.timezone),
+    }),
+    [appForm.currency, appForm.timezone]
+  );
+
+  const displayName = meUser?.name ?? user?.name;
+  const displayEmail = meUser?.email ?? user?.email;
+
   return (
     <div className="flex flex-col">
       <Header title="Settings" subtitle="Manage your account and preferences" />
@@ -112,6 +223,12 @@ export default function SettingsPage() {
               <Building2 className="h-4 w-4 mr-2" />
               Account
             </TabsTrigger>
+            {isAdmin ? (
+              <TabsTrigger value="application">
+                <Globe2 className="h-4 w-4 mr-2" />
+                Application
+              </TabsTrigger>
+            ) : null}
           </TabsList>
 
           {/* Profile Tab */}
@@ -124,7 +241,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4 pb-4">
                   <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xl font-bold">
-                    {user?.name
+                    {displayName
                       ?.split(" ")
                       .map((n) => n[0])
                       .slice(0, 2)
@@ -132,8 +249,8 @@ export default function SettingsPage() {
                       .toUpperCase() ?? "?"}
                   </div>
                   <div>
-                    <p className="font-semibold">{user?.name}</p>
-                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    <p className="font-semibold">{displayName ?? "—"}</p>
+                    <p className="text-sm text-muted-foreground">{displayEmail}</p>
                     <Badge variant="secondary" className="mt-1 text-xs">
                       {user?.role?.replace(/_/g, " ")}
                     </Badge>
@@ -142,26 +259,47 @@ export default function SettingsPage() {
 
                 <Separator />
 
+                {profileMutation.isSuccess && (
+                  <Alert variant="success">
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertDescription>Profile saved.</AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2 col-span-2 sm:col-span-1">
                     <Label>Full Name</Label>
-                    <Input
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Your full name"
-                    />
+                    {meLoading ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : (
+                      <Input
+                        value={profileForm.name}
+                        onChange={(e) => {
+                          profileMutation.reset();
+                          setProfileForm((f) => ({ ...f, name: e.target.value }));
+                        }}
+                        placeholder="Your full name"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2 col-span-2 sm:col-span-1">
                     <Label>Phone</Label>
-                    <Input
-                      value={profileForm.phone}
-                      onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                      placeholder="+63 9xx xxx xxxx"
-                    />
+                    {meLoading ? (
+                      <Skeleton className="h-10 w-full" />
+                    ) : (
+                      <Input
+                        value={profileForm.phone}
+                        onChange={(e) => {
+                          profileMutation.reset();
+                          setProfileForm((f) => ({ ...f, phone: e.target.value }));
+                        }}
+                        placeholder="+63 9xx xxx xxxx"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label>Email</Label>
-                    <Input value={user?.email ?? ""} disabled className="bg-muted" />
+                    <Input value={displayEmail ?? ""} disabled className="bg-muted" />
                     <p className="text-xs text-muted-foreground">
                       Email cannot be changed. Contact your admin.
                     </p>
@@ -171,7 +309,11 @@ export default function SettingsPage() {
                 <div className="flex justify-end pt-2">
                   <Button
                     onClick={() => profileMutation.mutate()}
-                    disabled={profileMutation.isPending}
+                    disabled={
+                      profileMutation.isPending ||
+                      meLoading ||
+                      profileForm.name.trim().length < 2
+                    }
                   >
                     {profileMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -214,9 +356,10 @@ export default function SettingsPage() {
                   <Input
                     type="password"
                     value={passwordForm.currentPassword}
-                    onChange={(e) =>
-                      setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      passwordMutation.reset();
+                      setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }));
+                    }}
                     placeholder="••••••••"
                   />
                 </div>
@@ -225,9 +368,10 @@ export default function SettingsPage() {
                   <Input
                     type="password"
                     value={passwordForm.newPassword}
-                    onChange={(e) =>
-                      setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      passwordMutation.reset();
+                      setPasswordForm((f) => ({ ...f, newPassword: e.target.value }));
+                    }}
                     placeholder="••••••••"
                   />
                 </div>
@@ -236,9 +380,10 @@ export default function SettingsPage() {
                   <Input
                     type="password"
                     value={passwordForm.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      passwordMutation.reset();
+                      setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }));
+                    }}
                     placeholder="••••••••"
                   />
                 </div>
@@ -249,7 +394,8 @@ export default function SettingsPage() {
                     disabled={
                       passwordMutation.isPending ||
                       !passwordForm.currentPassword ||
-                      !passwordForm.newPassword
+                      !passwordForm.newPassword ||
+                      !passwordForm.confirmPassword
                     }
                   >
                     {passwordMutation.isPending ? (
@@ -269,8 +415,8 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="flex items-center justify-between text-sm">
                   <div>
-                    <p className="font-medium">{user?.name}</p>
-                    <p className="text-muted-foreground">{user?.email}</p>
+                    <p className="font-medium">{displayName}</p>
+                    <p className="text-muted-foreground">{displayEmail}</p>
                   </div>
                   <Badge variant="success">Active</Badge>
                 </div>
@@ -292,6 +438,15 @@ export default function SettingsPage() {
                 {[
                   { label: "Role", value: user?.role?.replace(/_/g, " ") },
                   {
+                    label: "Organization",
+                    value: meLoading ? "…" : meUser?.organizationName?.trim() || "—",
+                  },
+                  {
+                    label: "Organization ID",
+                    value: meLoading ? "…" : meUser?.organizationId ?? "—",
+                    mono: true,
+                  },
+                  {
                     label: "Branches",
                     value: user?.branchIds?.length
                       ? `${user.branchIds.length} branch${user.branchIds.length > 1 ? "es" : ""} assigned`
@@ -303,30 +458,190 @@ export default function SettingsPage() {
                       ? `${user.permissions.length} permissions`
                       : "None",
                   },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <span className="text-sm text-muted-foreground">{label}</span>
-                    <span className="text-sm font-medium">{value ?? "—"}</span>
+                ].map(({ label, value, mono }) => (
+                  <div key={label} className="flex items-center justify-between gap-4 py-2 border-b last:border-0">
+                    <span className="text-sm text-muted-foreground shrink-0">{label}</span>
+                    <span
+                      className={cn(
+                        "text-sm font-medium text-right min-w-0 break-all",
+                        mono && "font-mono text-xs"
+                      )}
+                    >
+                      {value ?? "—"}
+                    </span>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Notifications
-                </CardTitle>
-                <CardDescription>Notification preferences coming soon.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  Notification settings will be available in a future update.
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Notification and email preferences are not available yet.
                 </p>
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isAdmin ? (
+            <TabsContent value="application" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Globe2 className="h-4 w-4" />
+                    Application
+                  </CardTitle>
+                  <CardDescription>
+                    Store name, currency, timezone, and defaults for POS, members, inventory, and reports.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {appSettingsLoading ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Skeleton className="h-10 sm:col-span-2" />
+                      <Skeleton className="h-10 sm:col-span-2" />
+                      <Skeleton className="h-10" />
+                      <Skeleton className="h-10" />
+                      <Skeleton className="h-10" />
+                      <Skeleton className="h-10" />
+                      <Skeleton className="h-24 sm:col-span-2" />
+                    </div>
+                  ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="appName">Application name</Label>
+                      <Input
+                        id="appName"
+                        value={appForm.appName}
+                        onChange={(e) => setAppForm((f) => ({ ...f, appName: e.target.value }))}
+                        placeholder="Wise POS"
+                      />
+                      <p className="text-xs text-muted-foreground">Shown in the sidebar and printed receipts.</p>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="appTagline">Tagline</Label>
+                      <Input
+                        id="appTagline"
+                        value={appForm.appTagline}
+                        onChange={(e) => setAppForm((f) => ({ ...f, appTagline: e.target.value }))}
+                        placeholder="Women in the Service"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency (ISO 4217)</Label>
+                      <Input
+                        id="currency"
+                        value={appForm.currency}
+                        onChange={(e) => setAppForm((f) => ({ ...f, currency: e.target.value.toUpperCase() }))}
+                        placeholder="PHP"
+                        maxLength={10}
+                        className={cn(
+                          "font-mono text-sm max-w-xs",
+                          !appIntlValid.currency && appForm.currency.trim() && "border-destructive"
+                        )}
+                      />
+                      <p className="text-xs text-muted-foreground">Examples: PHP, USD, SGD. Used for amounts and reports across the app.</p>
+                      {!appIntlValid.currency && appForm.currency.trim() ? (
+                        <p className="text-xs text-destructive">Enter a valid ISO 4217 currency code.</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tz">Timezone (IANA)</Label>
+                      <Input
+                        id="tz"
+                        list="tz-suggestions"
+                        value={appForm.timezone}
+                        onChange={(e) => setAppForm((f) => ({ ...f, timezone: e.target.value }))}
+                        placeholder="Asia/Manila"
+                        className={cn(
+                          "font-mono text-sm",
+                          !appIntlValid.timezone && appForm.timezone.trim() && "border-destructive"
+                        )}
+                      />
+                      <datalist id="tz-suggestions">
+                        {APP_TIMEZONE_OPTIONS.map((t) => (
+                          <option key={t.value} value={t.value} label={t.label} />
+                        ))}
+                      </datalist>
+                      <p className="text-xs text-muted-foreground">
+                        Used for receipts, POS, and dashboard dates.
+                      </p>
+                      {!appIntlValid.timezone && appForm.timezone.trim() ? (
+                        <p className="text-xs text-destructive">Enter a valid IANA timezone (e.g. Asia/Manila).</p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="memberDisc">Default member discount %</Label>
+                      <Input
+                        id="memberDisc"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={appForm.memberDefaultDiscountPercent}
+                        onChange={(e) =>
+                          setAppForm((f) => ({
+                            ...f,
+                            memberDefaultDiscountPercent: parseInt(e.target.value, 10) || 0,
+                          }))
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">Pre-filled when registering a new member.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lowStock">Default low-stock threshold</Label>
+                      <Input
+                        id="lowStock"
+                        type="number"
+                        min={1}
+                        value={appForm.defaultLowStockThreshold}
+                        onChange={(e) =>
+                          setAppForm((f) => ({
+                            ...f,
+                            defaultLowStockThreshold: parseInt(e.target.value, 10) || 1,
+                          }))
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">Used when new branch inventory rows are created.</p>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="receiptFooter">Receipt footer</Label>
+                      <textarea
+                        id="receiptFooter"
+                        value={appForm.receiptFooter}
+                        onChange={(e) => setAppForm((f) => ({ ...f, receiptFooter: e.target.value }))}
+                        placeholder="Optional message on printed receipts (e.g. return policy, TIN)."
+                        rows={3}
+                        className={cn(
+                          "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm",
+                          "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          "disabled:cursor-not-allowed disabled:opacity-50"
+                        )}
+                      />
+                    </div>
+                  </div>
+                  )}
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={() => appSettingsMutation.mutate()}
+                      disabled={
+                        appSettingsMutation.isPending ||
+                        appSettingsLoading ||
+                        !appForm.appName.trim() ||
+                        !appIntlValid.currency ||
+                        !appIntlValid.timezone ||
+                        !Number.isFinite(Number(appForm.memberDefaultDiscountPercent)) ||
+                        Number(appForm.memberDefaultDiscountPercent) < 0 ||
+                        Number(appForm.memberDefaultDiscountPercent) > 100 ||
+                        !Number.isFinite(Number(appForm.defaultLowStockThreshold)) ||
+                        Number(appForm.defaultLowStockThreshold) < 1
+                      }
+                    >
+                      {appSettingsMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Save application settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ) : null}
+
         </Tabs>
       </div>
     </div>

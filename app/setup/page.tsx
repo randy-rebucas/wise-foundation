@@ -13,14 +13,34 @@ export default function SetupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [bootstrapError, setBootstrapError] = useState("");
 
   useEffect(() => {
-    fetch("/api/setup")
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.setupRequired) router.replace("/login");
-      })
-      .catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/setup");
+        const data = (await res.json().catch(() => ({}))) as {
+          setupRequired?: boolean;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) {
+          setBootstrapError(data.error ?? `Unable to verify setup status (${res.status})`);
+          return;
+        }
+        if (data.setupRequired === false) {
+          router.replace("/login");
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setBootstrapError(e instanceof Error ? e.message : "Could not reach the server.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const [form, setForm] = useState({
@@ -65,14 +85,15 @@ export default function SetupPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+
       if (!data.success) {
-        setError(data.error ?? "Setup failed");
+        setError(data.error ?? `Setup failed (${res.status})`);
       } else {
         router.push("/login?setup=done");
       }
-    } catch {
-      setError("An unexpected error occurred");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -90,6 +111,12 @@ export default function SetupPage() {
           <h1 className="text-3xl font-bold">Welcome to Wise POS</h1>
           <p className="text-muted-foreground">Complete the setup to get started</p>
         </div>
+
+        {bootstrapError && (
+          <Alert variant="destructive">
+            <AlertDescription>{bootstrapError}</AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">

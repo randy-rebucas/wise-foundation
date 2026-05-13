@@ -1,6 +1,6 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getUserById, updateUser, deleteUser } from "@/lib/services/user.service";
+import { getUserById, updateUser, deleteUser, userOrganizationIdString } from "@/lib/services/user.service";
 import { updateUserSchema } from "@/lib/validations/user.schema";
 import {
   successResponse,
@@ -9,6 +9,8 @@ import {
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
+
+const ORG_ADMIN_ALLOWED_ROLES = ["BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER"];
 
 interface Ctx {
   params: Promise<{ id: string }>;
@@ -19,6 +21,14 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
     const { id } = await (ctx as Ctx).params;
     const user = await getUserById(id);
     if (!user) return notFoundResponse("User not found");
+
+    if (req.user.role === "ORG_ADMIN") {
+      const oid = req.user.organizationId;
+      if (!oid || userOrganizationIdString(user) !== oid) {
+        return notFoundResponse("User not found");
+      }
+    }
+
     return successResponse(user);
   } catch {
     return serverErrorResponse();
@@ -28,14 +38,6 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
-
-    if (req.user.role === "ORG_ADMIN") {
-      const target = await getUserById(id);
-      if (!target || (target as { organizationId?: { toString(): string } | null }).organizationId?.toString() !== req.user.organizationId) {
-        return errorResponse("You can only modify users in your organization");
-      }
-    }
-
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
 
@@ -43,7 +45,25 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const user = await updateUser(id, parsed.data);
+    const target = await getUserById(id);
+    if (!target) return notFoundResponse("User not found");
+
+    if (req.user.role === "ORG_ADMIN") {
+      const oid = req.user.organizationId;
+      if (!oid || userOrganizationIdString(target) !== oid) {
+        return notFoundResponse("User not found");
+      }
+      if (parsed.data.role && !ORG_ADMIN_ALLOWED_ROLES.includes(parsed.data.role)) {
+        return errorResponse("You can only assign Branch Manager, Staff, or Inventory Manager roles");
+      }
+    }
+
+    const payload = { ...parsed.data };
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
+      payload.organizationId = req.user.organizationId;
+    }
+
+    const user = await updateUser(id, payload);
     return successResponse(user, "User updated successfully");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -55,10 +75,13 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as Ctx).params;
 
+    const target = await getUserById(id);
+    if (!target) return notFoundResponse("User not found");
+
     if (req.user.role === "ORG_ADMIN") {
-      const target = await getUserById(id);
-      if (!target || (target as { organizationId?: { toString(): string } | null }).organizationId?.toString() !== req.user.organizationId) {
-        return errorResponse("You can only remove users in your organization");
+      const oid = req.user.organizationId;
+      if (!oid || userOrganizationIdString(target) !== oid) {
+        return notFoundResponse("User not found");
       }
     }
 

@@ -20,7 +20,8 @@ import { Order } from "@/lib/db/models/Order";
 import { Commission } from "@/lib/db/models/Commission";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { Organization } from "@/lib/db/models/Organization";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { formatCurrency, formatDateTimeInTimezone } from "@/lib/utils";
 import { ORDER_PAID_STATUSES } from "@/types";
 import mongoose from "mongoose";
 import Link from "next/link";
@@ -131,7 +132,11 @@ export default async function OrgDashboardPage() {
   const session = await auth();
   if (!session?.user?.organizationId) redirect("/dashboard");
 
-  const stats = await getOrgDashboardStats(session.user.organizationId);
+  const [stats, settings] = await Promise.all([
+    getOrgDashboardStats(session.user.organizationId),
+    getPublicAppSettings(),
+  ]);
+  const { currency, timezone } = settings;
   const org = stats.org as {
     name: string;
     type: string;
@@ -174,14 +179,14 @@ export default async function OrgDashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Today's Sales"
-            value={formatCurrency(stats.todaySales)}
+            value={formatCurrency(stats.todaySales, currency)}
             description={`${stats.todayOrders} orders today`}
             icon={DollarSign}
             iconClassName="bg-green-100"
           />
           <StatCard
             title="Monthly Revenue"
-            value={formatCurrency(stats.monthlySales)}
+            value={formatCurrency(stats.monthlySales, currency)}
             description={`${stats.monthlyOrders} orders this month`}
             icon={TrendingUp}
             iconClassName="bg-blue-100"
@@ -189,8 +194,8 @@ export default async function OrgDashboardPage() {
           {hasCommission ? (
             <StatCard
               title="Commission Earned"
-              value={formatCurrency(stats.totalEarned)}
-              description={`${formatCurrency(stats.pendingPayout)} pending payout`}
+              value={formatCurrency(stats.totalEarned, currency)}
+              description={`${formatCurrency(stats.pendingPayout, currency)} pending payout`}
               icon={Percent}
               iconClassName="bg-yellow-100"
             />
@@ -245,10 +250,10 @@ export default async function OrgDashboardPage() {
                     <div key={order._id.toString()} className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium font-mono">{order.orderNumber}</p>
-                        <p className="text-xs text-muted-foreground">{formatDateTime(order.createdAt)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateTimeInTimezone(order.createdAt, timezone)}</p>
                       </div>
                       <div className="text-right flex items-center gap-2">
-                        <p className="text-sm font-semibold">{formatCurrency(order.total)}</p>
+                        <p className="text-sm font-semibold">{formatCurrency(order.total, currency)}</p>
                         <Badge variant={STATUS_BADGE[order.status] ?? "secondary"} className="text-xs">
                           {order.status}
                         </Badge>

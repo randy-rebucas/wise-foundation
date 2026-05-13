@@ -37,9 +37,11 @@ import {
   Truck,
   Loader2,
 } from "lucide-react";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { ORDER_PAID_STATUSES } from "@/types";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface Organization {
   _id: string;
@@ -147,11 +149,17 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 }
 
 export default function OrdersPage() {
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const branchId = session?.user?.branchIds?.[0] ?? "";
   const userRole = session?.user?.role ?? "";
+
+  const ordersQueryEnabled =
+    !!session?.user && (userRole === "ADMIN" || userRole === "ORG_ADMIN" || !!branchId);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -181,34 +189,39 @@ export default function OrdersPage() {
       });
       const res = await fetch(`/api/products?${params}`);
       const j = await res.json();
-      if (!j.success) return [];
+      if (!j.success) throw new Error(j.error ?? `Product search failed (${res.status})`);
       return (j.data ?? []) as ProductHit[];
     },
     enabled: b2bOpen && debouncedB2bSuggestQuery.length >= 2,
   });
 
-  const { data: result, isLoading } = useQuery({
+  const { data: result, isLoading, isError, error } = useQuery({
     queryKey: ["orders", branchId, statusFilter, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (branchId) params.set("branchId", branchId);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/orders?${params}`);
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load orders (${res.status})`);
+      return json as {
+        data: Order[];
+        meta?: { total: number; pendingCount: number; approvedCount: number };
+      };
     },
-    enabled: !!branchId,
+    enabled: ordersQueryEnabled,
   });
 
-  const { data: orgsData } = useQuery({
-    queryKey: ["organizations-list"],
+  const { data: organizations = [] } = useQuery({
+    queryKey: ["organizations-for-orders"],
     queryFn: async () => {
-      const res = await fetch("/api/organizations?limit=100");
-      return res.json();
+      const res = await fetch("/api/organizations/for-orders");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
+      return (json.data ?? []) as Organization[];
     },
     enabled: b2bOpen,
   });
-
-  const organizations: Organization[] = orgsData?.data ?? [];
 
   const orders: Order[] = result?.data ?? [];
   const total = result?.meta?.total ?? 0;
@@ -291,10 +304,12 @@ export default function OrdersPage() {
   async function openDetail(orderId: string) {
     const res = await fetch(`/api/orders/${orderId}`);
     const data = await res.json();
-    if (data.success) {
-      setSelectedOrder(data.data);
-      setDetailOpen(true);
+    if (!data.success) {
+      toast({ title: data.error ?? "Could not load order", variant: "destructive" });
+      return;
     }
+    setSelectedOrder(data.data);
+    setDetailOpen(true);
   }
 
   function updateB2BItem(idx: number, field: keyof B2BItem, value: string | number) {
@@ -335,7 +350,7 @@ export default function OrdersPage() {
     setB2bForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
   }
 
-  const canManageOrders = ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER"].includes(userRole);
+  const canManageOrders = session?.user?.permissions?.includes("manage:orders") ?? false;
 
   const columns = [
     {
@@ -344,7 +359,7 @@ export default function OrdersPage() {
       render: (o: Order) => (
         <div>
           <p className="font-mono font-medium text-sm">{o.orderNumber}</p>
-          <p className="text-xs text-muted-foreground">{formatDateTime(o.createdAt)}</p>
+          <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
     },
@@ -378,9 +393,9 @@ export default function OrdersPage() {
       label: "Amount",
       render: (o: Order) => (
         <div>
-          <p className="font-semibold">{formatCurrency(o.total)}</p>
-          {o.discountAmount > 0 && (
-            <p className="text-xs text-green-600">-{formatCurrency(o.discountAmount)}</p>
+          <p className="font-semibold">{money(o.total)}</p>
+          {o.discountAmount != null && o.discountAmount > 0 && (
+            <p className="text-xs text-green-600">-{money(o.discountAmount)}</p>
           )}
         </div>
       ),
@@ -389,7 +404,7 @@ export default function OrdersPage() {
       key: "payment",
       label: "Payment",
       render: (o: Order) => (
-        <span className="text-sm capitalize">{o.paymentMethod.replace("_", " ")}</span>
+        <span className="text-sm capitalize">{(o.paymentMethod ?? "cash").replace("_", " ")}</span>
       ),
     },
     {
@@ -478,6 +493,13 @@ export default function OrdersPage() {
     <div className="flex flex-col">
       <Header title="Orders" subtitle="Manage sales and order history" />
       <div className="flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6">
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load orders."}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           <StatCard
             title="Total Orders"
@@ -487,7 +509,7 @@ export default function OrdersPage() {
           />
           <StatCard
             title="Revenue"
-            value={formatCurrency(
+            value={money(
               orders
                 .filter((o) => (ORDER_PAID_STATUSES as readonly string[]).includes(o.status))
                 .reduce((s, o) => s + o.total, 0)
@@ -589,11 +611,11 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Payment</p>
-                  <p className="font-medium capitalize">{selectedOrder.paymentMethod.replace("_", " ")}</p>
+                  <p className="font-medium capitalize">{(selectedOrder.paymentMethod ?? "cash").replace("_", " ")}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Date</p>
-                  <p className="font-medium">{formatDateTime(selectedOrder.createdAt)}</p>
+                  <p className="font-medium">{dateTime(selectedOrder.createdAt)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Status</p>
@@ -610,7 +632,7 @@ export default function OrdersPage() {
                         {item.sku} × {item.quantity}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold">{formatCurrency(item.total)}</p>
+                    <p className="text-sm font-semibold">{money(item.total)}</p>
                   </div>
                 ))}
               </div>
@@ -618,27 +640,27 @@ export default function OrdersPage() {
               <div className="space-y-1 text-sm border-t pt-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(selectedOrder.subtotal)}</span>
+                  <span>{money(selectedOrder.subtotal)}</span>
                 </div>
-                {selectedOrder.discountAmount > 0 && (
+                {selectedOrder.discountAmount != null && selectedOrder.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount</span>
-                    <span>-{formatCurrency(selectedOrder.discountAmount)}</span>
+                    <span>-{money(selectedOrder.discountAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-base border-t pt-1">
                   <span>Total</span>
-                  <span>{formatCurrency(selectedOrder.total)}</span>
+                  <span>{money(selectedOrder.total)}</span>
                 </div>
                 {selectedOrder.amountPaid > 0 && (
                   <>
                     <div className="flex justify-between text-muted-foreground">
                       <span>Amount Paid</span>
-                      <span>{formatCurrency(selectedOrder.amountPaid)}</span>
+                      <span>{money(selectedOrder.amountPaid)}</span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>Change</span>
-                      <span>{formatCurrency(selectedOrder.change)}</span>
+                      <span>{money(selectedOrder.change)}</span>
                     </div>
                   </>
                 )}
@@ -668,7 +690,7 @@ export default function OrdersPage() {
                   {selectedOrder.deliveredAt && (
                     <p>
                       <span className="text-muted-foreground">Delivered </span>
-                      {formatDateTime(selectedOrder.deliveredAt)}
+                      {dateTime(selectedOrder.deliveredAt)}
                       {selectedOrder.deliveredBy?.name && (
                         <span className="text-muted-foreground"> · {selectedOrder.deliveredBy.name}</span>
                       )}
@@ -877,7 +899,7 @@ export default function OrdersPage() {
                             >
                               <span className="font-medium">{p.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {p.sku} · {formatCurrency(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
+                                {p.sku} · {money(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
                               </span>
                             </button>
                           ))
@@ -938,7 +960,7 @@ export default function OrdersPage() {
             </div>
 
             <div className="text-sm text-right font-semibold">
-              Total: {formatCurrency(
+              Total: {money(
                 b2bForm.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0) *
                   (1 - b2bForm.discountPercent / 100)
               )}

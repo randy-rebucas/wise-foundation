@@ -16,9 +16,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { ArrowLeft, PackageCheck, CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
-type OrganizationType = "distributor" | "franchise" | "partner";
+type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
 interface POItemDetail {
   _id: string;
@@ -64,22 +66,27 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 };
 
 export default function PurchaseOrderDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const money = useFormatCurrency();
+  const dateTime = useFormatDateTime();
+  const params = useParams<{ id: string }>();
+  const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
 
-  const { data: result, isLoading } = useQuery({
+  const { data: po, isLoading, isError, error } = useQuery({
     queryKey: ["purchase-order", id],
+    enabled: !!id,
     queryFn: async () => {
       const res = await fetch(`/api/purchase-orders/${id}`);
-      return res.json();
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
+      return json.data as PurchaseOrderDetail;
     },
   });
-
-  const po: PurchaseOrderDetail | undefined = result?.data;
 
   const statusMutation = useMutation({
     mutationFn: async (status: string) => {
@@ -89,9 +96,11 @@ export default function PurchaseOrderDetailPage() {
         body: JSON.stringify({ status }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-order", id] }),
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Update failed", description: err.message }),
   });
 
   const receiveMutation = useMutation({
@@ -107,13 +116,15 @@ export default function PurchaseOrderDetailPage() {
         body: JSON.stringify({ items }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error ?? `Receive failed (${res.status})`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       setReceiveOpen(false);
     },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Fulfillment failed", description: err.message }),
   });
 
   function openReceive() {
@@ -122,6 +133,21 @@ export default function PurchaseOrderDetailPage() {
     po.items.forEach((item) => { defaults[item._id] = item.quantity; });
     setReceivedQtys(defaults);
     setReceiveOpen(true);
+  }
+
+  if (!id) {
+    return (
+      <div className="flex flex-col">
+        <Header title="Purchase Order" />
+        <div className="flex-1 p-6 space-y-4">
+          <p className="text-muted-foreground">Invalid purchase order link.</p>
+          <Button variant="outline" size="sm" onClick={() => router.push("/purchase-orders")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Purchase Orders
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -135,12 +161,35 @@ export default function PurchaseOrderDetailPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="flex flex-col">
+        <Header title="Purchase Order" />
+        <div className="flex-1 p-6 space-y-4 max-w-4xl">
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load this purchase order."}
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" size="sm" onClick={() => router.push("/purchase-orders")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Purchase Orders
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!po) {
     return (
       <div className="flex flex-col">
         <Header title="Purchase Order" />
         <div className="flex-1 p-6">
           <p className="text-muted-foreground">Purchase order not found.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push("/purchase-orders")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Purchase Orders
+          </Button>
         </div>
       </div>
     );
@@ -214,12 +263,12 @@ export default function PurchaseOrderDetailPage() {
           <div>
             <p className="text-xs text-muted-foreground">Created By</p>
             <p className="text-sm font-medium">{po.createdBy?.name}</p>
-            <p className="text-xs text-muted-foreground">{formatDateTime(po.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">{dateTime(po.createdAt)}</p>
           </div>
           {po.expectedDeliveryDate && (
             <div>
               <p className="text-xs text-muted-foreground">Expected Delivery</p>
-              <p className="text-sm font-medium">{formatDateTime(po.expectedDeliveryDate)}</p>
+              <p className="text-sm font-medium">{dateTime(po.expectedDeliveryDate)}</p>
             </div>
           )}
           {po.approvedBy && (
@@ -227,7 +276,7 @@ export default function PurchaseOrderDetailPage() {
               <p className="text-xs text-muted-foreground">Approved By</p>
               <p className="text-sm font-medium">{po.approvedBy.name}</p>
               {po.approvedAt && (
-                <p className="text-xs text-muted-foreground">{formatDateTime(po.approvedAt)}</p>
+                <p className="text-xs text-muted-foreground">{dateTime(po.approvedAt)}</p>
               )}
             </div>
           )}
@@ -236,7 +285,7 @@ export default function PurchaseOrderDetailPage() {
               <p className="text-xs text-muted-foreground">Fulfilled By</p>
               <p className="text-sm font-medium">{po.receivedBy.name}</p>
               {po.receivedAt && (
-                <p className="text-xs text-muted-foreground">{formatDateTime(po.receivedAt)}</p>
+                <p className="text-xs text-muted-foreground">{dateTime(po.receivedAt)}</p>
               )}
             </div>
           )}
@@ -269,15 +318,15 @@ export default function PurchaseOrderDetailPage() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(item.unitCost)}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{formatCurrency(item.total)}</td>
+                  <td className="px-4 py-3 text-right">{money(item.unitCost)}</td>
+                  <td className="px-4 py-3 text-right font-semibold">{money(item.total)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="border-t bg-muted/50">
               <tr>
                 <td colSpan={4} className="px-4 py-2 text-right font-semibold">Total</td>
-                <td className="px-4 py-2 text-right font-bold text-base">{formatCurrency(po.total)}</td>
+                <td className="px-4 py-2 text-right font-bold text-base">{money(po.total)}</td>
               </tr>
             </tfoot>
           </table>

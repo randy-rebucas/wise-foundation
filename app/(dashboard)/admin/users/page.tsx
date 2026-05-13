@@ -140,15 +140,19 @@ export default function UsersPage() {
   const [editForm, setEditForm] = useState<EditForm>(defaultEdit);
   const [formError, setFormError] = useState("");
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersResult, isLoading, isError, error } = useQuery({
     queryKey: ["users", search, roleFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (roleFilter && roleFilter !== "all") params.set("role", roleFilter);
       const res = await fetch(`/api/users?${params}`);
-      const data = await res.json();
-      return (data.data ?? []) as StaffUser[];
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load users (${res.status})`);
+      return json as {
+        data: StaffUser[];
+        meta?: { total?: number; page?: number; limit?: number };
+      };
     },
   });
 
@@ -156,8 +160,9 @@ export default function UsersPage() {
     queryKey: ["branches"],
     queryFn: async () => {
       const res = await fetch("/api/branches");
-      const data = await res.json();
-      return (data.data ?? []) as Branch[];
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load branches (${res.status})`);
+      return (json.data ?? []) as Branch[];
     },
   });
 
@@ -165,9 +170,11 @@ export default function UsersPage() {
     queryKey: ["organizations"],
     queryFn: async () => {
       const res = await fetch("/api/organizations");
-      const data = await res.json();
-      return (data.data ?? []) as { _id: string; name: string; type: string }[];
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
+      return (json.data ?? []) as { _id: string; name: string; type: string }[];
     },
+    enabled: !isOrgAdmin,
   });
 
   const createMutation = useMutation({
@@ -263,14 +270,21 @@ export default function UsersPage() {
     setForm({ ...form, branchIds: ids });
   }
 
-  const users = usersData ?? [];
+  const users = usersResult?.data ?? [];
+  const usersTotal = usersResult?.meta?.total ?? users.length;
 
   const columns = [
     {
       key: "user",
       label: "User",
       render: (u: StaffUser) => {
-        const initials = u.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+        const initials = (u.name || "?")
+          .split(" ")
+          .map((n) => n[0])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8">
@@ -291,7 +305,7 @@ export default function UsersPage() {
       label: "Role",
       render: (u: StaffUser) => (
         <Badge variant={ROLE_VARIANT[u.role] ?? "outline"}>
-          {u.role.replace(/_/g, " ")}
+          {(u.role ?? "unknown").replace(/_/g, " ")}
         </Badge>
       ),
     },
@@ -356,16 +370,18 @@ export default function UsersPage() {
                     )}
                   </DropdownMenuItem>
                 )}
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => deleteMutation.mutate(u._id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remove
-                  </DropdownMenuItem>
-                </>
+                {!isSelf && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => deleteMutation.mutate(u._id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </RoleGuard>
@@ -381,6 +397,13 @@ export default function UsersPage() {
         subtitle={isOrgAdmin ? "Manage your organization's team members" : "Manage team members and their roles"}
       />
       <div className="flex-1 p-6 space-y-4">
+        {isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {error instanceof Error ? error.message : "Unable to load users."}
+            </AlertDescription>
+          </Alert>
+        )}
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3 justify-between">
           <div className="flex gap-2 flex-1">
@@ -415,7 +438,10 @@ export default function UsersPage() {
           </RoleGuard>
         </div>
 
-        <p className="text-sm text-muted-foreground">{users.length} users</p>
+        <p className="text-sm text-muted-foreground">
+          {usersTotal === 1 ? "1 user" : `${usersTotal} users`}
+          {usersTotal > users.length ? ` — showing ${users.length} on this page` : null}
+        </p>
 
         <DataTable
           columns={columns}
@@ -539,8 +565,18 @@ export default function UsersPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || !createForm.name || !createForm.email || !createForm.password || !createForm.role}
+              onClick={() => {
+                setFormError("");
+                createMutation.mutate();
+              }}
+              disabled={
+                createMutation.isPending ||
+                !createForm.name.trim() ||
+                !createForm.email.trim() ||
+                createForm.password.length < 8 ||
+                !createForm.role ||
+                (!isOrgAdmin && createForm.role === "ORG_ADMIN" && !createForm.organizationId.trim())
+              }
             >
               {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Create User
@@ -646,8 +682,16 @@ export default function UsersPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending || !editForm.name || !editForm.role}
+              onClick={() => {
+                setFormError("");
+                updateMutation.mutate();
+              }}
+              disabled={
+                updateMutation.isPending ||
+                !editForm.name.trim() ||
+                !editForm.role ||
+                (!isOrgAdmin && editForm.role === "ORG_ADMIN" && !editForm.organizationId.trim())
+              }
             >
               {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Changes

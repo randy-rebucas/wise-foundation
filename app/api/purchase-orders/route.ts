@@ -2,7 +2,7 @@ import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getPurchaseOrders, createPurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { createPurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -14,7 +14,7 @@ const getHandler = async (req: AuthedRequest) => {
     const limit = parseInt(searchParams.get("limit") ?? "20");
     const organizationId = searchParams.get("organizationId") ?? undefined;
 
-    const result = await getPurchaseOrders(branchId, status, page, limit, organizationId);
+    const result = await getPurchaseOrders(req.user, branchId, status, page, limit, organizationId);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,
@@ -31,6 +31,12 @@ const postHandler = async (req: AuthedRequest) => {
     const parsed = createPurchaseOrderSchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
+    }
+
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
+      if (parsed.data.organizationId !== String(req.user.organizationId)) {
+        return forbiddenResponse("You can only create purchase orders for your organization.");
+      }
     }
 
     const po = await createPurchaseOrder(req.user.id, parsed.data);

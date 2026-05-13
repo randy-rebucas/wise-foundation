@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/DataTable";
-import { formatDateTime } from "@/lib/utils";
+import { useFormatDateTime } from "@/components/providers/TenantProvider";
 import { ArrowDown, ArrowUp, ArrowLeftRight, Settings } from "lucide-react";
 
 interface StockMovement {
@@ -36,12 +36,13 @@ interface MovementLogProps {
 }
 
 export function MovementLog({ data, loading, page, totalPages, onPageChange }: MovementLogProps) {
+  const dateTime = useFormatDateTime();
   const columns = [
     {
       key: "date",
       label: "Date & Time",
       render: (m: StockMovement) => (
-        <span className="text-sm text-muted-foreground">{formatDateTime(m.createdAt)}</span>
+        <span className="text-sm text-muted-foreground">{dateTime(m.createdAt)}</span>
       ),
     },
     {

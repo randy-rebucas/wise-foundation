@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "reset": "tsx --env-file=.env.local scripts/reset.ts"
+    "reset": "tsx --env-file=.env.local scripts/reset.ts",
+    "reset-seed": "tsx --env-file=.env.local scripts/reset-and-seed.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.2",

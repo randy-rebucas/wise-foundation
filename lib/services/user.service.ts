@@ -4,6 +4,15 @@ import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 
+/** Stable string for a user's `organizationId` ref (ObjectId or populated subdoc). */
+export function userOrganizationIdString(user: { organizationId?: unknown } | null | undefined): string | null {
+  if (!user) return null;
+  const o = user.organizationId;
+  if (o == null) return null;
+  if (typeof o === "object" && "toString" in o) return (o as { toString(): string }).toString();
+  return String(o);
+}
+
 /** Mongoose cannot cast "" to ObjectId; treat blank as null. */
 function toOrganizationIdRef(id: string | null | undefined): string | null {
   if (id === undefined || id === null) return null;

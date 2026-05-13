@@ -1,4 +1,6 @@
 import "dotenv/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -43,7 +45,7 @@ function pad(n: number, length = 6) {
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
-async function seed() {
+export async function runSeed(): Promise<void> {
   console.log("Connecting to MongoDB…");
   await mongoose.connect(MONGODB_URI!);
   console.log("Connected.\n");
@@ -56,6 +58,21 @@ async function seed() {
     await db.collection(col.name).drop();
     console.log(`  dropped: ${col.name}`);
   }
+
+  const now = new Date();
+  await db.collection("appsettings").insertOne({
+    appName: "Wise POS (Seeded)",
+    appTagline: "Women in the Service",
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    setupCompleted: true,
+    memberDefaultDiscountPercent: 10,
+    defaultLowStockThreshold: 10,
+    receiptFooter: "Thank you for your purchase.",
+    createdAt: now,
+    updatedAt: now,
+  });
+  console.log("  appsettings: seeded (setup completed)\n");
 
   // Re-register models after drop
   const Role         = mongoose.model("Role",              RoleSchema);
@@ -551,10 +568,20 @@ async function seed() {
   console.log("════════════════════════════════════════\n");
 
   await mongoose.disconnect();
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("\nSeed failed:", err);
-  process.exit(1);
-});
+function isInvokedDirectly(): boolean {
+  const invoked = process.argv[1];
+  if (!invoked) return false;
+  const here = fileURLToPath(import.meta.url);
+  return path.resolve(invoked) === path.resolve(here);
+}
+
+if (isInvokedDirectly()) {
+  runSeed()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("\nSeed failed:", err);
+      process.exit(1);
+    });
+}

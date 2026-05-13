@@ -42,7 +42,8 @@ import {
   Boxes,
   ShieldAlert,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
+import { formatCurrencyCompactAxis } from "@/lib/utils";
 
 const CATEGORY_COLORS: Record<string, string> = {
   homecare: "bg-blue-100 text-blue-800",
@@ -108,24 +109,44 @@ function KpiSkeleton() {
 }
 
 export default function ReportsPage() {
+  const money = useFormatCurrency();
+  const { currency } = useTenant();
   const { data: session } = useSession();
   const userRole = session?.user?.role ?? "";
   const [days, setDays] = useState("30");
 
-  const { data: report, isLoading } = useQuery({
+  const {
+    data: report,
+    isLoading: summaryLoading,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
     queryKey: ["reports-summary", days],
     queryFn: async () => {
       const res = await fetch(`/api/reports?type=summary&days=${days}`);
-      return (await res.json()).data;
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error ?? `Failed to load reports (${res.status})`);
+      }
+      return json.data;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: orgReport, isLoading: orgLoading } = useQuery({
+  const {
+    data: orgReport,
+    isLoading: orgLoading,
+    isError: isOrgReportError,
+    error: orgReportError,
+  } = useQuery({
     queryKey: ["reports-org-summary", days],
     queryFn: async () => {
       const res = await fetch(`/api/reports?type=org-summary&days=${days}`);
-      return (await res.json()).data;
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error ?? `Failed to load org reports (${res.status})`);
+      }
+      return json.data;
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -149,7 +170,9 @@ export default function ReportsPage() {
   const isOrgAdmin = userRole === "ORG_ADMIN";
 
   const activeSummary = isOrgAdmin ? orgSalesSummary : summary;
-  const activeLoading = isOrgAdmin ? orgLoading : isLoading;
+  const activeLoading = isOrgAdmin ? orgLoading : summaryLoading;
+  const activeQueryFailed = isOrgAdmin ? isOrgReportError : isSummaryError;
+  const activeQueryError = isOrgAdmin ? orgReportError : summaryError;
 
   const maxOrgRevenue = topOrgs.length > 0 ? topOrgs[0].revenue : 1;
   const maxOrgInventory = orgInventory.length > 0 ? Math.max(...orgInventory.map((i) => i.totalUnits)) : 1;
@@ -176,24 +199,51 @@ export default function ReportsPage() {
       />
 
       <div className="flex-1 p-6 space-y-6">
+        {isSummaryError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {summaryError instanceof Error ? summaryError.message : "Unable to load summary reports."}
+            </AlertDescription>
+          </Alert>
+        )}
+        {isOrgReportError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {orgReportError instanceof Error ? orgReportError.message : "Unable to load organization metrics."}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* KPI Cards */}
         <div className={`grid gap-4 grid-cols-2 ${isAdmin ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
           {activeLoading ? (
             Array.from({ length: isAdmin ? 4 : 3 }).map((_, i) => (
               <Card key={i}><CardContent className="pt-5"><KpiSkeleton /></CardContent></Card>
             ))
+          ) : activeQueryFailed ? (
+            <Card className="col-span-full border-destructive/50">
+              <CardContent className="pt-5">
+                <Alert variant="destructive" className="border-0 bg-transparent p-0">
+                  <AlertDescription>
+                    {activeQueryError instanceof Error
+                      ? activeQueryError.message
+                      : "Reports could not be loaded for this period."}
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
           ) : (
             <>
               <StatCard
                 title="Revenue"
-                value={formatCurrency(activeSummary?.totalRevenue ?? 0)}
+                value={money(activeSummary?.totalRevenue ?? 0)}
                 icon={DollarSign}
                 description={`${activeSummary?.totalOrders ?? 0} orders`}
                 iconClassName="bg-green-100"
               />
               <StatCard
                 title="Avg Order"
-                value={formatCurrency(activeSummary?.avgOrderValue ?? 0)}
+                value={money(activeSummary?.avgOrderValue ?? 0)}
                 icon={TrendingUp}
                 description="Per transaction"
                 iconClassName="bg-blue-100"
@@ -219,9 +269,9 @@ export default function ReportsPage() {
               {isOrgAdmin && (
                 <StatCard
                   title="Commissions"
-                  value={formatCurrency(distribution?.commissions?.total ?? 0)}
+                  value={money(distribution?.commissions?.total ?? 0)}
                   icon={Percent}
-                  description={`${formatCurrency(distribution?.commissions?.pending ?? 0)} pending`}
+                  description={`${money(distribution?.commissions?.pending ?? 0)} pending`}
                   iconClassName="bg-yellow-100"
                 />
               )}
@@ -281,10 +331,16 @@ export default function ReportsPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {isLoading ? (
+                  {summaryLoading ? (
                     <div className="space-y-3">
                       {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
                     </div>
+                  ) : isSummaryError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        {summaryError instanceof Error ? summaryError.message : "Unable to load product rankings."}
+                      </AlertDescription>
+                    </Alert>
                   ) : topProducts.slice(0, 5).length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-6">No data yet</p>
                   ) : (
@@ -299,7 +355,7 @@ export default function ReportsPage() {
                                 <p className="text-xs text-muted-foreground">{product.sku}</p>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className="text-sm font-semibold">{formatCurrency(product.totalRevenue)}</p>
+                                <p className="text-sm font-semibold">{money(product.totalRevenue)}</p>
                                 <p className="text-xs text-muted-foreground">{product.totalQuantity} units</p>
                               </div>
                             </div>
@@ -326,17 +382,23 @@ export default function ReportsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {isLoading ? (
+                    {summaryLoading ? (
                       <div className="space-y-3">
                         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
                       </div>
+                    ) : isSummaryError ? (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          {summaryError instanceof Error ? summaryError.message : "Unable to load member stats."}
+                        </AlertDescription>
+                      </Alert>
                     ) : (
                       <div className="space-y-3">
                         {[
                           { label: "Total Members", value: report?.memberStats?.total ?? 0 },
                           { label: "Active", value: report?.memberStats?.active ?? 0 },
                           { label: "New This Month", value: report?.memberStats?.newThisMonth ?? 0 },
-                          { label: "Discounts Given", value: formatCurrency(summary?.totalDiscount ?? 0) },
+                          { label: "Discounts Given", value: money(summary?.totalDiscount ?? 0) },
                         ].map(({ label, value }) => (
                           <div key={label} className="flex justify-between items-center text-sm py-1 border-b border-dashed last:border-0">
                             <span className="text-muted-foreground">{label}</span>
@@ -359,11 +421,17 @@ export default function ReportsPage() {
                       <div className="space-y-3">
                         {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
                       </div>
+                    ) : isOrgReportError ? (
+                      <Alert variant="destructive">
+                        <AlertDescription>
+                          {orgReportError instanceof Error ? orgReportError.message : "Unable to load commission data."}
+                        </AlertDescription>
+                      </Alert>
                     ) : (
                       <div className="space-y-3">
                         {[
-                          { label: "Total Earned", value: formatCurrency(distribution?.commissions?.total ?? 0) },
-                          { label: "Pending Payout", value: formatCurrency(distribution?.commissions?.pending ?? 0) },
+                          { label: "Total Earned", value: money(distribution?.commissions?.total ?? 0) },
+                          { label: "Pending Payout", value: money(distribution?.commissions?.pending ?? 0) },
                           { label: "Total Orders", value: orgSalesSummary?.totalOrders ?? 0 },
                         ].map(({ label, value }) => (
                           <div key={label} className="flex justify-between items-center text-sm py-1 border-b border-dashed last:border-0">
@@ -386,10 +454,16 @@ export default function ReportsPage() {
                 <CardTitle className="text-sm font-semibold">Top Products — Period Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {summaryLoading ? (
                   <div className="space-y-4">
                     {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                   </div>
+                ) : isSummaryError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {summaryError instanceof Error ? summaryError.message : "Unable to load top products."}
+                    </AlertDescription>
+                  </Alert>
                 ) : topProducts.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-10">No data yet</p>
                 ) : (
@@ -411,7 +485,7 @@ export default function ReportsPage() {
                               <p className="text-xs text-muted-foreground">{product.sku}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="font-semibold text-sm">{formatCurrency(product.totalRevenue)}</p>
+                              <p className="font-semibold text-sm">{money(product.totalRevenue)}</p>
                               <p className="text-xs text-muted-foreground">{product.totalQuantity} sold</p>
                             </div>
                           </div>
@@ -433,93 +507,119 @@ export default function ReportsPage() {
           {/* ── Branch Performance ────────────────────────────────────── */}
           {isAdmin && (
             <TabsContent value="branches" className="mt-4 space-y-4">
-              <BranchPerformance data={report?.branchPerf ?? []} />
+              {isSummaryError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {summaryError instanceof Error ? summaryError.message : "Unable to load branch performance."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <BranchPerformance data={report?.branchPerf ?? []} />
+              )}
             </TabsContent>
           )}
 
           {/* ── Organizations ─────────────────────────────────────────── */}
           {isAdmin && (
             <TabsContent value="organizations" className="mt-4 space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <StatCard
-                  title="Org Revenue"
-                  value={orgLoading ? "…" : formatCurrency(orgSalesSummary?.totalRevenue ?? 0)}
-                  icon={DollarSign}
-                  description={`${orgSalesSummary?.totalOrders ?? 0} org orders`}
-                  iconClassName="bg-green-100"
-                />
-                <StatCard
-                  title="Avg Org Order"
-                  value={orgLoading ? "…" : formatCurrency(orgSalesSummary?.avgOrderValue ?? 0)}
-                  icon={TrendingUp}
-                  description="Per org transaction"
-                  iconClassName="bg-blue-100"
-                />
-                <StatCard
-                  title="Total Commissions"
-                  value={orgLoading ? "…" : formatCurrency(distribution?.commissions?.total ?? 0)}
-                  icon={Percent}
-                  description={`${formatCurrency(distribution?.commissions?.pending ?? 0)} pending`}
-                  iconClassName="bg-yellow-100"
-                />
-              </div>
+              {isOrgReportError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {orgReportError instanceof Error ? orgReportError.message : "Unable to load organization reports."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <StatCard
+                      title="Org Revenue"
+                      value={orgLoading ? "…" : money(orgSalesSummary?.totalRevenue ?? 0)}
+                      icon={DollarSign}
+                      description={`${orgSalesSummary?.totalOrders ?? 0} org orders`}
+                      iconClassName="bg-green-100"
+                    />
+                    <StatCard
+                      title="Avg Org Order"
+                      value={orgLoading ? "…" : money(orgSalesSummary?.avgOrderValue ?? 0)}
+                      icon={TrendingUp}
+                      description="Per org transaction"
+                      iconClassName="bg-blue-100"
+                    />
+                    <StatCard
+                      title="Total Commissions"
+                      value={orgLoading ? "…" : money(distribution?.commissions?.total ?? 0)}
+                      icon={Percent}
+                      description={`${money(distribution?.commissions?.pending ?? 0)} pending`}
+                      iconClassName="bg-yellow-100"
+                    />
+                  </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" /> Top Organizations by Revenue
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {orgLoading ? (
-                    <div className="space-y-4">
-                      {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-                    </div>
-                  ) : topOrgs.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No data yet</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {topOrgs.map((org, i) => (
-                        <div key={org.orgId} className="space-y-1.5">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-muted-foreground w-6 text-right shrink-0">{i + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-sm truncate">{org.name}</p>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${ORG_TYPE_COLORS[org.type] ?? "bg-gray-100 text-gray-800"}`}>
-                                  {org.type}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {org.orders} orders · {org.commissionRate}% commission
-                              </p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="font-semibold text-sm">{formatCurrency(org.revenue)}</p>
-                              {org.pendingCommission > 0 && (
-                                <p className="text-xs text-yellow-600">{formatCurrency(org.pendingCommission)} due</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="ml-9 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-blue-400"
-                              style={{ width: `${Math.round((org.revenue / maxOrgRevenue) * 100)}%` }}
-                            />
-                          </div>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" /> Top Organizations by Revenue
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {orgLoading ? (
+                        <div className="space-y-4">
+                          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                      ) : topOrgs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8">No data yet</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {topOrgs.map((org, i) => (
+                            <div key={org.orgId} className="space-y-1.5">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-muted-foreground w-6 text-right shrink-0">{i + 1}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-medium text-sm truncate">{org.name}</p>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${ORG_TYPE_COLORS[org.type] ?? "bg-gray-100 text-gray-800"}`}>
+                                      {org.type}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {org.orders} orders · {org.commissionRate}% commission
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="font-semibold text-sm">{money(org.revenue)}</p>
+                                  {org.pendingCommission > 0 && (
+                                    <p className="text-xs text-yellow-600">{money(org.pendingCommission)} due</p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="ml-9 h-1.5 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-blue-400"
+                                  style={{ width: `${Math.round((org.revenue / maxOrgRevenue) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </TabsContent>
           )}
 
           {/* ── Distribution ─────────────────────────────────────────── */}
           {isAdmin && (
             <TabsContent value="distribution" className="mt-4 space-y-4">
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+              {isOrgReportError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {orgReportError instanceof Error ? orgReportError.message : "Unable to load distribution metrics."}
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                 {(["headquarters", "distributor", "franchise", "partner"] as const).map((type, idx) => (
                   <Card key={type} className="overflow-hidden">
                     <div className="h-1" style={{ background: BAR_COLORS[idx] }} />
@@ -533,7 +633,7 @@ export default function ReportsPage() {
                         </span>
                       </div>
                       <p className="text-xl font-bold">
-                        {formatCurrency(distribution?.revenueByType[type]?.revenue ?? 0)}
+                        {money(distribution?.revenueByType[type]?.revenue ?? 0)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {distribution?.revenueByType[type]?.orders ?? 0} orders
@@ -552,9 +652,9 @@ export default function ReportsPage() {
                     <BarChart data={distChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₱${(v / 1000).toFixed(0)}k`} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrencyCompactAxis(Number(v), currency)} />
                       <Tooltip
-                        formatter={(value) => [formatCurrency(Number(value)), "Revenue"]}
+                        formatter={(value) => [money(Number(value)), "Revenue"]}
                         contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
                       />
                       <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
@@ -577,12 +677,12 @@ export default function ReportsPage() {
                   <CardContent className="space-y-4">
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Total Generated</p>
-                      <p className="text-2xl font-bold">{formatCurrency(distribution?.commissions?.total ?? 0)}</p>
+                      <p className="text-2xl font-bold">{money(distribution?.commissions?.total ?? 0)}</p>
                     </div>
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
                         <span>Pending payout</span>
-                        <span className="font-medium text-yellow-600">{formatCurrency(distribution?.commissions?.pending ?? 0)}</span>
+                        <span className="font-medium text-yellow-600">{money(distribution?.commissions?.pending ?? 0)}</span>
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
                         <div
@@ -615,12 +715,20 @@ export default function ReportsPage() {
                   </CardContent>
                 </Card>
               </div>
+                </>
+              )}
             </TabsContent>
           )}
 
           {/* ── Org Inventory ─────────────────────────────────────────── */}
           <TabsContent value="inventory" className="mt-4">
-            {orgLoading ? (
+            {isOrgReportError ? (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {orgReportError instanceof Error ? orgReportError.message : "Unable to load organization inventory."}
+                </AlertDescription>
+              </Alert>
+            ) : orgLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
               </div>
@@ -667,10 +775,16 @@ export default function ReportsPage() {
           {/* ── Stock Alerts ─────────────────────────────────────────── */}
           {isAdmin && (
             <TabsContent value="alerts" className="mt-4 space-y-3">
-              {isLoading ? (
+              {summaryLoading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
                 </div>
+              ) : isSummaryError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {summaryError instanceof Error ? summaryError.message : "Unable to load stock alerts."}
+                  </AlertDescription>
+                </Alert>
               ) : (report?.alerts ?? []).length === 0 ? (
                 <Alert variant="success">
                   <AlertTitle>All Good!</AlertTitle>
