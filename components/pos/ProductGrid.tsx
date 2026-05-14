@@ -205,6 +205,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                       key={p._id}
                       type="button"
                       role="option"
+                      aria-selected={false}
                       disabled={out}
                       className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                       onMouseDown={(e) => e.preventDefault()}

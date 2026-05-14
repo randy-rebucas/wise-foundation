@@ -69,11 +69,15 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (meUser) {
-      setProfileForm({ name: meUser.name ?? "", phone: meUser.phone ?? "" });
+      queueMicrotask(() => {
+        setProfileForm({ name: meUser.name ?? "", phone: meUser.phone ?? "" });
+      });
       return;
     }
     if (user?.name) {
-      setProfileForm((prev) => ({ ...prev, name: user.name }));
+      queueMicrotask(() => {
+        setProfileForm((prev) => ({ ...prev, name: user.name }));
+      });
     }
   }, [meUser, user?.name]);
 
@@ -100,14 +104,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!appSettings) return;
-    setAppForm({
-      appName: appSettings.appName,
-      appTagline: appSettings.appTagline,
-      currency: appSettings.currency,
-      timezone: appSettings.timezone,
-      memberDefaultDiscountPercent: appSettings.memberDefaultDiscountPercent,
-      defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
-      receiptFooter: appSettings.receiptFooter,
+    queueMicrotask(() => {
+      setAppForm({
+        appName: appSettings.appName,
+        appTagline: appSettings.appTagline,
+        currency: appSettings.currency,
+        timezone: appSettings.timezone,
+        memberDefaultDiscountPercent: appSettings.memberDefaultDiscountPercent,
+        defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
+        receiptFooter: appSettings.receiptFooter,
+      });
     });
   }, [appSettings]);
 

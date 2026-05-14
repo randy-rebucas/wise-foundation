@@ -161,7 +161,7 @@ export async function runSeed(): Promise<void> {
   const pw = await bcrypt.hash("password123", 12);
   const adminPw = await bcrypt.hash("admin123", 12);
 
-  const [admin, orgAdminUser, branchMgr1, branchMgr2, staff1, staff2, invMgr] = await User.insertMany([
+  const [admin, , , , staff1, , invMgr] = await User.insertMany([
     {
       name: "Super Admin",
       email: "admin@wise.com",

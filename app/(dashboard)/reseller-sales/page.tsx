@@ -25,7 +25,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Plus, Loader2, X, CheckCircle, ShoppingBag } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
@@ -98,7 +97,6 @@ const defaultSaleItem: SaleItem = {
 
 export default function ResellerSalesPage() {
   const money = useFormatCurrency();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [saleOpen, setSaleOpen] = useState(false);
@@ -540,6 +538,7 @@ export default function ResellerSalesPage() {
                                         key={p._id}
                                         type="button"
                                         role="option"
+                                        aria-selected={saleItems[idx]?.productId === p._id}
                                         disabled={q === 0}
                                         className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted disabled:opacity-50"
                                         onMouseDown={(e) => e.preventDefault()}

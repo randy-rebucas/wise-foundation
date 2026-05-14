@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -151,17 +151,6 @@ export default function MembersPage() {
   const inactiveCount: number = result?.meta?.inactiveCount ?? 0;
   const orders: MemberOrder[] = historyResult?.data ?? [];
   const ordersTotal: number = historyResult?.meta?.total ?? 0;
-
-  useEffect(() => {
-    if (open) return;
-    const b = session?.user?.branchIds?.[0] ?? "";
-    setForm((f) => ({ ...f, branchId: b }));
-  }, [session?.user?.branchIds, open]);
-
-  useEffect(() => {
-    if (open) return;
-    setForm((f) => ({ ...f, discountPercent: memberDefaultDiscountPercent }));
-  }, [memberDefaultDiscountPercent, open]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

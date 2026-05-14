@@ -2,6 +2,8 @@ import { AlertTriangle } from "lucide-react";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Under Maintenance",
   description: "Our system is currently under maintenance. Please try again later.",
@@ -29,7 +31,7 @@ export default async function MaintenancePage() {
         </h1>
 
         <p className="text-lg text-slate-600 dark:text-slate-300 mb-8">
-          We're currently performing system maintenance. All users are temporarily locked out.
+          We&apos;re currently performing system maintenance. All users are temporarily locked out.
         </p>
 
         <div className="space-y-4 mb-8">

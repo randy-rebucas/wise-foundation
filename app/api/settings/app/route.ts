@@ -9,7 +9,8 @@ import {
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
-const getHandler = async (_req: AuthedRequest) => {
+const getHandler = async (req: AuthedRequest) => {
+  void req;
   try {
     const settings = await getPublicAppSettings();
     return successResponse(settings);

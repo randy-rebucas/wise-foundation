@@ -5,7 +5,8 @@ import { exportProductsToCsv } from "@/lib/services/product.service";
 import { serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
-const getHandler = async (_req: AuthedRequest) => {
+const getHandler = async (req: AuthedRequest) => {
+  void req;
   try {
     const csv = await exportProductsToCsv();
     const date = new Date().toISOString().slice(0, 10);

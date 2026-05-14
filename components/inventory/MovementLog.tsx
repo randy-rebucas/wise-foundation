@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/DataTable";
 import { useFormatDateTime } from "@/components/providers/TenantProvider";
 import { ArrowDown, ArrowUp, ArrowLeftRight, Settings } from "lucide-react";

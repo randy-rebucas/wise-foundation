@@ -6,6 +6,7 @@ import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
+  void req;
   try {
     const suppliers = await getSuppliers();
     return successResponse(suppliers);

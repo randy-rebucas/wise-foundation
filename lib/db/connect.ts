@@ -13,7 +13,6 @@ interface MongooseCache {
 
 // Extend global to persist connection across hot reloads in development
 declare global {
-  // eslint-disable-next-line no-var
   var mongooseCache: MongooseCache | undefined;
 }
 

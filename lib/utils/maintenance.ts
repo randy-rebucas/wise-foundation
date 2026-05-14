@@ -6,7 +6,7 @@ export function isMaintenanceMode(): boolean {
   return process.env.MAINTENANCE_MODE === 'true';
 }
 
-export function isMaintenanceModeAdmin(role?: string): boolean {
+export function isMaintenanceModeAdmin(): boolean {
   // No roles can bypass maintenance mode - everyone is blocked
   return false;
 }

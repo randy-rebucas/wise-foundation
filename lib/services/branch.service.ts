@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/db/connect";
-import { Branch, type IBranch } from "@/lib/db/models/Branch";
+import { Branch } from "@/lib/db/models/Branch";
 import { User } from "@/lib/db/models/User";
 import type { Types } from "mongoose";
 
@@ -38,7 +38,7 @@ export interface CreateBranchData {
   organizationId?: string | null;
 }
 
-export interface UpdateBranchData extends Partial<CreateBranchData> {}
+export type UpdateBranchData = Partial<CreateBranchData>;
 
 export async function createBranch(data: CreateBranchData) {
   await connectDB();

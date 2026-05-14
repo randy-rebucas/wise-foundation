@@ -510,6 +510,7 @@ export default function PurchaseOrdersPage() {
                                   key={p._id}
                                   type="button"
                                   role="option"
+                                  aria-selected={item.productId === p._id}
                                   className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => selectPOProduct(index, p)}

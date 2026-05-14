@@ -76,7 +76,9 @@ export async function createUser(data: CreateUserInput) {
     isActive: true,
   });
 
-  const { password: _pw, ...safeUser } = user.toObject();
+  const doc = user.toObject();
+  const { password, ...safeUser } = doc;
+  void password;
   return safeUser;
 }
 

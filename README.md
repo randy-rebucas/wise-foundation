@@ -30,7 +30,7 @@ A full-stack business management platform built for multi-branch and multi-organ
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+ (see `engines` in `package.json`)
 - MongoDB instance (local or Atlas)
 
 ### Environment Variables
@@ -39,10 +39,13 @@ Create a `.env.local` file at the project root:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<db>
-NEXTAUTH_SECRET=<random-secret>
-NEXTAUTH_URL=http://localhost:3000
-JWT_SECRET=<random-secret>
+AUTH_SECRET=<random-secret>
+AUTH_URL=http://localhost:3000
 ```
+
+`AUTH_SECRET` and `AUTH_URL` are what Auth.js / NextAuth v5 expect. (`NEXTAUTH_SECRET` / `NEXTAUTH_URL` are still accepted as aliases in many setups.)
+
+Optional: `CLOUDINARY_*` for image uploads, `MAINTENANCE_MODE=true` to show the maintenance page.
 
 Generate secrets with:
 ```bash
