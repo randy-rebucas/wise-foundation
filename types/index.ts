@@ -14,7 +14,7 @@ export type ProductCategory = "homecare" | "cosmetics" | "wellness" | "scent";
 
 export type StockMovementType = "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT";
 
-export type OrderType = "POS" | "DISTRIBUTOR" | "B2B";
+export type OrderType = "POS" | "DISTRIBUTOR" | "B2B" | "MARKETPLACE";
 
 export type OrderStatus =
   | "pending"

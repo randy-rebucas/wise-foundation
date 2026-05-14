@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign In — WISE Platform",
+  title: "Sign In — Glowish",
 };
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 overflow-hidden">
-      {/* Animated gradient background matching WISE brand */}
+      {/* Animated gradient background matching Glowish brand */}
       <div
         className="absolute inset-0 z-0"
         style={{

@@ -61,8 +61,8 @@ export async function runSeed(): Promise<void> {
 
   const now = new Date();
   await db.collection("appsettings").insertOne({
-    appName: "Wise POS (Seeded)",
-    appTagline: "Women in the Service",
+    appName: "Glowish (Seeded)",
+    appTagline: "POS & online store",
     currency: "PHP",
     timezone: "Asia/Manila",
     setupCompleted: true,
@@ -119,11 +119,11 @@ export async function runSeed(): Promise<void> {
   console.log("\n[3] Organizations");
   const [distOrg, franOrg, partnerOrg] = await Organization.insertMany([
     {
-      name: "Wise Distributors Inc.",
+      name: "Glowish Distributors Inc.",
       type: "distributor",
       settings: { canSellRetail: false, canDistribute: true, hasInventory: true, commissionEnabled: false, canSubmitOrders: true },
       contactPerson: "Diego Reyes",
-      email: "diego@wisedist.com",
+      email: "diego@glowish.demo",
       phone: "09171234567",
       address: "10 Industrial Road, Valenzuela",
       commissionRate: 0,
@@ -164,7 +164,7 @@ export async function runSeed(): Promise<void> {
   const [admin, , , , staff1, , invMgr] = await User.insertMany([
     {
       name: "Super Admin",
-      email: "admin@wise.com",
+      email: "admin@glowish.demo",
       password: adminPw,
       role: "ADMIN",
       branchIds: [hq._id],
@@ -173,7 +173,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Diego Reyes",
-      email: "diego@wisedist.com",
+      email: "diego@glowish.demo",
       password: pw,
       role: "ORG_ADMIN",
       branchIds: [],
@@ -193,7 +193,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Carlos Mendoza",
-      email: "carlos@wise.com",
+      email: "carlos@glowish.demo",
       password: pw,
       role: "BRANCH_MANAGER",
       branchIds: [hq._id, northBranch._id],
@@ -202,7 +202,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Ana Garcia",
-      email: "ana@wise.com",
+      email: "ana@glowish.demo",
       password: pw,
       role: "BRANCH_MANAGER",
       branchIds: [southBranch._id],
@@ -211,7 +211,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Rico Bautista",
-      email: "rico@wise.com",
+      email: "rico@glowish.demo",
       password: pw,
       role: "STAFF",
       branchIds: [hq._id],
@@ -220,7 +220,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Lisa Torres",
-      email: "lisa@wise.com",
+      email: "lisa@glowish.demo",
       password: pw,
       role: "STAFF",
       branchIds: [northBranch._id],
@@ -229,7 +229,7 @@ export async function runSeed(): Promise<void> {
     },
     {
       name: "Mark Villanueva",
-      email: "mark@wise.com",
+      email: "mark@glowish.demo",
       password: pw,
       role: "INVENTORY_MANAGER",
       branchIds: [hq._id, northBranch._id, southBranch._id],
@@ -326,7 +326,7 @@ export async function runSeed(): Promise<void> {
     { name: "Marco Villaluz", phone: "09171110006", email: "marco@email.com",   discountPercent: 20, status: "active",   branchId: southBranch._id },
   ];
   const members = await Member.insertMany(
-    membersData.map((m, i) => ({ ...m, memberId: `WISE-${pad(i + 1)}`, joinedAt: new Date(Date.now() - i * 7 * 86400000) }))
+    membersData.map((m, i) => ({ ...m, memberId: `GLOW-${pad(i + 1)}`, joinedAt: new Date(Date.now() - i * 7 * 86400000) }))
   );
   console.log(`  ${members.length} members seeded`);
 
@@ -545,25 +545,25 @@ export async function runSeed(): Promise<void> {
   console.log("\n  LOGIN CREDENTIALS");
   console.log("  ──────────────────────────────────────");
   console.log("  ADMIN");
-  console.log("    Email:    admin@wise.com");
+  console.log("    Email:    admin@glowish.demo");
   console.log("    Password: admin123");
   console.log("\n  ORG ADMIN (Distributor)");
-  console.log("    Email:    diego@wisedist.com");
+  console.log("    Email:    diego@glowish.demo");
   console.log("    Password: password123");
   console.log("\n  ORG ADMIN (Franchise)");
   console.log("    Email:    maria@brightlife.com");
   console.log("    Password: password123");
   console.log("\n  BRANCH MANAGER (HQ + North)");
-  console.log("    Email:    carlos@wise.com");
+  console.log("    Email:    carlos@glowish.demo");
   console.log("    Password: password123");
   console.log("\n  BRANCH MANAGER (South)");
-  console.log("    Email:    ana@wise.com");
+  console.log("    Email:    ana@glowish.demo");
   console.log("    Password: password123");
   console.log("\n  STAFF");
-  console.log("    Email:    rico@wise.com");
+  console.log("    Email:    rico@glowish.demo");
   console.log("    Password: password123");
   console.log("\n  INVENTORY MANAGER");
-  console.log("    Email:    mark@wise.com");
+  console.log("    Email:    mark@glowish.demo");
   console.log("    Password: password123");
   console.log("════════════════════════════════════════\n");
 

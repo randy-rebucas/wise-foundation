@@ -52,7 +52,7 @@ const setupSchema = z.object({
   adminPassword: z.string().min(8),
 });
 
-const DEFAULT_APP_TAGLINE = "Women in the Service";
+const DEFAULT_APP_TAGLINE = "POS & online store";
 const DEFAULT_MEMBER_DISCOUNT = 10;
 const DEFAULT_LOW_STOCK = 10;
 

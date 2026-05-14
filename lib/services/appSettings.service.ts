@@ -4,8 +4,8 @@ import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 
 const DEFAULTS: PublicAppSettings = {
-  appName: "Wise POS",
-  appTagline: "Women in the Service",
+  appName: "Glowish",
+  appTagline: "POS & online store",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,

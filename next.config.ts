@@ -25,6 +25,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      { source: "/marketplace", destination: "/", permanent: true },
+      { source: "/marketplace/:path+", destination: "/:path+", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

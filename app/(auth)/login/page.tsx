@@ -13,7 +13,7 @@ import { Loader2, ShoppingBag, ShieldCheck } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const setupDone = searchParams.get("setup") === "done";
   const [email, setEmail] = useState("");
@@ -50,15 +50,15 @@ function LoginForm() {
     <Card className="border-0 shadow-2xl">
       <CardHeader className="space-y-1 pb-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
-            <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--wise-navy))" }} />
+          <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
+            <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
           </div>
           <div>
-            <p className="font-bold text-lg tracking-wide leading-none" style={{ color: "hsl(var(--wise-blue))" }}>
-              WISE
+            <p className="font-bold text-lg tracking-wide leading-none" style={{ color: "hsl(var(--glowish-blue))" }}>
+              Glowish
             </p>
             <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
-              Women in the Service for Everyone
+              POS & online store
             </p>
           </div>
         </div>

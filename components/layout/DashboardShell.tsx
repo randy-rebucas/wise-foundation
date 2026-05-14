@@ -33,7 +33,7 @@ export function DashboardShell({ initialUser, tenantSettings, children }: Dashbo
           <Menu className="h-5 w-5" />
         </Button>
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--wise-gold))" }}>
+          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--glowish-gold))" }}>
             {tenantSettings.appName}
           </p>
           <p className="text-[10px] text-muted-foreground truncate uppercase tracking-wider">

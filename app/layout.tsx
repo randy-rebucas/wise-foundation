@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Livelihood Platform",
-  description: "Digital livelihood platform for homecare, cosmetics, health & wellness",
+  title: "Glowish",
+  description: "Glowish — point of sale, inventory, and online storefront for retail teams.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

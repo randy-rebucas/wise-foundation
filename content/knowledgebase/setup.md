@@ -1,7 +1,7 @@
 ---
 slug: setup
 title: Initial setup (tenant)
-summary: First-run or setup flow for provisioning a Wise tenant—typically administrator-only.
+summary: First-run or setup flow for provisioning a Glowish tenant—typically administrator-only.
 category: administration
 relatedPaths:
   - /setup

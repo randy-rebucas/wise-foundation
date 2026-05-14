@@ -4,9 +4,9 @@ import { createContext, useCallback, useContext } from "react";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { formatCurrency, formatDateInTimezone, formatDateTimeInTimezone } from "@/lib/utils";
 
-const DEFAULT_SETTINGS: PublicAppSettings = {
-  appName: "Wise POS",
-  appTagline: "Women in the Service",
+export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
+  appName: "Glowish",
+  appTagline: "POS & online store",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,
@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS: PublicAppSettings = {
   receiptFooter: "",
 };
 
-const TenantContext = createContext<PublicAppSettings>(DEFAULT_SETTINGS);
+const TenantContext = createContext<PublicAppSettings>(DEFAULT_PUBLIC_APP_SETTINGS);
 
 export function TenantProvider({
   children,
@@ -23,7 +23,7 @@ export function TenantProvider({
   children: React.ReactNode;
   value?: Partial<PublicAppSettings> | null;
 }) {
-  const merged: PublicAppSettings = { ...DEFAULT_SETTINGS, ...(value ?? {}) };
+  const merged: PublicAppSettings = { ...DEFAULT_PUBLIC_APP_SETTINGS, ...(value ?? {}) };
   return <TenantContext.Provider value={merged}>{children}</TenantContext.Provider>;
 }
 

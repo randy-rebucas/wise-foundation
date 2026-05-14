@@ -15,6 +15,8 @@ export interface IProduct extends Document {
   cost: number;
   isActive: boolean;
   tags: string[];
+  /** When false, product is hidden from the public marketplace catalog. */
+  marketplaceListed?: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -39,6 +41,7 @@ const ProductSchema = new Schema<IProduct>(
     cost: { type: Number, required: true, min: 0 },
     isActive: { type: Boolean, default: true },
     tags: [{ type: String }],
+    marketplaceListed: { type: Boolean, default: true },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

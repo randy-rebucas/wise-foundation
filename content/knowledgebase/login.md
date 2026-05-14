@@ -14,14 +14,14 @@ Use the **email** and **password** issued by your administrator. Passwords are c
 
 ## After successful sign-in
 
-You are redirected to a **home route** based on role (for example ADMIN → dashboard, ORG_ADMIN → org dashboard). If **maintenance mode** is on, you may be redirected to the maintenance page instead.
+You are redirected after sign-in to the URL in `callbackUrl`, or by default to the **dashboard**. The public **shop** lives at `/` for guests. If **maintenance mode** is on, you may be redirected to the maintenance page instead.
 
 ## Common issues
 
 | Symptom | What to check |
 |---------|----------------|
 | Access denied | Role blocked from dashboard, or inactive user |
-| Wrong landing page | Expected—home is role-based |
+| Wrong landing page | Check `callbackUrl`; default is the dashboard, not the public shop at `/` |
 | Forgot password | Use your org’s reset process if implemented; otherwise ask an admin |
 
 ## Security habits

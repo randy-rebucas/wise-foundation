@@ -23,6 +23,7 @@ import {
   Store,
   Percent,
   LayoutGrid,
+  Globe2,
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
   { label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
   { label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
+  { label: "Online store", path: "/", icon: Globe2, allAuthenticated: true },
   { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
   { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
@@ -144,11 +146,11 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-        <div className="p-2 rounded-lg" style={{ background: "hsl(var(--wise-gold))" }}>
-          <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--wise-navy))" }} />
+        <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
+          <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
         </div>
         <div className="min-w-0">
-          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--wise-gold))" }}>
+          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--glowish-gold))" }}>
             {appName}
           </p>
           <p className="text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase truncate">

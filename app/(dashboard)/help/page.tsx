@@ -9,7 +9,7 @@ import { ArrowLeft, BookMarked, Route } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Help & guides",
-  description: "Knowledge base, feature guides, and role-based journeys for Wise.",
+  description: "Knowledge base, feature guides, and role-based journeys for Glowish.",
 };
 
 export default function HelpPage() {
@@ -50,9 +50,9 @@ export default function HelpPage() {
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground gap-1" asChild>
-                <Link href="/">
+                <Link href="/dashboard">
                   <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                  Home
+                  Dashboard
                 </Link>
               </Button>
             </div>

@@ -1,6 +1,8 @@
-import { Schema, model, models, type Document } from "mongoose";
+import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IAppSettings extends Document {
+  /** Branch that fulfills web marketplace orders (inventory deducted here). */
+  marketplaceFulfillmentBranchId?: Types.ObjectId | null;
   appName: string;
   /** Short line under the logo (e.g. tagline). */
   appTagline: string;
@@ -19,8 +21,13 @@ export interface IAppSettings extends Document {
 
 const AppSettingsSchema = new Schema<IAppSettings>(
   {
-    appName: { type: String, required: true, default: "Wise POS" },
-    appTagline: { type: String, default: "Women in the Service" },
+    marketplaceFulfillmentBranchId: {
+      type: Schema.Types.ObjectId,
+      ref: "Branch",
+      default: null,
+    },
+    appName: { type: String, required: true, default: "Glowish" },
+    appTagline: { type: String, default: "POS & online store" },
     currency: { type: String, required: true, default: "PHP" },
     timezone: { type: String, required: true, default: "Asia/Manila" },
     setupCompleted: { type: Boolean, default: false },

@@ -28,6 +28,18 @@ export interface IOrder extends Document {
   receivedByName?: string;
   deliveredAt?: Date | null;
   deliveredBy?: Types.ObjectId | null;
+  /** Web marketplace shipping + buyer (guest or logged-in). */
+  marketplaceShipping?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    region: string;
+    postalCode: string;
+  };
+  marketplaceCustomerUserId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -43,7 +55,7 @@ const OrderSchema = new Schema<IOrder>(
     type: {
       type: String,
       required: true,
-      enum: ["POS", "DISTRIBUTOR", "B2B"] as OrderType[],
+      enum: ["POS", "DISTRIBUTOR", "B2B", "MARKETPLACE"] as OrderType[],
       default: "POS",
     },
     status: {
@@ -74,6 +86,21 @@ const OrderSchema = new Schema<IOrder>(
     receivedByName: { type: String },
     deliveredAt: { type: Date, default: null },
     deliveredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    marketplaceShipping: {
+      fullName: { type: String },
+      email: { type: String },
+      phone: { type: String },
+      line1: { type: String },
+      line2: { type: String },
+      city: { type: String },
+      region: { type: String },
+      postalCode: { type: String },
+    },
+    marketplaceCustomerUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

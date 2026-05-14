@@ -515,7 +515,7 @@ export default function SettingsPage() {
                         id="appName"
                         value={appForm.appName}
                         onChange={(e) => setAppForm((f) => ({ ...f, appName: e.target.value }))}
-                        placeholder="Wise POS"
+                        placeholder="Glowish"
                       />
                       <p className="text-xs text-muted-foreground">Shown in the sidebar and printed receipts.</p>
                     </div>
@@ -525,7 +525,7 @@ export default function SettingsPage() {
                         id="appTagline"
                         value={appForm.appTagline}
                         onChange={(e) => setAppForm((f) => ({ ...f, appTagline: e.target.value }))}
-                        placeholder="Women in the Service"
+                        placeholder="POS & online store"
                       />
                     </div>
                     <div className="space-y-2">

@@ -56,7 +56,7 @@ interface Organization {
 interface Order {
   _id: string;
   orderNumber: string;
-  type: "POS" | "DISTRIBUTOR" | "B2B";
+  type: "POS" | "DISTRIBUTOR" | "B2B" | "MARKETPLACE";
   status: "pending" | "approved" | "paid" | "delivered" | "completed" | "cancelled" | "refunded";
   memberName?: string;
   cashierId: { name: string };
@@ -74,6 +74,16 @@ interface OrderDetail extends Order {
   receivedByName?: string;
   deliveredAt?: string;
   deliveredBy?: { name: string } | null;
+  marketplaceShipping?: {
+    fullName: string;
+    email: string;
+    phone: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    region: string;
+    postalCode: string;
+  };
   items: {
     _id: string;
     productName: string;
@@ -128,6 +138,7 @@ const TYPE_BADGE_CLASS: Record<string, string> = {
   POS: "bg-blue-100 text-blue-800",
   DISTRIBUTOR: "bg-purple-100 text-purple-800",
   B2B: "bg-orange-100 text-orange-800",
+  MARKETPLACE: "bg-emerald-100 text-emerald-800",
 };
 
 interface ProductHit {
@@ -599,6 +610,32 @@ export default function OrdersPage() {
                       <p className="font-medium">{selectedOrder.buyerOrganizationId?.name ?? "—"}</p>
                     </div>
                   </>
+                ) : selectedOrder.type === "MARKETPLACE" ? (
+                  <div className="sm:col-span-2 space-y-1">
+                    <p className="text-muted-foreground">Ship to</p>
+                    {selectedOrder.marketplaceShipping ? (
+                      <>
+                        <p className="font-medium">{selectedOrder.marketplaceShipping.fullName}</p>
+                        <p className="text-xs">
+                          {selectedOrder.marketplaceShipping.email} ·{" "}
+                          {selectedOrder.marketplaceShipping.phone}
+                        </p>
+                        <p className="text-xs">
+                          {selectedOrder.marketplaceShipping.line1}
+                          {selectedOrder.marketplaceShipping.line2
+                            ? `, ${selectedOrder.marketplaceShipping.line2}`
+                            : ""}
+                        </p>
+                        <p className="text-xs">
+                          {selectedOrder.marketplaceShipping.city},{" "}
+                          {selectedOrder.marketplaceShipping.region}{" "}
+                          {selectedOrder.marketplaceShipping.postalCode}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-medium">{selectedOrder.memberName ?? "—"}</p>
+                    )}
+                  </div>
                 ) : (
                   <div>
                     <p className="text-muted-foreground">Customer</p>

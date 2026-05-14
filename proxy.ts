@@ -5,10 +5,34 @@ import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
 
 /** Reachable without auth while maintenance is on (admins can still sign in). */
-const MAINTENANCE_PUBLIC = ["/login", "/setup", "/maintenance", "/api/setup", "/api/auth"];
+const MAINTENANCE_PUBLIC = [
+  "/login",
+  "/setup",
+  "/maintenance",
+  "/api/setup",
+  "/api/auth",
+  "/",
+  "/cart",
+  "/checkout",
+  "/product",
+  "/marketplace",
+  "/api/marketplace",
+];
 
-/** Reachable without session (setup wizard, auth, maintenance). */
-const UNAUTHENTICATED = ["/login", "/setup", "/maintenance", "/api/auth", "/api/setup"];
+/** Reachable without session (setup wizard, auth, maintenance, public storefront). */
+const UNAUTHENTICATED = [
+  "/login",
+  "/setup",
+  "/maintenance",
+  "/api/auth",
+  "/api/setup",
+  "/",
+  "/cart",
+  "/checkout",
+  "/product",
+  "/marketplace",
+  "/api/marketplace",
+];
 
 function matchesPrefixList(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));

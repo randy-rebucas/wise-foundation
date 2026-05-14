@@ -1,13 +1,13 @@
-# Wise Livelihood Platform
+# Glowish
 
-A full-stack business management platform built for multi-branch and multi-organization operations. It includes a point-of-sale system, inventory management, member tracking, B2B order processing, commission tracking, and role-based access control.
+A full-stack retail platform for multi-branch and multi-organization operations. It includes point of sale, inventory, member tracking, B2B orders, commission tracking, a public online storefront, and role-based access control.
 
 ## Features
 
 - **Point of Sale** — Branch-scoped checkout with member discounts, variant selection, and real-time stock enforcement
 - **Inventory Management** — Per-branch stock tracking, low-stock alerts, and stock movement history
 - **Members** — Member registration, discount tiers, and commission tracking
-- **Orders** — POS orders, B2B orders, reseller sales, and purchase orders with status workflows
+- **Orders** — POS orders, B2B orders, reseller sales, marketplace web orders, and purchase orders with status workflows
 - **Organizations** — Multi-org support (distributor, franchise, partner, headquarters) with org-level inventory
 - **Products** — Product catalog with variants, SKU management, and category filtering
 - **Reports** — Sales summaries, top products, branch performance, and inventory alerts
@@ -73,6 +73,7 @@ npm run seed
 app/
   (auth)/         # Login page
   (dashboard)/    # All protected pages (POS, inventory, orders, reports, …)
+  (marketplace)/  # Public storefront (home, cart, checkout)
   api/            # Route handlers
 lib/
   db/             # Mongoose models and connection

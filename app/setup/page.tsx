@@ -44,7 +44,7 @@ export default function SetupPage() {
   }, [router]);
 
   const [form, setForm] = useState({
-    appName: "Wise POS",
+    appName: "Glowish",
     currency: "PHP",
     timezone: "Asia/Manila",
     adminName: "",
@@ -108,7 +108,7 @@ export default function SetupPage() {
               <Settings className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">Welcome to Wise POS</h1>
+          <h1 className="text-3xl font-bold">Welcome to Glowish</h1>
           <p className="text-muted-foreground">Complete the setup to get started</p>
         </div>
 

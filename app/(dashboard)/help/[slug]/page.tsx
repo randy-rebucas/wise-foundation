@@ -42,7 +42,7 @@ export default async function HelpArticlePage({ params }: { params: Promise<{ sl
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/">Home</Link>
+            <Link href="/dashboard">Dashboard</Link>
           </Button>
         </div>
         <HelpArticleBody article={article} />

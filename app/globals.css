@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ── WISE Light Theme ─────────────────────────────── */
+  /* ── Glowish light theme ─────────────────────────── */
   --background: 0 0% 100%;
   --foreground: 227 75% 12%;
 
@@ -14,7 +14,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 227 75% 12%;
 
-  /* Primary — WISE royal blue #1e4db7 */
+  /* Primary — royal blue #1e4db7 */
   --primary: 222 72% 42%;
   --primary-foreground: 0 0% 100%;
 
@@ -26,7 +26,7 @@
   --muted: 220 40% 96%;
   --muted-foreground: 220 25% 46%;
 
-  /* Accent — WISE gold #f5c200 */
+  /* Accent — gold #f5c200 */
   --accent: 48 100% 48%;
   --accent-foreground: 227 75% 12%;
 
@@ -38,7 +38,7 @@
   --ring: 222 72% 42%;
   --radius: 0.5rem;
 
-  /* ── Sidebar — WISE dark navy ─────────────────────── */
+  /* ── Sidebar — dark navy ─────────────────────────── */
   --sidebar-background: 227 75% 12%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-primary: 212 100% 65%;
@@ -49,15 +49,15 @@
   --sidebar-ring: 212 100% 65%;
 
   /* ── Brand tokens (use directly in components) ────── */
-  --wise-navy: 227 75% 12%;
-  --wise-royal: 224 69% 33%;
-  --wise-blue: 222 72% 42%;
-  --wise-cyan: 212 100% 65%;
-  --wise-gold: 48 100% 48%;
+  --glowish-navy: 227 75% 12%;
+  --glowish-royal: 224 69% 33%;
+  --glowish-blue: 222 72% 42%;
+  --glowish-cyan: 212 100% 65%;
+  --glowish-gold: 48 100% 48%;
 }
 
 .dark {
-  /* ── WISE Dark Theme — deep navy ──────────────────── */
+  /* ── Glowish dark theme — deep navy ──────────────── */
   --background: 227 75% 8%;
   --foreground: 210 40% 96%;
 
