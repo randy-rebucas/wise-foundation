@@ -49,7 +49,7 @@ interface OrgData {
 
 interface OrgInventoryItem {
   _id: string;
-  productId: { _id: string; name: string; sku: string; retailPrice: number; distributorPrice: number };
+  productId: { _id: string; name: string; sku: string; retailPrice: number };
   quantity: number;
   totalSold: number;
 }
@@ -174,7 +174,7 @@ function DistributorPanel({ org }: { org: OrgData }) {
       key: "price",
       label: "Distributor Price",
       render: (i: OrgInventoryItem) => (
-        <span className="text-sm">{money(i.productId?.distributorPrice ?? 0)}</span>
+        <span className="text-sm">{money(i.productId?.retailPrice ?? 0)}</span>
       ),
     },
   ];

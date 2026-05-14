@@ -1,6 +1,7 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { getInventory, getInventoryByOrg } from "@/lib/services/inventory.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -15,7 +16,7 @@ const getHandler = async (req: AuthedRequest) => {
       return successResponse(result.items, undefined, 200, { page, limit, total: result.total });
     }
 
-    const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
+    const branchId = await resolveInventoryBranchId(searchParams.get("branchId"), req.user);
     if (!branchId) return errorResponse("Branch ID is required");
 
     const result = await getInventory(branchId, page, limit, lowStockOnly);

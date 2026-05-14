@@ -1,9 +1,27 @@
 import { v2 as cloudinary } from "cloudinary";
 
+function envTrim(key: string): string | undefined {
+  const v = process.env[key];
+  if (v === undefined || v === "") return undefined;
+  return v
+    .replace(/^\uFEFF/, "")
+    .replace(/^\s*["']|["']\s*$/g, "")
+    .trim() || undefined;
+}
+
+/** True when trimmed Cloudinary env vars are all set (matches `cloudinary.config`). */
+export function cloudinaryConfigured(): boolean {
+  return Boolean(
+    envTrim("CLOUDINARY_CLOUD_NAME") &&
+      envTrim("CLOUDINARY_API_KEY") &&
+      envTrim("CLOUDINARY_API_SECRET")
+  );
+}
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: envTrim("CLOUDINARY_CLOUD_NAME"),
+  api_key: envTrim("CLOUDINARY_API_KEY"),
+  api_secret: envTrim("CLOUDINARY_API_SECRET"),
 });
 
 export async function uploadImage(

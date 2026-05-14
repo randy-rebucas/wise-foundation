@@ -7,4 +7,6 @@ export interface PublicAppSettings {
   memberDefaultDiscountPercent: number;
   defaultLowStockThreshold: number;
   receiptFooter: string;
+  /** From server env at request time; product image upload requires Cloudinary when false. */
+  imageUploadEnabled: boolean;
 }

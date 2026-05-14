@@ -23,7 +23,6 @@ interface POSVariant {
   sku: string;
   attributes: { key: string; value: string }[];
   retailPrice: number;
-  memberPrice: number;
   stock: number;
 }
 
@@ -33,7 +32,6 @@ interface POSProduct {
   sku: string;
   category: ProductCategory;
   retailPrice: number;
-  memberPrice: number;
   images: string[];
   stock: number;
   variants: POSVariant[];
@@ -50,7 +48,6 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 interface ProductGridProps {
   products: POSProduct[];
-  isMember: boolean;
   branchId: string;
 }
 
@@ -62,7 +59,7 @@ const CATEGORY_FILTERS = [
   { value: "scent", label: "Scents" },
 ];
 
-export function ProductGrid({ products, isMember, branchId }: ProductGridProps) {
+export function ProductGrid({ products, branchId }: ProductGridProps) {
   const formatMoney = useFormatCurrency();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -125,7 +122,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
       productId: product._id,
       name: product.name,
       sku: product.sku,
-      price: isMember ? product.memberPrice : product.retailPrice,
+      price: product.retailPrice,
       image: product.images?.[0],
       maxStock: product.stock,
     });
@@ -138,7 +135,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
       variantId: variant._id,
       name: `${product.name} — ${variant.name}`,
       sku: variant.sku,
-      price: isMember ? variant.memberPrice : variant.retailPrice,
+      price: variant.retailPrice,
       image: product.images?.[0],
       maxStock: variant.stock,
     });
@@ -199,7 +196,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                     ? p.variants.reduce((s, v) => s + v.stock, 0)
                     : p.stock;
                   const out = totalStock === 0;
-                  const price = isMember ? p.memberPrice : p.retailPrice;
+                  const price = p.retailPrice;
                   return (
                     <button
                       key={p._id}
@@ -253,7 +250,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                 : product.stock;
               const outOfStock = totalStock === 0;
               const cartQty = getTotalCartQtyForProduct(product._id);
-              const price = isMember ? product.memberPrice : product.retailPrice;
+              const price = product.retailPrice;
 
               return (
                 <button
@@ -328,7 +325,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-primary">
-                    {formatMoney(isMember ? variantProduct.memberPrice : variantProduct.retailPrice)}
+                    {formatMoney(variantProduct.retailPrice)}
                   </p>
                   <p className="text-xs text-muted-foreground">{variantProduct.stock} in stock</p>
                 </div>
@@ -369,7 +366,7 @@ export function ProductGrid({ products, isMember, branchId }: ProductGridProps) 
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-primary">
-                      {formatMoney(isMember ? v.memberPrice : v.retailPrice)}
+                      {formatMoney(v.retailPrice)}
                     </p>
                     <p className={`text-xs ${outOfStock ? "text-destructive" : "text-muted-foreground"}`}>
                       {outOfStock ? "Out of stock" : `${v.stock} left`}

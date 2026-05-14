@@ -1,4 +1,4 @@
-import { Schema, model, models, type Document } from "mongoose";
+import mongoose, { Schema, model, type Document } from "mongoose";
 import type { ProductCategory } from "@/types";
 
 export interface IProduct extends Document {
@@ -10,9 +10,6 @@ export interface IProduct extends Document {
   barcode?: string;
   images: string[];
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   isActive: boolean;
   tags: string[];
   /** When false, product is hidden from the public marketplace catalog. */
@@ -36,9 +33,6 @@ const ProductSchema = new Schema<IProduct>(
     barcode: { type: String },
     images: [{ type: String }],
     retailPrice: { type: Number, required: true, min: 0 },
-    memberPrice: { type: Number, required: true, min: 0 },
-    distributorPrice: { type: Number, required: true, min: 0 },
-    cost: { type: Number, required: true, min: 0 },
     isActive: { type: Boolean, default: true },
     tags: [{ type: String }],
     marketplaceListed: { type: Boolean, default: true },
@@ -52,4 +46,9 @@ ProductSchema.index({ category: 1, deletedAt: 1 });
 ProductSchema.index({ isActive: 1, deletedAt: 1 });
 ProductSchema.index({ name: "text", tags: "text" });
 
-export const Product = models.Product || model<IProduct>("Product", ProductSchema);
+/** Drop stale compiled model (Next.js dev / HMR) so schema changes apply. */
+if (mongoose.models.Product) {
+  mongoose.deleteModel("Product");
+}
+
+export const Product = model<IProduct>("Product", ProductSchema);

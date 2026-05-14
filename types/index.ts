@@ -8,7 +8,11 @@ export type UserRole =
   | "BRANCH_MANAGER"
   | "STAFF"
   | "INVENTORY_MANAGER"
-  | "MEMBER";
+  | "MEMBER"
+  | "CUSTOMER";
+
+/** Default role for self-service storefront signup (`/account/register`). */
+export const DEFAULT_MARKETPLACE_SIGNUP_ROLE: UserRole = "CUSTOMER";
 
 export type ProductCategory = "homecare" | "cosmetics" | "wellness" | "scent";
 

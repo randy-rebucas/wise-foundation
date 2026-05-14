@@ -39,7 +39,7 @@ interface Organization {
 
 interface OrgInventoryItem {
   _id: string;
-  productId: { _id: string; name: string; sku: string; retailPrice: number; distributorPrice: number };
+  productId: { _id: string; name: string; sku: string; retailPrice: number };
   quantity: number;
 }
 
@@ -48,7 +48,6 @@ interface ProductHit {
   name: string;
   sku: string;
   retailPrice: number;
-  distributorPrice: number;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -248,7 +247,7 @@ export default function ResellerSalesPage() {
               productId: p._id,
               productName: p.name,
               sku: p.sku,
-              unitPrice: p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice,
+              unitPrice: p.retailPrice,
               maxStock: qty,
               quantity: qty > 0 ? Math.min(curQty, qty) : 1,
             }
@@ -547,7 +546,7 @@ export default function ResellerSalesPage() {
                                         <span className="font-medium">{p.name}</span>
                                         <span className="text-xs text-muted-foreground">
                                           {p.sku} · {q} in stock ·{" "}
-                                          {money(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
+                                          {money(p.retailPrice)}
                                         </span>
                                       </button>
                                     );

@@ -14,7 +14,7 @@ export async function getOrgInventory(organizationId?: string) {
   if (organizationId) filter.organizationId = organizationId;
   return OrganizationInventory.find(filter)
     .populate("organizationId", "name type")
-    .populate("productId", "name sku images retailPrice distributorPrice")
+    .populate("productId", "name sku images retailPrice")
     .sort({ organizationId: 1 })
     .lean();
 }

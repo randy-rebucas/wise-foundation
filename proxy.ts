@@ -17,6 +17,8 @@ const MAINTENANCE_PUBLIC = [
   "/product",
   "/marketplace",
   "/api/marketplace",
+  "/account",
+  "/api/account",
 ];
 
 /** Reachable without session (setup wizard, auth, maintenance, public storefront). */
@@ -32,6 +34,8 @@ const UNAUTHENTICATED = [
   "/product",
   "/marketplace",
   "/api/marketplace",
+  "/account",
+  "/api/account",
 ];
 
 function matchesPrefixList(pathname: string, prefixes: string[]) {
@@ -77,6 +81,15 @@ export async function proxy(req: NextRequest) {
       console.error("[proxy] setup check failed", err);
     }
     if (setupRequired) {
+      // JSON for fetch() callers — never follow a redirect to HTML (breaks res.json()).
+      const setupApiOk =
+        pathname.startsWith("/api/auth") || pathname.startsWith("/api/setup");
+      if (pathname.startsWith("/api/") && !setupApiOk) {
+        return NextResponse.json(
+          { success: false, error: "Application setup is not complete." },
+          { status: 503 }
+        );
+      }
       const res = NextResponse.redirect(new URL("/setup", req.url));
       if (req.cookies.get("app_setup")?.value === "done") {
         res.cookies.set("app_setup", "", {
@@ -97,6 +110,9 @@ export async function proxy(req: NextRequest) {
   }
 
   if (!session) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

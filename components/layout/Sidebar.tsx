@@ -118,7 +118,9 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
     .toUpperCase() ?? "?";
 
   function NavLink({ item }: { item: NavItem }) {
-    const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
+    const isActive =
+      pathname === item.path ||
+      (item.path !== "/" && pathname.startsWith(item.path + "/"));
     return (
       <Link href={item.path} onClick={() => onNavigate?.()}>
         <span

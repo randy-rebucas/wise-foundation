@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, type ChangeEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -36,11 +36,13 @@ import {
   Download,
   Upload,
   FileSpreadsheet,
+  Dices,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
-import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
 import type { ProductCategory } from "@/types";
 
 interface Product {
@@ -49,11 +51,10 @@ interface Product {
   sku: string;
   category: ProductCategory;
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   isActive: boolean;
   images: string[];
+  description?: string;
+  barcode?: string;
 }
 
 interface Variant {
@@ -62,30 +63,24 @@ interface Variant {
   sku: string;
   attributes: { key: string; value: string }[];
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   isActive: boolean;
+  images: string[];
 }
 
 interface VariantForm {
   name: string;
   sku: string;
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   attributes: { key: string; value: string }[];
+  images: string[];
 }
 
 const defaultVariantForm: VariantForm = {
   name: "",
   sku: "",
   retailPrice: 0,
-  memberPrice: 0,
-  distributorPrice: 0,
-  cost: 0,
   attributes: [{ key: "", value: "" }],
+  images: [],
 };
 
 interface ProductForm {
@@ -95,11 +90,9 @@ interface ProductForm {
   sku: string;
   barcode: string;
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   isActive: boolean;
   tags: string;
+  images: string[];
 }
 
 const defaultForm: ProductForm = {
@@ -109,11 +102,9 @@ const defaultForm: ProductForm = {
   sku: "",
   barcode: "",
   retailPrice: 0,
-  memberPrice: 0,
-  distributorPrice: 0,
-  cost: 0,
   isActive: true,
   tags: "",
+  images: [],
 };
 
 const CATEGORIES: { value: ProductCategory; label: string }[] = [
@@ -131,11 +122,50 @@ const CATEGORY_COLORS: Record<ProductCategory, string> = {
 };
 
 const CSV_TEMPLATE =
-  "sku,name,description,category,barcode,retailprice,memberprice,distributorprice,cost,isactive,tags\r\n" +
-  "EX-SKU-001,Example Product,,homecare,,12.99,10.99,8.5,5,true,demo\r\n";
+  "sku,name,description,category,barcode,retailprice,isactive,tags\r\n" +
+  "EX-SKU-001,Example Product,,homecare,,12.99,true,demo\r\n";
+
+const SKU_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function randomBytes(n: number): Uint8Array {
+  const buf = new Uint8Array(n);
+  crypto.getRandomValues(buf);
+  return buf;
+}
+
+/** Uppercase alphanumeric SKU, max length within API limits (e.g. 50). */
+function randomProductSku(): string {
+  const bytes = randomBytes(8);
+  let suffix = "";
+  for (let i = 0; i < 8; i++) suffix += SKU_CHARS[bytes[i]! % SKU_CHARS.length]!;
+  return `SKU-${suffix}`;
+}
+
+/** 13-digit EAN-13 with a valid check digit (works with typical scanners). */
+function randomEan13Barcode(): string {
+  const bytes = randomBytes(12);
+  let body = "";
+  for (let i = 0; i < 12; i++) body += String(bytes[i]! % 10);
+  let sum = 0;
+  for (let i = 0; i < 12; i++) {
+    const n = body.charCodeAt(i) - 48;
+    sum += i % 2 === 0 ? n : n * 3;
+  }
+  const check = (10 - (sum % 10)) % 10;
+  return body + check;
+}
+
+const MAX_GALLERY_IMAGES = 12;
+
+function revokeBlobPreviewUrls(urls: readonly string[]) {
+  for (const u of urls) {
+    if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+  }
+}
 
 export default function ProductsPage() {
   const money = useFormatCurrency();
+  const { imageUploadEnabled } = useTenant();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -153,12 +183,18 @@ export default function ProductsPage() {
   const [variantError, setVariantError] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
+  const [productImageUploading, setProductImageUploading] = useState(false);
+  const [variantImageUploading, setVariantImageUploading] = useState(false);
+  const [productPendingPreviewUrls, setProductPendingPreviewUrls] = useState<string[]>([]);
+  const [variantPendingPreviewUrls, setVariantPendingPreviewUrls] = useState<string[]>([]);
   const [importSummary, setImportSummary] = useState<{
     created: number;
     updated: number;
     errors: { row: number; sku?: string; message: string }[];
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productImagesInputRef = useRef<HTMLInputElement>(null);
+  const variantImagesInputRef = useRef<HTMLInputElement>(null);
 
   const {
     data: products = [],
@@ -186,6 +222,7 @@ export default function ProductsPage() {
         ...form,
         tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
         category: form.category || undefined,
+        images: form.images,
       };
       const res = await fetch(url, {
         method,
@@ -243,7 +280,7 @@ export default function ProductsPage() {
       const payload = {
         ...variantForm,
         attributes: variantForm.attributes.filter((a) => a.key && a.value),
-        images: [],
+        images: variantForm.images,
       };
       const res = await fetch(url, {
         method,
@@ -280,7 +317,128 @@ export default function ProductsPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  function closeVariantsDialog() {
+    setVariantPendingPreviewUrls((prev) => {
+      revokeBlobPreviewUrls(prev);
+      return [];
+    });
+    setVariantsProduct(null);
+  }
+
+  async function postProductImages(files: File[]): Promise<string[]> {
+    const fd = new FormData();
+    for (const f of files) fd.append("files", f);
+    const res = await fetch("/api/products/images", {
+      method: "POST",
+      body: fd,
+      credentials: "include",
+    });
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.includes("application/json")) {
+      throw new Error(
+        res.status === 401 || res.status === 403
+          ? "You do not have permission to upload images (or your session expired). Sign in again."
+          : `Upload failed (HTTP ${res.status}). Expected JSON from the server.`
+      );
+    }
+    const data = (await res.json()) as {
+      success?: boolean;
+      error?: string;
+      data?: { urls?: string[] };
+    };
+    if (!data.success) throw new Error(data.error ?? "Upload failed");
+    const urls = data.data?.urls;
+    if (!Array.isArray(urls)) throw new Error("Invalid upload response");
+    return urls;
+  }
+
+  async function handleProductImagesChange(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const list = input.files;
+    input.value = "";
+    if (!list?.length) return;
+    const files = Array.from(list);
+    const room =
+      MAX_GALLERY_IMAGES -
+      form.images.length -
+      productPendingPreviewUrls.length;
+    if (room <= 0) {
+      toast({
+        title: "Image limit reached",
+        description: `You can add up to ${MAX_GALLERY_IMAGES} images per product.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const slice = files.slice(0, room);
+    const blobUrls = slice.map((file) => URL.createObjectURL(file));
+    setProductPendingPreviewUrls((prev) => [...prev, ...blobUrls]);
+    setProductImageUploading(true);
+    try {
+      const urls = await postProductImages(slice);
+      revokeBlobPreviewUrls(blobUrls);
+      setProductPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
+    } catch (err) {
+      revokeBlobPreviewUrls(blobUrls);
+      setProductPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setProductImageUploading(false);
+    }
+  }
+
+  async function handleVariantImagesChange(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const list = input.files;
+    input.value = "";
+    if (!list?.length) return;
+    const files = Array.from(list);
+    const room =
+      MAX_GALLERY_IMAGES -
+      variantForm.images.length -
+      variantPendingPreviewUrls.length;
+    if (room <= 0) {
+      toast({
+        title: "Image limit reached",
+        description: `You can add up to ${MAX_GALLERY_IMAGES} images per variant.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const slice = files.slice(0, room);
+    const blobUrls = slice.map((file) => URL.createObjectURL(file));
+    setVariantPendingPreviewUrls((prev) => [...prev, ...blobUrls]);
+    setVariantImageUploading(true);
+    try {
+      const urls = await postProductImages(slice);
+      revokeBlobPreviewUrls(blobUrls);
+      setVariantPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      setVariantForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
+    } catch (err) {
+      revokeBlobPreviewUrls(blobUrls);
+      setVariantPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setVariantImageUploading(false);
+    }
+  }
+
   function openCreateVariant() {
+    setVariantPendingPreviewUrls((prev) => {
+      revokeBlobPreviewUrls(prev);
+      return [];
+    });
     setVariantForm(defaultVariantForm);
     setEditVariantId(null);
     setVariantError("");
@@ -288,14 +446,16 @@ export default function ProductsPage() {
   }
 
   function openEditVariant(v: Variant) {
+    setVariantPendingPreviewUrls((prev) => {
+      revokeBlobPreviewUrls(prev);
+      return [];
+    });
     setVariantForm({
       name: v.name,
       sku: v.sku,
       retailPrice: v.retailPrice,
-      memberPrice: v.memberPrice,
-      distributorPrice: v.distributorPrice,
-      cost: v.cost,
       attributes: v.attributes.length ? v.attributes : [{ key: "", value: "" }],
+      images: v.images ?? [],
     });
     setEditVariantId(v._id);
     setVariantError("");
@@ -319,6 +479,10 @@ export default function ProductsPage() {
   }
 
   function resetForm() {
+    setProductPendingPreviewUrls((prev) => {
+      revokeBlobPreviewUrls(prev);
+      return [];
+    });
     setForm(defaultForm);
     setEditId(null);
     setFormError("");
@@ -405,18 +569,20 @@ export default function ProductsPage() {
   }
 
   function openEdit(product: Product) {
+    setProductPendingPreviewUrls((prev) => {
+      revokeBlobPreviewUrls(prev);
+      return [];
+    });
     setForm({
       name: product.name,
-      description: "",
+      description: product.description ?? "",
       category: product.category,
       sku: product.sku,
-      barcode: "",
+      barcode: product.barcode ?? "",
       retailPrice: product.retailPrice,
-      memberPrice: product.memberPrice,
-      distributorPrice: product.distributorPrice,
-      cost: product.cost,
       isActive: product.isActive,
       tags: "",
+      images: product.images ?? [],
     });
     setEditId(product._id);
     setFormError("");
@@ -429,8 +595,13 @@ export default function ProductsPage() {
       label: "Product",
       render: (p: Product) => (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-            <Package className="h-5 w-5 text-muted-foreground" />
+          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden border">
+            {p.images?.[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.images[0]} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Package className="h-5 w-5 text-muted-foreground" />
+            )}
           </div>
           <div>
             <p className="font-medium">{p.name}</p>
@@ -452,17 +623,10 @@ export default function ProductsPage() {
     },
     {
       key: "pricing",
-      label: "Pricing",
+      label: "Retail",
       render: (p: Product) => (
-        <div className="text-sm space-y-0.5">
-          <div>
-            <span className="text-muted-foreground">Retail: </span>
-            <span className="font-medium">{money(p.retailPrice)}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Member: </span>
-            <span className="text-primary font-medium">{money(p.memberPrice)}</span>
-          </div>
+        <div className="text-sm">
+          <span className="font-medium">{money(p.retailPrice)}</span>
         </div>
       ),
     },
@@ -485,6 +649,10 @@ export default function ProductsPage() {
             size="icon"
             title="Manage Variants"
             onClick={() => {
+              setVariantPendingPreviewUrls((prev) => {
+                revokeBlobPreviewUrls(prev);
+                return [];
+              });
               setVariantsProduct(p);
               setVariantFormOpen(false);
               setVariantForm(defaultVariantForm);
@@ -587,7 +755,7 @@ export default function ProductsPage() {
             <p>
               Required columns:{" "}
               <span className="break-all font-mono text-xs text-foreground">
-                sku, name, category, retailprice, memberprice, distributorprice, cost
+                sku, name, category, retailprice
               </span>
               . Optional: description, barcode, isactive (true/false), tags (separate with{" "}
               <code className="text-xs">;</code>).
@@ -647,7 +815,7 @@ export default function ProductsPage() {
       </Dialog>
 
       {/* Variants Dialog */}
-      <Dialog open={!!variantsProduct} onOpenChange={(o) => !o && setVariantsProduct(null)}>
+      <Dialog open={!!variantsProduct} onOpenChange={(o) => !o && closeVariantsDialog()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="min-w-0 truncate pr-8">
@@ -701,13 +869,29 @@ export default function ProductsPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">SKU *</Label>
-                    <Input
-                      value={variantForm.sku}
-                      onChange={(e) =>
-                        setVariantForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))
-                      }
-                      placeholder="e.g. SKU-001-50ML"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        className="flex-1 min-w-0"
+                        value={variantForm.sku}
+                        onChange={(e) =>
+                          setVariantForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))
+                        }
+                        placeholder="e.g. SKU-001-50ML"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        title="Generate random SKU"
+                        aria-label="Generate random SKU"
+                        onClick={() =>
+                          setVariantForm((f) => ({ ...f, sku: randomProductSku() }))
+                        }
+                      >
+                        <Dices className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -744,28 +928,104 @@ export default function ProductsPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {(
-                    [
-                      { key: "cost", label: "Cost" },
-                      { key: "retailPrice", label: "Retail" },
-                      { key: "memberPrice", label: "Member" },
-                      { key: "distributorPrice", label: "Dist." },
-                    ] as { key: keyof VariantForm; label: string }[]
-                  ).map(({ key, label }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-xs">{label}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={variantForm[key] as number}
-                        onChange={(e) =>
-                          setVariantForm((f) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))
-                        }
-                      />
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 gap-2 sm:max-w-xs">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Retail price</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={variantForm.retailPrice}
+                      onChange={(e) =>
+                        setVariantForm((f) => ({
+                          ...f,
+                          retailPrice: parseFloat(e.target.value) || 0,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">Variant photos</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {variantForm.images.length + variantPendingPreviewUrls.length}/{MAX_GALLERY_IMAGES}
+                    </span>
+                  </div>
+                  <input
+                    ref={variantImagesInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    className="hidden"
+                    onChange={handleVariantImagesChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    disabled={
+                      variantImageUploading ||
+                      variantForm.images.length + variantPendingPreviewUrls.length >=
+                        MAX_GALLERY_IMAGES
+                    }
+                    onClick={() => variantImagesInputRef.current?.click()}
+                  >
+                    {variantImageUploading ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : (
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                    )}
+                    Upload images
+                  </Button>
+                  {(variantForm.images.length > 0 || variantPendingPreviewUrls.length > 0) && (
+                    <ul className="flex flex-wrap gap-2 pt-1">
+                      {variantForm.images.map((url, idx) => (
+                        <li key={`${url}-${idx}`} className="relative group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt=""
+                            className="h-16 w-16 rounded-md object-cover border bg-muted"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full shadow-sm border p-0"
+                            title="Remove image"
+                            aria-label="Remove image"
+                            disabled={variantImageUploading}
+                            onClick={() =>
+                              setVariantForm((f) => ({
+                                ...f,
+                                images: f.images.filter((_, i) => i !== idx),
+                              }))
+                            }
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        </li>
+                      ))}
+                      {variantPendingPreviewUrls.map((url) => (
+                        <li
+                          key={url}
+                          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted ring-1 ring-border"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt="" className="h-full w-full object-cover" />
+                          <div
+                            className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50"
+                            aria-hidden
+                          >
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2">
@@ -824,9 +1084,7 @@ export default function ProductsPage() {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        {money(v.retailPrice)} retail ·{" "}
-                        {money(v.memberPrice)} member ·{" "}
-                        {money(v.distributorPrice)} dist.
+                        {money(v.retailPrice)} retail
                       </p>
                     </div>
                     <RoleGuard requiredPermissions={["manage:products"]}>
@@ -856,7 +1114,7 @@ export default function ProductsPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVariantsProduct(null)}>
+            <Button variant="outline" onClick={() => closeVariantsDialog()}>
               Close
             </Button>
           </DialogFooter>
@@ -907,11 +1165,25 @@ export default function ProductsPage() {
 
               <div className="space-y-2">
                 <Label>SKU *</Label>
-                <Input
-                  value={form.sku}
-                  onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))}
-                  placeholder="e.g. SKU-001"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1 min-w-0"
+                    value={form.sku}
+                    onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))}
+                    placeholder="e.g. SKU-001"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    title="Generate random SKU"
+                    aria-label="Generate random SKU"
+                    onClick={() => setForm((f) => ({ ...f, sku: randomProductSku() }))}
+                  >
+                    <Dices className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -925,37 +1197,139 @@ export default function ProductsPage() {
 
               <div className="space-y-2">
                 <Label>Barcode</Label>
-                <Input
-                  value={form.barcode}
-                  onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
-                  placeholder="Barcode"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1 min-w-0"
+                    value={form.barcode}
+                    onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
+                    placeholder="13-digit EAN-13"
+                    inputMode="numeric"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    title="Generate random EAN-13 barcode"
+                    aria-label="Generate random EAN-13 barcode"
+                    onClick={() => setForm((f) => ({ ...f, barcode: randomEan13Barcode() }))}
+                  >
+                    <Dices className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Photos</Label>
+                <span className="text-xs text-muted-foreground">
+                  {form.images.length + productPendingPreviewUrls.length}/{MAX_GALLERY_IMAGES}
+                </span>
+              </div>
+              <input
+                ref={productImagesInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={handleProductImagesChange}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={
+                  productImageUploading ||
+                  form.images.length + productPendingPreviewUrls.length >= MAX_GALLERY_IMAGES
+                }
+                onClick={() => productImagesInputRef.current?.click()}
+              >
+                {productImageUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ImageIcon className="h-4 w-4 mr-2" />
+                )}
+                Upload images
+              </Button>
+              {(form.images.length > 0 || productPendingPreviewUrls.length > 0) && (
+                <ul className="flex flex-wrap gap-2 pt-1">
+                  {form.images.map((url, idx) => (
+                    <li key={`${url}-${idx}`} className="relative group">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt=""
+                        className="h-20 w-20 rounded-md object-cover border bg-muted"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-sm border"
+                        title="Remove image"
+                        aria-label="Remove image"
+                        disabled={productImageUploading}
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            images: f.images.filter((_, i) => i !== idx),
+                          }))
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </li>
+                  ))}
+                  {productPendingPreviewUrls.map((url) => (
+                    <li
+                      key={url}
+                      className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border bg-muted ring-1 ring-border"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <div
+                        className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50"
+                        aria-hidden
+                      >
+                        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-xs text-muted-foreground">
+                JPEG, PNG, WebP, or GIF · up to 5 MB each · stored in Cloudinary
+                {!imageUploadEnabled && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span className="text-amber-700 dark:text-amber-400">
+                      Uploads are off: set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and
+                      CLOUDINARY_API_SECRET for this server process (e.g. <code className="text-[0.7rem]">.env.local</code>
+                      ), then restart <code className="text-[0.7rem]">next dev</code>.
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
 
             {/* Pricing */}
             <div>
               <p className="text-sm font-semibold text-muted-foreground mb-3">Pricing</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {[
-                  { key: "cost", label: "Cost Price" },
-                  { key: "retailPrice", label: "Retail Price" },
-                  { key: "memberPrice", label: "Member Price" },
-                  { key: "distributorPrice", label: "Distributor Price" },
-                ].map(({ key, label }) => (
-                  <div key={key} className="space-y-2">
-                    <Label>{label} *</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={(form as unknown as Record<string, number>)[key]}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))
-                      }
-                    />
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 gap-4 sm:max-w-xs">
+                <div className="space-y-2">
+                  <Label>Retail price *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.retailPrice}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, retailPrice: parseFloat(e.target.value) || 0 }))
+                    }
+                  />
+                </div>
               </div>
             </div>
 

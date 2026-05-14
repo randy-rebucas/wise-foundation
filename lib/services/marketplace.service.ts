@@ -81,7 +81,7 @@ export async function listMarketplaceProducts(params: {
 
   const [rows, total] = await Promise.all([
     Product.find(filter)
-      .select("name slug images retailPrice memberPrice category sku description")
+      .select("name slug images retailPrice category sku description")
       .sort(sort)
       .skip(skip)
       .limit(limit)
@@ -107,7 +107,6 @@ export async function listMarketplaceProducts(params: {
       slug: p.slug,
       images: p.images ?? [],
       retailPrice: p.retailPrice,
-      memberPrice: p.memberPrice,
       category: p.category,
       sku: p.sku,
       description: p.description,
@@ -150,7 +149,6 @@ export async function getMarketplaceProductBySlug(slug: string) {
     name: v.name,
     sku: v.sku,
     retailPrice: v.retailPrice,
-    memberPrice: v.memberPrice,
     images: v.images ?? [],
     stock: qtyMap.get(qtyKey(product._id.toString(), v._id.toString())) ?? 0,
   }));
@@ -164,7 +162,6 @@ export async function getMarketplaceProductBySlug(slug: string) {
     sku: product.sku,
     images: product.images ?? [],
     retailPrice: product.retailPrice,
-    memberPrice: product.memberPrice,
     baseStock,
     variants: variantRows,
     hasVariants: variantRows.length > 0,
@@ -191,7 +188,6 @@ export async function placeMarketplaceOrder(
       sku: string;
       quantity: number;
       unitPrice: number;
-      cost: number;
     };
 
     const lines: Line[] = [];
@@ -208,7 +204,6 @@ export async function placeMarketplaceOrder(
       let unitPrice = product.retailPrice;
       let sku = product.sku;
       const name = product.name;
-      let cost = product.cost;
       let variantName: string | undefined;
       let variantId: Types.ObjectId | null = null;
       let invFilter: { branchId: Types.ObjectId; productId: Types.ObjectId; variantId?: Types.ObjectId | null };
@@ -225,7 +220,6 @@ export async function placeMarketplaceOrder(
         if (!v) throw new Error(`Invalid variant for product ${product.name}`);
         unitPrice = v.retailPrice;
         sku = v.sku;
-        cost = v.cost;
         variantName = v.name;
         variantId = v._id as Types.ObjectId;
         invFilter = { branchId, productId: product._id as Types.ObjectId, variantId: v._id };
@@ -254,7 +248,6 @@ export async function placeMarketplaceOrder(
         sku,
         quantity: raw.quantity,
         unitPrice,
-        cost,
       });
     }
 
@@ -319,7 +312,7 @@ export async function placeMarketplaceOrder(
       sku: l.sku,
       quantity: l.quantity,
       unitPrice: l.unitPrice,
-      cost: l.cost,
+      cost: 0,
       total: l.unitPrice * l.quantity,
     }));
 

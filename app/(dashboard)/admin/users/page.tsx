@@ -36,8 +36,7 @@ import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, UserCheck, UserX
 import { useToast } from "@/hooks/use-toast";
 
 import { useSession } from "next-auth/react";
-
-type UserRole = "ADMIN" | "ORG_ADMIN" | "BRANCH_MANAGER" | "STAFF" | "INVENTORY_MANAGER" | "MEMBER";
+import type { UserRole } from "@/types";
 
 interface StaffUser {
   _id: string;
@@ -93,6 +92,7 @@ const ROLE_VARIANT: Record<UserRole, "default" | "secondary" | "outline" | "succ
   STAFF: "outline",
   INVENTORY_MANAGER: "secondary",
   MEMBER: "outline",
+  CUSTOMER: "outline",
 };
 
 const defaultCreate: CreateForm = {
@@ -120,6 +120,12 @@ const ORG_ADMIN_ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "INVENTORY_MANAGER", label: "Inventory Manager" },
 ];
 
+/** Role filter on user list (full admin includes shop-only accounts). */
+const ROLE_FILTER_OPTIONS_ADMIN: { value: UserRole; label: string }[] = [
+  ...ROLE_OPTIONS,
+  { value: "CUSTOMER", label: "Shop customer" },
+];
+
 export default function UsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -130,6 +136,7 @@ export default function UsersPage() {
   const sessionOrgId = session?.user?.organizationId ?? "";
 
   const availableRoleOptions = isOrgAdmin ? ORG_ADMIN_ROLE_OPTIONS : ROLE_OPTIONS;
+  const roleFilterSelectOptions = isOrgAdmin ? ORG_ADMIN_ROLE_OPTIONS : ROLE_FILTER_OPTIONS_ADMIN;
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -422,7 +429,7 @@ export default function UsersPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
-                {availableRoleOptions.map((r) => (
+                {roleFilterSelectOptions.map((r) => (
                   <SelectItem key={r.value} value={r.value}>
                     {r.label}
                   </SelectItem>

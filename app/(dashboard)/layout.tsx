@@ -4,7 +4,7 @@ import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 
-const BLOCKED_ROLES = ["MEMBER"];
+const BLOCKED_ROLES = ["MEMBER", "CUSTOMER"];
 
 interface Props {
   children: React.ReactNode;
@@ -23,6 +23,9 @@ export default async function DashboardLayout({ children }: Props) {
   }
 
   if (BLOCKED_ROLES.includes(session.user.role)) {
+    if (session.user.role === "CUSTOMER") {
+      redirect("/account");
+    }
     redirect("/login?error=access_denied");
   }
 

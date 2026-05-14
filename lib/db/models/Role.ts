@@ -17,7 +17,7 @@ const RoleSchema = new Schema<IRole>(
       type: String,
       required: true,
       unique: true,
-      enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"],
+      enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER", "CUSTOMER"],
     },
     displayName: { type: String, required: true },
     permissions: [{ type: String }],
@@ -61,4 +61,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   STAFF: ["use:pos", "manage:members", "manage:orders"],
   INVENTORY_MANAGER: ["manage:products", "manage:inventory", "view:reports"],
   MEMBER: ["view:own_orders"],
+  CUSTOMER: [],
 };

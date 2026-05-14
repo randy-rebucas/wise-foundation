@@ -4,14 +4,29 @@ import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { UserRole } from "@/types";
 
-export async function verifyCredentials(email: string, password: string) {
+export type LoginAudience = "staff" | "customer";
+
+export async function verifyCredentials(
+  email: string,
+  password: string,
+  opts?: { audience?: LoginAudience }
+) {
   await connectDB();
+
+  const audience: LoginAudience = opts?.audience ?? "staff";
 
   const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null, isActive: true })
     .select("+password")
     .lean();
 
   if (!user) return null;
+
+  if (audience === "staff" && user.role === "CUSTOMER") {
+    return null;
+  }
+  if (audience === "customer" && user.role !== "CUSTOMER") {
+    return null;
+  }
 
   const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) return null;

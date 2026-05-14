@@ -6,7 +6,6 @@ import { Inventory } from "@/lib/db/models/Inventory";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { Member } from "@/lib/db/models/Member";
-import { Product } from "@/lib/db/models/Product";
 import { Branch } from "@/lib/db/models/Branch";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { generateOrderNumber } from "@/lib/utils";
@@ -64,15 +63,6 @@ export async function processCheckout(input: CheckoutInput) {
       if (!member) throw new Error("Member not found or inactive");
       memberName = member.name;
     }
-
-    const productIds = input.items.map((i) => i.productId);
-    const productCosts = await Product.find(
-      { _id: { $in: productIds } },
-      { _id: 1, cost: 1 }
-    )
-      .session(session)
-      .lean();
-    const costMap = new Map(productCosts.map((p) => [p._id.toString(), p.cost ?? 0]));
 
     for (const item of input.items) {
       const inventoryRecord = await Inventory.findOne({
@@ -159,7 +149,7 @@ export async function processCheckout(input: CheckoutInput) {
       sku: item.sku,
       quantity: item.quantity,
       unitPrice: item.price,
-      cost: costMap.get(item.productId) ?? 0,
+      cost: 0,
       total: item.price * item.quantity,
     }));
 

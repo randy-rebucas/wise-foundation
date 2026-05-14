@@ -53,7 +53,6 @@ interface ProductHit {
   name: string;
   sku: string;
   retailPrice: number;
-  cost: number;
 }
 
 interface POItem {
@@ -233,7 +232,7 @@ export default function PurchaseOrdersPage() {
   }
 
   function selectPOProduct(index: number, p: ProductHit) {
-    const unitCost = p.cost > 0 ? p.cost : p.retailPrice;
+    const unitCost = p.retailPrice;
     patchPOItem(index, {
       productId: p._id,
       productName: p.name,
@@ -517,7 +516,7 @@ export default function PurchaseOrdersPage() {
                                 >
                                   <span className="font-medium">{p.name}</span>
                                   <span className="text-xs text-muted-foreground">
-                                    {p.sku} · {money(p.cost > 0 ? p.cost : p.retailPrice)}
+                                    {p.sku} · {money(p.retailPrice)}
                                   </span>
                                 </button>
                               ))

@@ -33,12 +33,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        audience: { label: "Audience", type: "text" },
       },
       async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
+        const parsed = loginSchema.safeParse({
+          email: credentials?.email,
+          password: credentials?.password,
+          audience: credentials?.audience === "customer" ? "customer" : "staff",
+        });
         if (!parsed.success) return null;
 
-        const user = await verifyCredentials(parsed.data.email, parsed.data.password);
+        const user = await verifyCredentials(parsed.data.email, parsed.data.password, {
+          audience: parsed.data.audience,
+        });
         return user;
       },
     }),

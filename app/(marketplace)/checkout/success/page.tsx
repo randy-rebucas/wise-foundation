@@ -40,7 +40,7 @@ function SuccessInner() {
           <Link href="/">Continue shopping</Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href="/login">Sign in to track orders</Link>
+          <Link href="/account/login">Shop account sign in</Link>
         </Button>
       </CardContent>
     </Card>

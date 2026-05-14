@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -34,7 +34,7 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 interface OrgInventoryItem {
   _id: string;
   organizationId: { _id: string; name: string; type: string };
-  productId: { _id: string; name: string; sku: string; retailPrice: number; distributorPrice: number };
+  productId: { _id: string; name: string; sku: string; retailPrice: number };
   quantity: number;
   totalReceived: number;
   totalSold: number;
@@ -126,10 +126,40 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const branchId = session?.user?.branchIds?.[0];
+  const defaultBranchId = session?.user?.branchIds?.[0] ?? "";
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const needsBranchSelect = !defaultBranchId;
+
+  useEffect(() => {
+    if (defaultBranchId) setSelectedBranchId(defaultBranchId);
+  }, [defaultBranchId]);
+
   const isAdmin = session?.user?.role === "ADMIN";
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN" && !!session?.user?.organizationId;
-  const inventoryQueryEnabled = !!branchId || isOrgAdmin;
+
+  const {
+    data: branches = [],
+    isLoading: branchesLoading,
+    isError: isBranchesError,
+    error: branchesError,
+  } = useQuery<Branch[]>({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const res = await fetch("/api/branches?limit=100");
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
+      return (data.data ?? []) as Branch[];
+    },
+  });
+
+  useEffect(() => {
+    if (defaultBranchId) return;
+    if (branches.length === 0) return;
+    setSelectedBranchId((prev) => prev || branches[0]!._id);
+  }, [defaultBranchId, branches]);
+
+  const branchIdForInventory = selectedBranchId || defaultBranchId;
+  const inventoryQueryEnabled = isOrgAdmin || !!branchIdForInventory;
 
   const [orgFilter, setOrgFilter] = useState("all");
 
@@ -149,10 +179,10 @@ export default function InventoryPage() {
     isError: isInventoryError,
     error: inventoryError,
   } = useQuery({
-    queryKey: ["inventory", branchId, session?.user?.organizationId, page],
+    queryKey: ["inventory", branchIdForInventory, session?.user?.organizationId, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (branchId) params.set("branchId", branchId);
+      if (branchIdForInventory) params.set("branchId", branchIdForInventory);
       const res = await fetch(`/api/inventory?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load inventory (${res.status})`);
@@ -170,10 +200,10 @@ export default function InventoryPage() {
     isError: isMovementsError,
     error: movementsError,
   } = useQuery({
-    queryKey: ["movements", branchId, session?.user?.organizationId, movPage],
+    queryKey: ["movements", branchIdForInventory, session?.user?.organizationId, movPage],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(movPage), limit: "20" });
-      if (branchId) params.set("branchId", branchId);
+      if (branchIdForInventory) params.set("branchId", branchIdForInventory);
       const res = await fetch(`/api/inventory/movements?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load movements (${res.status})`);
@@ -196,20 +226,6 @@ export default function InventoryPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
       return (data.data ?? []) as Product[];
-    },
-  });
-
-  const {
-    data: branches = [],
-    isError: isBranchesError,
-    error: branchesError,
-  } = useQuery<Branch[]>({
-    queryKey: ["branches"],
-    queryFn: async () => {
-      const res = await fetch("/api/branches?limit=100");
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
-      return (data.data ?? []) as Branch[];
     },
   });
 
@@ -252,7 +268,7 @@ export default function InventoryPage() {
       const res = await fetch("/api/inventory/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, branchId }),
+        body: JSON.stringify({ ...form, branchId: branchIdForInventory }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Movement failed (${res.status})`);
@@ -301,6 +317,39 @@ export default function InventoryPage() {
     <div className="flex flex-col">
       <Header title="Inventory" subtitle="Track stock levels and movements" />
       <div className="flex-1 p-6 space-y-6">
+        {needsBranchSelect && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-card p-4">
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <Building2 className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>Your account is not tied to a default branch. Choose which branch&apos;s stock and movements to view.</span>
+            </div>
+            {branchesLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground self-center sm:self-auto" />
+            ) : branches.length === 0 ? (
+              <p className="text-sm text-destructive">No branches found. Create one under Admin → Branches.</p>
+            ) : (
+              <Select
+                value={selectedBranchId || undefined}
+                onValueChange={(id) => {
+                  setSelectedBranchId(id);
+                  setPage(1);
+                  setMovPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Choose branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b._id} value={b._id}>
+                      {b.name} ({b.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
         {isInventoryError && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -480,7 +529,7 @@ export default function InventoryPage() {
                           <td className="px-4 py-3 text-right text-muted-foreground">{item.totalReceived}</td>
                           <td className="px-4 py-3 text-right text-muted-foreground">{item.totalSold}</td>
                           <td className="px-4 py-3 text-right font-medium">
-                            {money(item.quantity * (item.productId?.distributorPrice ?? item.productId?.retailPrice ?? 0))}
+                            {money(item.quantity * (item.productId?.retailPrice ?? 0))}
                           </td>
                         </tr>
                       ))}
@@ -721,7 +770,7 @@ export default function InventoryPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {branches
-                      .filter((b) => b._id !== branchId)
+                      .filter((b) => b._id !== branchIdForInventory)
                       .map((b) => (
                         <SelectItem key={b._id} value={b._id}>
                           {b.name} ({b.code})

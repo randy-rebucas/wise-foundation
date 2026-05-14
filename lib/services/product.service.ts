@@ -160,9 +160,6 @@ const CSV_HEADERS = [
   "category",
   "barcode",
   "retailprice",
-  "memberprice",
-  "distributorprice",
-  "cost",
   "isactive",
   "tags",
 ] as const;
@@ -203,9 +200,6 @@ export async function exportProductsToCsv(): Promise<string> {
     p.category,
     p.barcode ?? "",
     String(p.retailPrice),
-    String(p.memberPrice),
-    String(p.distributorPrice),
-    String(p.cost),
     p.isActive ? "true" : "false",
     (p.tags ?? []).join("; "),
   ]);
@@ -281,14 +275,11 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
     const categoryRaw = get("category").trim().toLowerCase() as ProductCategory;
     const barcode = get("barcode").trim();
     const retailPrice = parsePriceCell(get("retailprice"));
-    const memberPrice = parsePriceCell(get("memberprice"));
-    const distributorPrice = parsePriceCell(get("distributorprice"));
-    const cost = parsePriceCell(get("cost"));
     const isActive = parseBoolCell(get("isactive"), true);
     const tags = parseTagsCell(get("tags"));
 
-    if (retailPrice === null || memberPrice === null || distributorPrice === null || cost === null) {
-      errors.push({ row: rowNum, sku, message: "Invalid or missing numeric price field." });
+    if (retailPrice === null) {
+      errors.push({ row: rowNum, sku, message: "Invalid or missing retail price." });
       continue;
     }
 
@@ -299,9 +290,6 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
       sku,
       barcode: barcode || undefined,
       retailPrice,
-      memberPrice,
-      distributorPrice,
-      cost,
       isActive,
       tags,
       images: [] as string[],

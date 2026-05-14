@@ -1,4 +1,4 @@
-import { Schema, model, models, type Document, type Types } from "mongoose";
+import mongoose, { Schema, model, type Document, type Types } from "mongoose";
 
 export interface IProductVariant extends Document {
   productId: Types.ObjectId;
@@ -6,9 +6,6 @@ export interface IProductVariant extends Document {
   sku: string;
   attributes: { key: string; value: string }[];
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
-  cost: number;
   images: string[];
   isActive: boolean;
   createdAt: Date;
@@ -28,9 +25,6 @@ const ProductVariantSchema = new Schema<IProductVariant>(
       },
     ],
     retailPrice: { type: Number, required: true, min: 0 },
-    memberPrice: { type: Number, required: true, min: 0 },
-    distributorPrice: { type: Number, required: true, min: 0 },
-    cost: { type: Number, required: true, min: 0 },
     images: [{ type: String }],
     isActive: { type: Boolean, default: true },
     deletedAt: { type: Date, default: null },
@@ -41,5 +35,11 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 ProductVariantSchema.index({ productId: 1, deletedAt: 1 });
 ProductVariantSchema.index({ sku: 1 }, { unique: true });
 
-export const ProductVariant =
-  models.ProductVariant || model<IProductVariant>("ProductVariant", ProductVariantSchema);
+if (mongoose.models.ProductVariant) {
+  mongoose.deleteModel("ProductVariant");
+}
+
+export const ProductVariant = model<IProductVariant>(
+  "ProductVariant",
+  ProductVariantSchema
+);

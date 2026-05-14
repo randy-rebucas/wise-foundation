@@ -7,12 +7,9 @@ export const createProductSchema = z.object({
   sku: z.string().min(1, "SKU is required").max(50),
   barcode: z.string().optional(),
   retailPrice: z.number().min(0, "Price must be positive"),
-  memberPrice: z.number().min(0),
-  distributorPrice: z.number().min(0),
-  cost: z.number().min(0),
   isActive: z.boolean().default(true),
   tags: z.array(z.string()).default([]),
-  images: z.array(z.string()).default([]),
+  images: z.array(z.string()).max(24).default([]),
 });
 
 export const createVariantSchema = z.object({
@@ -22,10 +19,7 @@ export const createVariantSchema = z.object({
     z.object({ key: z.string(), value: z.string() })
   ),
   retailPrice: z.number().min(0),
-  memberPrice: z.number().min(0),
-  distributorPrice: z.number().min(0),
-  cost: z.number().min(0),
-  images: z.array(z.string()).default([]),
+  images: z.array(z.string()).max(24).default([]),
 });
 
 export const updateProductSchema = createProductSchema.partial();

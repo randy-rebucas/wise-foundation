@@ -18,10 +18,10 @@ const oid = mongoose.Schema.Types.ObjectId;
 const RoleSchema = new s({ name: { type: String, required: true, unique: true }, displayName: String, permissions: [String], isSystem: { type: Boolean, default: false }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const BranchSchema = new s({ name: String, code: { type: String, unique: true }, address: String, phone: String, email: String, isHeadOffice: { type: Boolean, default: false }, isActive: { type: Boolean, default: true }, organizationId: { type: oid, ref: "Organization", default: null }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const OrganizationSchema = new s({ name: String, type: { type: String, enum: ["distributor", "franchise", "partner"] }, parentOrganizationId: { type: oid, ref: "Organization", default: null }, settings: { canSellRetail: Boolean, canDistribute: Boolean, hasInventory: Boolean, commissionEnabled: Boolean, canSubmitOrders: Boolean }, contactPerson: String, email: String, phone: String, address: String, commissionRate: { type: Number, default: 10 }, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
-const UserSchema = new s({ name: String, email: { type: String, unique: true }, password: String, role: { type: String, enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER"] }, branchIds: [{ type: oid, ref: "Branch" }], organizationId: { type: oid, ref: "Organization", default: null }, permissions: [String], isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
+const UserSchema = new s({ name: String, email: { type: String, unique: true }, password: String, role: { type: String, enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER", "CUSTOMER"] }, branchIds: [{ type: oid, ref: "Branch" }], organizationId: { type: oid, ref: "Organization", default: null }, permissions: [String], isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const SupplierSchema = new s({ name: String, contactPerson: String, email: String, phone: String, address: String, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
-const ProductSchema = new s({ name: String, slug: String, description: String, category: { type: String, enum: ["homecare", "cosmetics", "wellness", "scent"] }, sku: { type: String, unique: true }, barcode: String, images: [String], retailPrice: Number, memberPrice: Number, distributorPrice: Number, cost: Number, isActive: { type: Boolean, default: true }, tags: [String], deletedAt: { type: Date, default: null } }, { timestamps: true });
-const ProductVariantSchema = new s({ productId: { type: oid, ref: "Product", required: true }, name: String, sku: { type: String, unique: true }, barcode: String, retailPrice: Number, memberPrice: Number, distributorPrice: Number, cost: Number, attributes: { type: Map, of: String }, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
+const ProductSchema = new s({ name: String, slug: String, description: String, category: { type: String, enum: ["homecare", "cosmetics", "wellness", "scent"] }, sku: { type: String, unique: true }, barcode: String, images: [String], retailPrice: Number, isActive: { type: Boolean, default: true }, tags: [String], deletedAt: { type: Date, default: null } }, { timestamps: true });
+const ProductVariantSchema = new s({ productId: { type: oid, ref: "Product", required: true }, name: String, sku: { type: String, unique: true }, barcode: String, retailPrice: Number, attributes: { type: Map, of: String }, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const InventorySchema = new s({ branchId: { type: oid, ref: "Branch" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, quantity: { type: Number, default: 0 }, reservedQuantity: { type: Number, default: 0 }, lowStockThreshold: { type: Number, default: 10 } }, { timestamps: true });
 const OrgInventorySchema = new s({ organizationId: { type: oid, ref: "Organization" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, quantity: { type: Number, default: 0 }, totalSold: { type: Number, default: 0 } }, { timestamps: true });
 const MemberSchema = new s({ memberId: String, name: String, email: String, phone: String, address: String, birthdate: Date, discountPercent: { type: Number, default: 10 }, status: { type: String, default: "active" }, branchId: { type: oid, ref: "Branch", default: null }, organizationId: { type: oid, ref: "Organization", default: null }, joinedAt: { type: Date, default: Date.now }, deletedAt: { type: Date, default: null } }, { timestamps: true });
@@ -102,6 +102,7 @@ export async function runSeed(): Promise<void> {
     { name: "STAFF",             displayName: "Staff",              isSystem: true, permissions: ["use:pos","manage:members","manage:orders"] },
     { name: "INVENTORY_MANAGER", displayName: "Inventory Manager",  isSystem: true, permissions: ["manage:inventory","view:reports"] },
     { name: "MEMBER",            displayName: "Member",             isSystem: true, permissions: ["view:own_orders"] },
+    { name: "CUSTOMER",          displayName: "Shop customer",    isSystem: true, permissions: [] },
   ];
   await Role.insertMany(ROLES);
   console.log(`  ${ROLES.length} roles seeded`);
@@ -251,18 +252,18 @@ export async function runSeed(): Promise<void> {
   // ── 6. Products ─────────────────────────────────────────────────────────────
   console.log("\n[6] Products");
   const productsData = [
-    { name: "Aloe Fresh Body Wash",      category: "homecare",  sku: "HC-001", retailPrice: 299,  memberPrice: 249,  distributorPrice: 180, cost: 120, tags: ["body wash", "aloe"] },
-    { name: "Citrus All-Purpose Cleaner",category: "homecare",  sku: "HC-002", retailPrice: 199,  memberPrice: 169,  distributorPrice: 120, cost: 75,  tags: ["cleaner", "citrus"] },
-    { name: "Herbal Shampoo Bar",        category: "homecare",  sku: "HC-003", retailPrice: 149,  memberPrice: 129,  distributorPrice: 90,  cost: 55,  tags: ["shampoo", "herbal"] },
-    { name: "Rose Glow Face Serum",      category: "cosmetics", sku: "CS-001", retailPrice: 699,  memberPrice: 599,  distributorPrice: 450, cost: 280, tags: ["serum", "rose", "glow"] },
-    { name: "Matte Lip Color Set",       category: "cosmetics", sku: "CS-002", retailPrice: 499,  memberPrice: 419,  distributorPrice: 300, cost: 180, tags: ["lipstick", "matte"] },
-    { name: "Brightening CC Cream",      category: "cosmetics", sku: "CS-003", retailPrice: 549,  memberPrice: 469,  distributorPrice: 330, cost: 200, tags: ["cc cream", "brightening"] },
-    { name: "Moringa Supplement Capsules",category:"wellness",  sku: "WL-001", retailPrice: 450,  memberPrice: 380,  distributorPrice: 270, cost: 160, tags: ["supplement", "moringa"] },
-    { name: "Collagen Drink Mix",        category: "wellness",  sku: "WL-002", retailPrice: 799,  memberPrice: 679,  distributorPrice: 500, cost: 320, tags: ["collagen", "drink"] },
-    { name: "Turmeric Herbal Tea",       category: "wellness",  sku: "WL-003", retailPrice: 299,  memberPrice: 249,  distributorPrice: 175, cost: 100, tags: ["tea", "turmeric"] },
-    { name: "Lavender Mist Perfume",     category: "scent",     sku: "SC-001", retailPrice: 599,  memberPrice: 499,  distributorPrice: 360, cost: 220, tags: ["perfume", "lavender"] },
-    { name: "Citrus Burst EDT",          category: "scent",     sku: "SC-002", retailPrice: 749,  memberPrice: 629,  distributorPrice: 450, cost: 280, tags: ["edt", "citrus"] },
-    { name: "Midnight Oud Parfum",       category: "scent",     sku: "SC-003", retailPrice: 999,  memberPrice: 849,  distributorPrice: 600, cost: 380, tags: ["parfum", "oud"] },
+    { name: "Aloe Fresh Body Wash",      category: "homecare",  sku: "HC-001", retailPrice: 299,  tags: ["body wash", "aloe"] },
+    { name: "Citrus All-Purpose Cleaner",category: "homecare",  sku: "HC-002", retailPrice: 199,  tags: ["cleaner", "citrus"] },
+    { name: "Herbal Shampoo Bar",        category: "homecare",  sku: "HC-003", retailPrice: 149,  tags: ["shampoo", "herbal"] },
+    { name: "Rose Glow Face Serum",      category: "cosmetics", sku: "CS-001", retailPrice: 699,  tags: ["serum", "rose", "glow"] },
+    { name: "Matte Lip Color Set",       category: "cosmetics", sku: "CS-002", retailPrice: 499,  tags: ["lipstick", "matte"] },
+    { name: "Brightening CC Cream",      category: "cosmetics", sku: "CS-003", retailPrice: 549,  tags: ["cc cream", "brightening"] },
+    { name: "Moringa Supplement Capsules",category:"wellness",  sku: "WL-001", retailPrice: 450,  tags: ["supplement", "moringa"] },
+    { name: "Collagen Drink Mix",        category: "wellness",  sku: "WL-002", retailPrice: 799,  tags: ["collagen", "drink"] },
+    { name: "Turmeric Herbal Tea",       category: "wellness",  sku: "WL-003", retailPrice: 299,  tags: ["tea", "turmeric"] },
+    { name: "Lavender Mist Perfume",     category: "scent",     sku: "SC-001", retailPrice: 599,  tags: ["perfume", "lavender"] },
+    { name: "Citrus Burst EDT",          category: "scent",     sku: "SC-002", retailPrice: 749,  tags: ["edt", "citrus"] },
+    { name: "Midnight Oud Parfum",       category: "scent",     sku: "SC-003", retailPrice: 999,  tags: ["parfum", "oud"] },
   ];
 
   const products = await Product.insertMany(
@@ -274,12 +275,12 @@ export async function runSeed(): Promise<void> {
   console.log("\n[7] Product Variants");
   const [p1, p2, p3, p4] = products;
   const variants = await Variant.insertMany([
-    { productId: p1._id, name: "250ml",  sku: "HC-001-250", retailPrice: 299, memberPrice: 249, distributorPrice: 180, cost: 120, attributes: { size: "250ml" }, isActive: true },
-    { productId: p1._id, name: "500ml",  sku: "HC-001-500", retailPrice: 499, memberPrice: 419, distributorPrice: 300, cost: 190, attributes: { size: "500ml" }, isActive: true },
-    { productId: p2._id, name: "1 Liter",sku: "HC-002-1L",  retailPrice: 349, memberPrice: 299, distributorPrice: 210, cost: 130, attributes: { size: "1L" }, isActive: true },
-    { productId: p4._id, name: "15ml",   sku: "CS-001-15",  retailPrice: 699, memberPrice: 599, distributorPrice: 450, cost: 280, attributes: { size: "15ml" }, isActive: true },
-    { productId: p4._id, name: "30ml",   sku: "CS-001-30",  retailPrice: 1099,memberPrice: 929, distributorPrice: 700, cost: 450, attributes: { size: "30ml" }, isActive: true },
-    { productId: p3._id, name: "Peppermint",sku:"HC-003-PPMNT", retailPrice:149, memberPrice:129, distributorPrice:90, cost:55, attributes:{ scent:"Peppermint" }, isActive: true },
+    { productId: p1._id, name: "250ml",  sku: "HC-001-250", retailPrice: 299, attributes: { size: "250ml" }, isActive: true },
+    { productId: p1._id, name: "500ml",  sku: "HC-001-500", retailPrice: 499, attributes: { size: "500ml" }, isActive: true },
+    { productId: p2._id, name: "1 Liter",sku: "HC-002-1L",  retailPrice: 349, attributes: { size: "1L" }, isActive: true },
+    { productId: p4._id, name: "15ml",   sku: "CS-001-15",  retailPrice: 699, attributes: { size: "15ml" }, isActive: true },
+    { productId: p4._id, name: "30ml",   sku: "CS-001-30",  retailPrice: 1099, attributes: { size: "30ml" }, isActive: true },
+    { productId: p3._id, name: "Peppermint",sku:"HC-003-PPMNT", retailPrice:149, attributes:{ scent:"Peppermint" }, isActive: true },
   ]);
   console.log(`  ${variants.length} variants seeded`);
 
@@ -377,7 +378,7 @@ export async function runSeed(): Promise<void> {
       sku: it.p.sku,
       quantity: it.qty,
       unitPrice: it.p.retailPrice,
-      cost: it.p.cost,
+      cost: 0,
       total: it.p.retailPrice * it.qty,
     })));
 
@@ -397,7 +398,7 @@ export async function runSeed(): Promise<void> {
 
   for (let i = 0; i < b2bData.length; i++) {
     const { seller, buyer, items, status } = b2bData[i];
-    const subtotal = items.reduce((s, it) => s + it.p.distributorPrice * it.qty, 0);
+    const subtotal = items.reduce((s, it) => s + it.p.retailPrice * it.qty, 0);
     const orderDate = new Date(Date.now() - (b2bData.length - i) * 5 * 86400000);
 
     const order = await Order.create({
@@ -425,9 +426,9 @@ export async function runSeed(): Promise<void> {
       productName: it.p.name,
       sku: it.p.sku,
       quantity: it.qty,
-      unitPrice: it.p.distributorPrice,
-      cost: it.p.cost,
-      total: it.p.distributorPrice * it.qty,
+      unitPrice: it.p.retailPrice,
+      cost: 0,
+      total: it.p.retailPrice * it.qty,
     })));
 
     b2bOrders.push(order);
@@ -437,15 +438,15 @@ export async function runSeed(): Promise<void> {
   // ── 13. Purchase Orders ─────────────────────────────────────────────────────
   console.log("\n[13] Purchase Orders");
   const poData = [
-    { branch: hq,          supplier: sup1, items: [{ p: products[0], qty: 100, cost: products[0].cost }, { p: products[3], qty: 50, cost: products[3].cost }], status: "received" },
-    { branch: northBranch, supplier: sup2, items: [{ p: products[6], qty: 80,  cost: products[6].cost }, { p: products[7], qty: 60, cost: products[7].cost }], status: "approved" },
-    { branch: southBranch, supplier: sup3, items: [{ p: products[9], qty: 40,  cost: products[9].cost }, { p: products[11],qty: 30, cost: products[11].cost }], status: "submitted"},
-    { branch: hq,          supplier: sup1, items: [{ p: products[1], qty: 120, cost: products[1].cost }], status: "draft"    },
+    { branch: hq,          supplier: sup1, items: [{ p: products[0], qty: 100, unitCost: Math.round(products[0].retailPrice * 0.4) }, { p: products[3], qty: 50, unitCost: Math.round(products[3].retailPrice * 0.4) }], status: "received" },
+    { branch: northBranch, supplier: sup2, items: [{ p: products[6], qty: 80,  unitCost: Math.round(products[6].retailPrice * 0.4) }, { p: products[7], qty: 60, unitCost: Math.round(products[7].retailPrice * 0.4) }], status: "approved" },
+    { branch: southBranch, supplier: sup3, items: [{ p: products[9], qty: 40,  unitCost: Math.round(products[9].retailPrice * 0.4) }, { p: products[11],qty: 30, unitCost: Math.round(products[11].retailPrice * 0.4) }], status: "submitted"},
+    { branch: hq,          supplier: sup1, items: [{ p: products[1], qty: 120, unitCost: Math.round(products[1].retailPrice * 0.4) }], status: "draft"    },
   ];
 
   for (let i = 0; i < poData.length; i++) {
     const { branch, supplier, items, status } = poData[i];
-    const subtotal = items.reduce((s, it) => s + it.cost * it.qty, 0);
+    const subtotal = items.reduce((s, it) => s + it.unitCost * it.qty, 0);
     const poDate = new Date(Date.now() - (poData.length - i) * 10 * 86400000);
 
     const po = await PO.create({
@@ -470,8 +471,8 @@ export async function runSeed(): Promise<void> {
       sku: it.p.sku,
       quantityOrdered: it.qty,
       quantityReceived: status === "received" ? it.qty : 0,
-      unitCost: it.cost,
-      total: it.cost * it.qty,
+      unitCost: it.unitCost,
+      total: it.unitCost * it.qty,
     })));
   }
   console.log(`  ${poData.length} purchase orders seeded`);

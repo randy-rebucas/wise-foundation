@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
@@ -9,15 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, ShoppingBag, ShieldCheck } from "lucide-react";
+import { Loader2, ShoppingBag } from "lucide-react";
 
-function LoginForm() {
+function AccountLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
-  const setupDone = searchParams.get("setup") === "done";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,11 +25,11 @@ function LoginForm() {
   useEffect(() => {
     if (status !== "authenticated" || !session?.user) return;
     if (session.user.role === "CUSTOMER") {
-      router.replace("/account/login");
+      router.replace("/account");
     } else {
-      router.replace(callbackUrl.startsWith("/") ? callbackUrl : "/dashboard");
+      router.replace("/login");
     }
-  }, [status, session, router, callbackUrl]);
+  }, [status, session, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +40,7 @@ function LoginForm() {
       const result = await signIn("credentials", {
         email,
         password,
-        audience: "staff",
+        audience: "customer",
         redirect: false,
       });
 
@@ -60,38 +59,29 @@ function LoginForm() {
 
   if (status === "loading") {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <Card className="border-0 shadow-2xl">
+    <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
             <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
           </div>
           <div>
-            <p className="font-bold text-lg tracking-wide leading-none" style={{ color: "hsl(var(--glowish-blue))" }}>
-              Glowish
-            </p>
-            <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
-              POS & online store
-            </p>
+            <p className="font-bold text-lg tracking-wide leading-none text-primary">Shop account</p>
+            <p className="text-xs text-muted-foreground">Sign in to track orders and check out faster</p>
           </div>
         </div>
-        <CardTitle className="text-2xl font-bold">Team sign in</CardTitle>
-        <CardDescription>Distributors, branches, and operations — authorized accounts only.</CardDescription>
+        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+        <CardDescription>Use the email and password you chose when you registered.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {setupDone && (
-            <Alert>
-              <AlertDescription>Setup complete! Sign in with your admin account.</AlertDescription>
-            </Alert>
-          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -125,28 +115,25 @@ function LoginForm() {
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
+                Signing in…
               </>
             ) : (
-              "Sign In"
+              "Sign in"
             )}
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col gap-3">
-        <div className="flex items-start gap-2 rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" aria-hidden />
-          <p>
-            Access is issued by your administrator.{" "}
-            <Link href="/account/register" className="font-medium text-primary hover:underline">
-              Shopping online?
-            </Link>{" "}
-            Create a separate shop account — it does not grant distributor or POS access.
-          </p>
-        </div>
-        <p className="text-xs text-muted-foreground text-center">
-          <Link href="/account/login" className="text-primary hover:underline">
-            Shop customer sign in
+      <CardFooter className="flex flex-col gap-3 text-sm text-muted-foreground">
+        <p className="text-center">
+          New here?{" "}
+          <Link href="/account/register" className="text-primary font-medium hover:underline">
+            Create an account
+          </Link>
+        </p>
+        <p className="text-center border-t pt-3">
+          <span className="block text-xs uppercase tracking-wide mb-1">Distributor or staff?</span>
+          <Link href="/login" className="text-primary font-medium hover:underline">
+            Team & distributor sign in
           </Link>
         </p>
       </CardFooter>
@@ -154,10 +141,12 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export default function AccountLoginPage() {
   return (
-    <Suspense fallback={null}>
-      <LoginForm />
-    </Suspense>
+    <div className="mx-auto w-full max-w-md py-8">
+      <Suspense fallback={<div className="text-center text-muted-foreground py-12">Loading…</div>}>
+        <AccountLoginForm />
+      </Suspense>
+    </div>
   );
 }

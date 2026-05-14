@@ -31,7 +31,6 @@ interface POSProduct {
   sku: string;
   category: "homecare" | "cosmetics" | "wellness" | "scent";
   retailPrice: number;
-  memberPrice: number;
   images: string[];
   stock: number;
   variants: {
@@ -40,7 +39,6 @@ interface POSProduct {
     sku: string;
     attributes: { key: string; value: string }[];
     retailPrice: number;
-    memberPrice: number;
     stock: number;
   }[];
 }
@@ -62,7 +60,7 @@ interface Member {
 export default function POSPage() {
   const { data: session } = useSession();
   const defaultBranchId = session?.user?.branchIds?.[0] ?? "";
-  const { memberId: cartMemberId, setMember, setBranchId } = useCartStore();
+  const { setMember, setBranchId } = useCartStore();
 
   // Users with an assigned branch use it automatically; admins pick from a list.
   const [selectedBranchId, setSelectedBranchId] = useState(defaultBranchId);
@@ -95,8 +93,6 @@ export default function POSPage() {
   const [memberResults, setMemberResults] = useState<Member[]>([]);
   const [searching, setSearching] = useState(false);
   const [memberSearchError, setMemberSearchError] = useState("");
-
-  const isMember = !!cartMemberId;
 
   const {
     data: products = [],
@@ -188,7 +184,7 @@ export default function POSPage() {
           </Alert>
         )}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <ProductGrid products={products} isMember={isMember} branchId={branchId} />
+          <ProductGrid products={products} branchId={branchId} />
         </div>
       </div>
 

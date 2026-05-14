@@ -146,8 +146,6 @@ interface ProductHit {
   name: string;
   sku: string;
   retailPrice: number;
-  memberPrice: number;
-  distributorPrice: number;
 }
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -345,7 +343,7 @@ export default function OrdersPage() {
       productName: p.name,
       sku: p.sku,
       variantId: undefined,
-      unitPrice: p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice,
+      unitPrice: p.retailPrice,
     });
     setB2bSuggestRow(null);
   }
@@ -937,7 +935,7 @@ export default function OrdersPage() {
                             >
                               <span className="font-medium">{p.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {p.sku} · {money(p.distributorPrice > 0 ? p.distributorPrice : p.retailPrice)}
+                                {p.sku} · {money(p.retailPrice)}
                               </span>
                             </button>
                           ))

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     }
 
     const session = await auth();
-    const customerUserId = session?.user?.id ?? null;
+    const customerUserId = session?.user?.role === "CUSTOMER" ? session.user.id : null;
 
     const result = await placeMarketplaceOrder(parsed.data, { customerUserId });
     return successResponse(result, "Order placed", 201);
