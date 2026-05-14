@@ -23,6 +23,7 @@ import {
   Store,
   Percent,
   LayoutGrid,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/components/providers/TenantProvider";
@@ -36,6 +37,8 @@ interface NavItem {
   icon: React.ElementType;
   permission?: string;
   roles?: string[];
+  /** When true, any authenticated dashboard user may see this link (still requires dashboard access). */
+  allAuthenticated?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -51,6 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
   { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
+  { label: "Help & guides", path: "/help", icon: BookOpen, allAuthenticated: true },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
@@ -98,6 +102,7 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
   const userRole = initialUser.role;
 
   function canAccess(item: NavItem): boolean {
+    if (item.allAuthenticated) return true;
     if (item.roles) return item.roles.includes(userRole);
     if (!item.permission) return userRole !== "MEMBER";
     return userRole === "ADMIN" || userPermissions.includes(item.permission);
