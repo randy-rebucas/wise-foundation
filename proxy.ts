@@ -2,12 +2,13 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
+import { computeSetupRequired } from "@/lib/utils/setupRequired";
 
 /** Reachable without auth while maintenance is on (admins can still sign in). */
 const MAINTENANCE_PUBLIC = ["/login", "/setup", "/maintenance", "/api/setup", "/api/auth"];
 
-/** Reachable without session after setup cookie is set. */
-const UNAUTHENTICATED = ["/login", "/maintenance", "/api/auth"];
+/** Reachable without session (setup wizard, auth, maintenance). */
+const UNAUTHENTICATED = ["/login", "/setup", "/maintenance", "/api/auth", "/api/setup"];
 
 function matchesPrefixList(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -38,12 +39,31 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Normal operation (no maintenance). Fresh DB has no app_setup cookie — force /setup
-  // before /login or any other route (previously /login was "public" and skipped this).
-  const setupDone = req.cookies.get("app_setup")?.value === "done";
-  const onSetupFlow = pathname === "/setup" || pathname.startsWith("/api/setup");
-  if (!setupDone && !onSetupFlow) {
-    return NextResponse.redirect(new URL("/setup", req.url));
+  // Normal operation: DB is source of truth (not app_setup cookie) so reset DB still sends users to setup.
+  // NextAuth client fetches JSON from /api/auth/* — never HTML-redirect those or SessionProvider throws ClientFetchError.
+  const bypassSetupRedirect =
+    pathname === "/setup" ||
+    pathname.startsWith("/api/setup") ||
+    matchesPrefixList(pathname, ["/api/auth"]);
+  if (!bypassSetupRedirect) {
+    let setupRequired = true;
+    try {
+      setupRequired = await computeSetupRequired();
+    } catch (err) {
+      console.error("[proxy] setup check failed", err);
+    }
+    if (setupRequired) {
+      const res = NextResponse.redirect(new URL("/setup", req.url));
+      if (req.cookies.get("app_setup")?.value === "done") {
+        res.cookies.set("app_setup", "", {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 0,
+        });
+      }
+      return res;
+    }
   }
 
   const session = await auth();
