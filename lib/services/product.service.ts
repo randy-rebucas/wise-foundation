@@ -9,10 +9,7 @@ import {
   type CreateProductInput,
   type CreateVariantInput,
 } from "@/lib/validations/product.schema";
-import type { Types } from "mongoose";
 import type { ProductCategory } from "@/types";
-
-type LeanProductRow = Record<string, unknown> & { _id: Types.ObjectId };
 
 interface ProductFilter {
   category?: ProductCategory;
@@ -46,8 +43,7 @@ export async function getProducts(
   ]);
 
   if (options.includeVariantSummary && products.length) {
-    const rows = products as LeanProductRow[];
-    const productIds = rows.map((p) => p._id).filter(Boolean);
+    const productIds = products.map((p) => p._id);
 
     const variantSummaries = await ProductVariant.aggregate<{
       _id: unknown;
@@ -72,7 +68,7 @@ export async function getProducts(
       variantSummaries.map((s) => [String(s._id), s] as const)
     );
 
-    const enriched = rows.map((p) => {
+    const enriched = products.map((p) => {
       const s = summaryMap.get(String(p._id));
       return {
         ...p,
