@@ -4,6 +4,7 @@ import {
   getPurchaseOrderByIdForUser,
   updatePurchaseOrder,
   updatePurchaseOrderStatus,
+  deletePurchaseOrderForUser,
 } from "@/lib/services/purchaseOrder.service";
 import { updatePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
 import {
@@ -61,6 +62,19 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
+const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
+  try {
+    const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    const deleted = await deletePurchaseOrderForUser(id, req.user);
+    if (!deleted) return notFoundResponse("Purchase order not found");
+    return successResponse(null, "Purchase order deleted");
+  } catch (error) {
+    if (error instanceof Error) return errorResponse(error.message);
+    return serverErrorResponse();
+  }
+};
+
 export const GET = withAuth(withPermission("manage:inventory")(getHandler));
 export const PUT = withAuth(withPermission("manage:inventory")(putHandler));
 export const PATCH = withAuth(withPermission("manage:inventory")(patchHandler));
+export const DELETE = withAuth(withPermission("manage:inventory")(deleteHandler));

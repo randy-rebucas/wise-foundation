@@ -16,10 +16,7 @@ interface InventoryItem {
     category: string;
     retailPrice: number;
   };
-  variantId?: {
-    name: string;
-    sku: string;
-  };
+  variantId: { name: string; sku: string } | null | undefined;
 }
 
 interface StockTableProps {

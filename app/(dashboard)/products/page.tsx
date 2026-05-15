@@ -28,6 +28,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Copy,
   Loader2,
   Package,
   Search,
@@ -55,6 +56,9 @@ interface Product {
   images: string[];
   description?: string;
   barcode?: string;
+  variantCount?: number | null;
+  variantPreviewName?: string | null;
+  variantPreviewSku?: string | null;
 }
 
 interface Variant {
@@ -207,6 +211,7 @@ export default function ProductsPage() {
       const params = new URLSearchParams();
       if (activeCategory && activeCategory !== "all") params.set("category", activeCategory);
       if (search) params.set("search", search);
+      params.set("includeVariantSummary", "true");
       const res = await fetch(`/api/products?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
@@ -251,6 +256,23 @@ export default function ProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast({ title: "Product deleted" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const cloneMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/products/${id}/clone`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Clone failed (${res.status})`);
+      return data.data as Product;
+    },
+    onSuccess: (cloned) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast({
+        title: "Product cloned",
+        description: `${cloned.name} (${cloned.sku})`,
+      });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -605,7 +627,16 @@ export default function ProductsPage() {
           </div>
           <div>
             <p className="font-medium">{p.name}</p>
-            <p className="text-xs text-muted-foreground">{p.sku}</p>
+            <p className="text-xs text-muted-foreground">
+              {p.sku}
+              {typeof p.variantCount === "number" && p.variantCount > 0 && (
+                <>
+                  {" "}
+                  · {p.variantCount} variant{p.variantCount === 1 ? "" : "s"}
+                  {p.variantPreviewSku ? <> (e.g. {p.variantPreviewSku})</> : null}
+                </>
+              )}
+            </p>
           </div>
         </div>
       ),
@@ -662,6 +693,20 @@ export default function ProductsPage() {
             <Layers className="h-4 w-4" />
           </Button>
           <RoleGuard requiredPermissions={["manage:products"]}>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Duplicate product"
+              aria-label="Duplicate product"
+              disabled={cloneMutation.isPending}
+              onClick={() => cloneMutation.mutate(p._id)}
+            >
+              {cloneMutation.isPending && cloneMutation.variables === p._id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
               <Pencil className="h-4 w-4" />
             </Button>

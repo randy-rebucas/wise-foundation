@@ -194,6 +194,26 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
   return PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
 }
 
+export async function deletePurchaseOrder(poId: string) {
+  await connectDB();
+
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  if (!po) throw new Error("Purchase order not found");
+  if (po.status !== "draft") {
+    throw new Error("Only draft purchase orders can be deleted");
+  }
+
+  await PurchaseOrder.findByIdAndUpdate(poId, { $set: { deletedAt: new Date() } });
+}
+
+export async function deletePurchaseOrderForUser(poId: string, user: SessionUser) {
+  const po = await getPurchaseOrderById(poId);
+  if (!po) return false;
+  if (!canUserAccessPurchaseOrder(po, user)) return false;
+  await deletePurchaseOrder(poId);
+  return true;
+}
+
 export async function updatePurchaseOrderStatus(
   poId: string,
   status: PurchaseOrderStatus,

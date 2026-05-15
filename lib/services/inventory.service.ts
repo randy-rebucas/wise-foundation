@@ -112,6 +112,7 @@ export async function getStockMovements(
       .skip(skip)
       .limit(limit)
       .populate("productId", "name sku")
+      .populate("variantId", "name sku")
       .populate("performedBy", "name")
       .populate("fromBranchId", "name code")
       .populate("toBranchId", "name code")
@@ -146,6 +147,7 @@ export async function getStockMovementsByOrg(
       .skip(skip)
       .limit(limit)
       .populate("productId", "name sku")
+      .populate("variantId", "name sku")
       .populate("branchId", "name code")
       .populate("performedBy", "name")
       .lean(),

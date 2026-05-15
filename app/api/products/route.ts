@@ -18,6 +18,7 @@ const getHandler = async (req: AuthedRequest) => {
     const category = searchParams.get("category") as ProductCategory | null;
     const search = searchParams.get("search") ?? undefined;
     const isActive = searchParams.get("isActive");
+    const includeVariantSummary = searchParams.get("includeVariantSummary") === "true";
 
     const result = await getProducts(
       {
@@ -26,7 +27,8 @@ const getHandler = async (req: AuthedRequest) => {
         isActive: isActive !== null ? isActive === "true" : undefined,
       },
       page,
-      limit
+      limit,
+      { includeVariantSummary }
     );
 
     return successResponse(result.products, undefined, 200, {

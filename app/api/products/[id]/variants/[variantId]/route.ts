@@ -12,7 +12,8 @@ import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { variantId } = (ctx as { params: { variantId: string } }).params;
+    const { variantId } = await (ctx as { params: Promise<{ id: string; variantId: string }> })
+      .params;
     const body = await req.json();
     const parsed = updateVariantSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
@@ -28,7 +29,8 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
-    const { variantId } = (ctx as { params: { variantId: string } }).params;
+    const { variantId } = await (ctx as { params: Promise<{ id: string; variantId: string }> })
+      .params;
     await deleteProductVariant(variantId);
     return successResponse(null, "Variant deleted");
   } catch {

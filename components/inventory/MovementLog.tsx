@@ -11,6 +11,7 @@ interface StockMovement {
   previousQuantity: number;
   newQuantity: number;
   productId: { name: string; sku: string };
+  variantId?: { name: string; sku: string } | null;
   performedBy: { name: string };
   fromBranchId?: { name: string; code: string };
   toBranchId?: { name: string; code: string };
@@ -66,7 +67,10 @@ export function MovementLog({ data, loading, page, totalPages, onPageChange }: M
       render: (m: StockMovement) => (
         <div>
           <p className="text-sm font-medium">{m.productId?.name}</p>
-          <p className="text-xs text-muted-foreground">{m.productId?.sku}</p>
+          <p className="text-xs text-muted-foreground">
+            {m.variantId?.sku ?? m.productId?.sku}
+            {m.variantId && ` • ${m.variantId.name}`}
+          </p>
         </div>
       ),
     },

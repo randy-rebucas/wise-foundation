@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -28,6 +29,7 @@ import {
   ShoppingBag,
   Plus,
   Eye,
+  Pencil,
   Trash2,
   ClipboardCheck,
   Clock,
@@ -53,15 +55,36 @@ interface ProductHit {
   name: string;
   sku: string;
   retailPrice: number;
+  variantCount?: number | null;
+}
+
+interface ProductVariantOption {
+  _id: string;
+  name: string;
+  sku: string;
+  retailPrice: number;
+  isActive?: boolean;
 }
 
 interface POItem {
   productId: string;
   productName: string;
+  baseProductName?: string;
   sku: string;
+  variantId?: string;
+  variants?: ProductVariantOption[];
+  variantsLoading?: boolean;
   quantity: number;
   unitCost: number;
 }
+
+const defaultPOItem: POItem = {
+  productId: "",
+  productName: "",
+  sku: "",
+  quantity: 1,
+  unitCost: 0,
+};
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -105,17 +128,20 @@ export default function PurchaseOrdersPage() {
   const dateTime = useFormatDateTime();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPoId, setEditingPoId] = useState<string | null>(null);
+  const [editingPoNumber, setEditingPoNumber] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
 
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [poNotes, setPONotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
-  const [poItems, setPOItems] = useState<POItem[]>([
-    { productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 },
-  ]);
+  const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
   const [poSuggestRow, setPoSuggestRow] = useState<number | null>(null);
 
   const poSuggestQuery =
@@ -135,6 +161,7 @@ export default function PurchaseOrdersPage() {
         limit: "30",
         search: debouncedPOSuggestQuery,
         isActive: "true",
+        includeVariantSummary: "true",
       });
       const res = await fetch(`/api/products?${params}`);
       const j = await res.json();
@@ -142,7 +169,7 @@ export default function PurchaseOrdersPage() {
       const raw = j.data;
       return Array.isArray(raw) ? (raw as ProductHit[]) : [];
     },
-    enabled: createOpen && debouncedPOSuggestQuery.length >= 2,
+    enabled: formOpen && debouncedPOSuggestQuery.length >= 2,
   });
 
   const {
@@ -193,14 +220,67 @@ export default function PurchaseOrdersPage() {
     onError: (err: Error) => toast({ variant: "destructive", title: "Status update failed", description: err.message }),
   });
 
-  const createMutation = useMutation({
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Purchase order deleted" });
+    },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Delete failed", description: err.message }),
+  });
+
+  function confirmDeletePurchaseOrder(po: PurchaseOrder) {
+    if (
+      !window.confirm(
+        `Delete purchase order ${po.poNumber}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    deleteMutation.mutate(po._id);
+  }
+
+  function buildItemsPayload() {
+    return poItems
+      .filter((i) => i.productId && (!i.variants?.length || i.variantId))
+      .map(({ productId, variantId, productName, sku, quantity, unitCost }) => ({
+        productId,
+        variantId: variantId || undefined,
+        productName,
+        sku,
+        quantity,
+        unitCost,
+      }));
+  }
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
+      const items = buildItemsPayload();
+      if (editingPoId) {
+        const res = await fetch(`/api/purchase-orders/${editingPoId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items,
+            expectedDeliveryDate: expectedDate || undefined,
+            notes: poNotes || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
+        return data;
+      }
       const res = await fetch("/api/purchase-orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId: selectedOrgId,
-          items: poItems.filter((i) => i.productId),
+          items,
           expectedDeliveryDate: expectedDate || undefined,
           notes: poNotes || undefined,
         }),
@@ -210,11 +290,23 @@ export default function PurchaseOrdersPage() {
       return data;
     },
     onSuccess: () => {
+      const wasEdit = !!editingPoId;
+      const editedId = editingPoId;
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
-      setCreateOpen(false);
-      resetForm();
+      if (editedId) {
+        queryClient.invalidateQueries({ queryKey: ["purchase-order", editedId] });
+      }
+      closeForm();
+      toast({
+        title: wasEdit ? "Purchase order updated" : "Purchase order created",
+      });
     },
-    onError: (err: Error) => toast({ variant: "destructive", title: "Could not create PO", description: err.message }),
+    onError: (err: Error) =>
+      toast({
+        variant: "destructive",
+        title: editingPoId ? "Could not update PO" : "Could not create PO",
+        description: err.message,
+      }),
   });
 
   function resetForm() {
@@ -222,8 +314,134 @@ export default function PurchaseOrdersPage() {
     setPONotes("");
     setExpectedDate("");
     setPoSuggestRow(null);
-    setPOItems([{ productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 }]);
+    setPOItems([{ ...defaultPOItem }]);
+    setEditingPoId(null);
+    setEditingPoNumber("");
   }
+
+  function closeForm() {
+    setFormOpen(false);
+    resetForm();
+  }
+
+  function toDateInputValue(iso?: string | null): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function openCreate() {
+    resetForm();
+    setPoSuggestRow(null);
+    setFormOpen(true);
+  }
+
+  const openEdit = useCallback(async (poId: string) => {
+    setFormLoading(true);
+    setPoSuggestRow(null);
+    setEditingPoId(poId);
+    setFormOpen(true);
+    try {
+      const res = await fetch(`/api/purchase-orders/${poId}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
+      const po = json.data as {
+        poNumber: string;
+        status: string;
+        organizationId?: { _id: string } | string;
+        expectedDeliveryDate?: string;
+        notes?: string;
+        items: {
+          productId?: { _id: string } | string;
+          variantId?: { _id: string } | string | null;
+          productName: string;
+          sku: string;
+          quantity: number;
+          unitCost: number;
+        }[];
+      };
+
+      if (po.status !== "draft") {
+        throw new Error("Only draft purchase orders can be edited");
+      }
+
+      setEditingPoNumber(po.poNumber);
+      const orgId =
+        po.organizationId && typeof po.organizationId === "object"
+          ? po.organizationId._id
+          : po.organizationId;
+      setSelectedOrgId(orgId ? String(orgId) : "");
+      setExpectedDate(toDateInputValue(po.expectedDeliveryDate));
+      setPONotes(po.notes ?? "");
+
+      const loadedItems: POItem[] = [];
+      for (const item of po.items ?? []) {
+        const productId = String(
+          item.productId && typeof item.productId === "object"
+            ? item.productId._id
+            : item.productId ?? ""
+        );
+        let variants: ProductVariantOption[] | undefined;
+        if (productId) {
+          const vRes = await fetch(`/api/products/${productId}/variants`);
+          const vJson = await vRes.json();
+          if (vJson.success) {
+            const active = ((vJson.data ?? []) as ProductVariantOption[]).filter(
+              (v) => v.isActive !== false
+            );
+            if (active.length > 0) variants = active;
+          }
+        }
+        const variantIdRaw = item.variantId;
+        const variantId =
+          variantIdRaw && typeof variantIdRaw === "object"
+            ? String(variantIdRaw._id)
+            : variantIdRaw
+              ? String(variantIdRaw)
+              : undefined;
+        const productName = item.productName ?? "";
+        const sep = " — ";
+        const baseProductName = productName.includes(sep)
+          ? productName.split(sep)[0]!
+          : productName;
+        loadedItems.push({
+          productId,
+          productName,
+          baseProductName,
+          sku: item.sku,
+          variantId,
+          variants,
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+        });
+      }
+      setPOItems(loadedItems.length > 0 ? loadedItems : [{ ...defaultPOItem }]);
+    } catch (err) {
+      closeForm();
+      toast({
+        variant: "destructive",
+        title: "Could not open purchase order",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setFormLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+    void openEdit(editId);
+    router.replace("/purchase-orders");
+  }, [searchParams, openEdit, router]);
+
+  const poItemsReady = poItems.every((i) => {
+    if (!i.productId) return true;
+    if (i.variantsLoading) return false;
+    if (i.variants && i.variants.length > 0) return !!i.variantId;
+    return true;
+  });
 
   function patchPOItem(index: number, patch: Partial<POItem>) {
     setPOItems((prev) =>
@@ -231,15 +449,56 @@ export default function PurchaseOrdersPage() {
     );
   }
 
-  function selectPOProduct(index: number, p: ProductHit) {
-    const unitCost = p.retailPrice;
+  async function selectPOProduct(index: number, p: ProductHit) {
     patchPOItem(index, {
       productId: p._id,
       productName: p.name,
+      baseProductName: p.name,
       sku: p.sku,
-      unitCost,
+      unitCost: p.retailPrice,
+      variantId: undefined,
+      variants: undefined,
+      variantsLoading: true,
     });
     setPoSuggestRow(null);
+
+    try {
+      const res = await fetch(`/api/products/${p._id}/variants`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to load variants");
+      const all = (json.data ?? []) as ProductVariantOption[];
+      const active = all.filter((v) => v.isActive !== false);
+
+      if (active.length > 0) {
+        patchPOItem(index, {
+          variants: active,
+          variantsLoading: false,
+          variantId: undefined,
+          sku: "",
+          unitCost: 0,
+        });
+      } else {
+        patchPOItem(index, {
+          variants: [],
+          variantsLoading: false,
+        });
+      }
+    } catch {
+      patchPOItem(index, { variants: [], variantsLoading: false });
+    }
+  }
+
+  function selectPOVariant(index: number, variantId: string) {
+    const item = poItems[index];
+    const variant = item?.variants?.find((v) => v._id === variantId);
+    if (!item || !variant) return;
+    const baseName = item.baseProductName ?? item.productName;
+    patchPOItem(index, {
+      variantId: variant._id,
+      productName: `${baseName} — ${variant.name}`,
+      sku: variant.sku,
+      unitCost: variant.retailPrice,
+    });
   }
 
   function updateItem(index: number, field: keyof POItem, value: string | number) {
@@ -249,10 +508,7 @@ export default function PurchaseOrdersPage() {
   }
 
   function addItem() {
-    setPOItems((prev) => [
-      ...prev,
-      { productId: "", productName: "", sku: "", quantity: 1, unitCost: 0 },
-    ]);
+    setPOItems((prev) => [...prev, { ...defaultPOItem }]);
   }
 
   function removeItem(index: number) {
@@ -335,11 +591,37 @@ export default function PurchaseOrdersPage() {
       key: "actions",
       label: "",
       render: (o: PurchaseOrder) => (
-        <Link href={`/purchase-orders/${o._id}`}>
-          <Button variant="ghost" size="icon">
-            <Eye className="h-4 w-4" />
-          </Button>
-        </Link>
+        <div className="flex justify-end gap-1">
+          {o.status === "draft" && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Edit purchase order"
+                aria-label="Edit purchase order"
+                onClick={() => openEdit(o._id)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive"
+                title="Delete purchase order"
+                aria-label="Delete purchase order"
+                disabled={deleteMutation.isPending}
+                onClick={() => confirmDeletePurchaseOrder(o)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          <Link href={`/purchase-orders/${o._id}`}>
+            <Button variant="ghost" size="icon" title="View purchase order" aria-label="View purchase order">
+              <Eye className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       ),
     },
   ];
@@ -356,12 +638,7 @@ export default function PurchaseOrdersPage() {
           </Alert>
         )}
         <div className="flex justify-end">
-          <Button
-            onClick={() => {
-              setPoSuggestRow(null);
-              setCreateOpen(true);
-            }}
-          >
+          <Button onClick={() => void openCreate()}>
             <Plus className="h-4 w-4 mr-2" />
             New PO
           </Button>
@@ -397,26 +674,27 @@ export default function PurchaseOrdersPage() {
         />
       </div>
 
-      {/* Create PO Dialog */}
+      {/* Create / Edit PO Dialog */}
       <Dialog
-        open={createOpen}
+        open={formOpen}
         onOpenChange={(v) => {
-          setCreateOpen(v);
-          if (!v) {
-            setPoSuggestRow(null);
-            resetForm();
-          }
+          if (!v) closeForm();
         }}
       >
         <DialogContent className="max-w-2xl overflow-y-visible sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingBag className="h-5 w-5" />
-              New Purchase Order
+              {editingPoId ? `Edit ${editingPoNumber || "Purchase Order"}` : "New Purchase Order"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1 sm:max-h-[min(75vh,40rem)]">
+          {formLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+          <div className="space-y-4 pr-1">
             {isOrgsError && (
               <Alert variant="destructive">
                 <AlertDescription>
@@ -427,7 +705,11 @@ export default function PurchaseOrdersPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Organization</Label>
-                <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+                <Select
+                  value={selectedOrgId}
+                  onValueChange={setSelectedOrgId}
+                  disabled={!!editingPoId}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select organization" />
                   </SelectTrigger>
@@ -476,7 +758,14 @@ export default function PurchaseOrdersPage() {
                             updateItem(index, "productName", e.target.value);
                             setPoSuggestRow(index);
                             if (e.target.value.trim() === "") {
-                              patchPOItem(index, { productId: "" });
+                              patchPOItem(index, {
+                                productId: "",
+                                variantId: undefined,
+                                variants: undefined,
+                                variantsLoading: false,
+                                sku: "",
+                                unitCost: 0,
+                              });
                             }
                           }}
                           onBlur={() => {
@@ -517,6 +806,9 @@ export default function PurchaseOrdersPage() {
                                   <span className="font-medium">{p.name}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {p.sku} · {money(p.retailPrice)}
+                                    {typeof p.variantCount === "number" && p.variantCount > 0 && (
+                                      <> · {p.variantCount} variant{p.variantCount === 1 ? "" : "s"}</>
+                                    )}
                                   </span>
                                 </button>
                               ))
@@ -548,6 +840,32 @@ export default function PurchaseOrdersPage() {
                         </div>
                       </div>
                     </div>
+                    {item.variantsLoading && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Loading variants…
+                      </div>
+                    )}
+                    {item.variants && item.variants.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Variant *</Label>
+                        <Select
+                          value={item.variantId ?? ""}
+                          onValueChange={(vId) => selectPOVariant(index, vId)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select variant" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {item.variants.map((v) => (
+                              <SelectItem key={v._id} value={v._id}>
+                                {v.name} ({v.sku}) · {money(v.retailPrice)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
                         Subtotal: {money(item.quantity * item.unitCost)}
@@ -583,16 +901,29 @@ export default function PurchaseOrdersPage() {
               />
             </div>
           </div>
+          )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm(); }}>
+            <Button variant="outline" onClick={closeForm} disabled={formLoading || saveMutation.isPending}>
               Cancel
             </Button>
             <Button
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending || !selectedOrgId || poItems.every((i) => !i.productId)}
+              onClick={() => saveMutation.mutate()}
+              disabled={
+                formLoading ||
+                saveMutation.isPending ||
+                (!editingPoId && !selectedOrgId) ||
+                poItems.every((i) => !i.productId) ||
+                !poItemsReady
+              }
             >
-              {createMutation.isPending ? "Creating..." : "Create Purchase Order"}
+              {saveMutation.isPending
+                ? editingPoId
+                  ? "Saving..."
+                  : "Creating..."
+                : editingPoId
+                  ? "Save Changes"
+                  : "Create Purchase Order"}
             </Button>
           </DialogFooter>
         </DialogContent>

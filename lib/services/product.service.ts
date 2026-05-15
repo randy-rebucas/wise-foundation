@@ -9,7 +9,10 @@ import {
   type CreateProductInput,
   type CreateVariantInput,
 } from "@/lib/validations/product.schema";
+import type { Types } from "mongoose";
 import type { ProductCategory } from "@/types";
+
+type LeanProductRow = Record<string, unknown> & { _id: Types.ObjectId };
 
 interface ProductFilter {
   category?: ProductCategory;
@@ -17,7 +20,16 @@ interface ProductFilter {
   isActive?: boolean;
 }
 
-export async function getProducts(filter: ProductFilter = {}, page = 1, limit = 20) {
+interface GetProductsOptions {
+  includeVariantSummary?: boolean;
+}
+
+export async function getProducts(
+  filter: ProductFilter = {},
+  page = 1,
+  limit = 20,
+  options: GetProductsOptions = {}
+) {
   await connectDB();
 
   const query: Record<string, unknown> = { deletedAt: null };
@@ -33,6 +45,46 @@ export async function getProducts(filter: ProductFilter = {}, page = 1, limit = 
     Product.countDocuments(query),
   ]);
 
+  if (options.includeVariantSummary && products.length) {
+    const rows = products as LeanProductRow[];
+    const productIds = rows.map((p) => p._id).filter(Boolean);
+
+    const variantSummaries = await ProductVariant.aggregate<{
+      _id: unknown;
+      count: number;
+      firstVariant?: { name: string; sku: string };
+    }>([
+      { $match: { productId: { $in: productIds }, deletedAt: null } },
+      // "firstVariant" is the most recently created variant (best effort ordering).
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$productId",
+          count: { $sum: 1 },
+          firstVariant: {
+            $first: { name: "$name", sku: "$sku" },
+          },
+        },
+      },
+    ]);
+
+    const summaryMap = new Map(
+      variantSummaries.map((s) => [String(s._id), s] as const)
+    );
+
+    const enriched = rows.map((p) => {
+      const s = summaryMap.get(String(p._id));
+      return {
+        ...p,
+        variantCount: s?.count ?? 0,
+        variantPreviewName: s?.firstVariant?.name ?? null,
+        variantPreviewSku: s?.firstVariant?.sku ?? null,
+      };
+    });
+
+    return { products: enriched, total, pages: Math.ceil(total / limit) };
+  }
+
   return { products, total, pages: Math.ceil(total / limit) };
 }
 
@@ -46,6 +98,32 @@ export async function getProductById(productId: string) {
   return { ...product, variants };
 }
 
+const MAX_SKU_LEN = 50;
+
+function stripCopySuffix(sku: string): string {
+  return sku.replace(/(-COPY(-\d+)?)+$/i, "");
+}
+
+async function nextAvailableSku(
+  baseSku: string,
+  exists: (sku: string) => Promise<boolean>
+): Promise<string> {
+  const root = stripCopySuffix(baseSku.trim()).slice(0, 36) || "SKU";
+  for (let n = 0; n < 100; n++) {
+    const suffix = n === 0 ? "-COPY" : `-COPY-${n + 1}`;
+    const candidate = `${root}${suffix}`.slice(0, MAX_SKU_LEN);
+    if (!(await exists(candidate))) return candidate;
+  }
+  throw new Error("Could not generate a unique SKU");
+}
+
+function copyProductName(name: string): string {
+  const suffix = " (Copy)";
+  const max = 200;
+  if (name.length + suffix.length <= max) return `${name}${suffix}`;
+  return `${name.slice(0, max - suffix.length)}${suffix}`;
+}
+
 export async function createProduct(data: CreateProductInput) {
   await connectDB();
 
@@ -54,6 +132,55 @@ export async function createProduct(data: CreateProductInput) {
 
   const slug = slugify(data.name);
   return Product.create({ ...data, slug });
+}
+
+export async function cloneProduct(productId: string) {
+  await connectDB();
+
+  const source = await getProductById(productId);
+  if (!source) throw new Error("Product not found");
+
+  const newSku = await nextAvailableSku(source.sku, async (sku) => {
+    const found = await Product.findOne({ sku });
+    return !!found;
+  });
+
+  const newName = copyProductName(source.name);
+  const product = await Product.create({
+    name: newName,
+    slug: slugify(newName),
+    description: source.description,
+    category: source.category,
+    sku: newSku,
+    images: source.images ?? [],
+    retailPrice: source.retailPrice,
+    isActive: source.isActive,
+    tags: source.tags ?? [],
+    marketplaceListed: source.marketplaceListed ?? true,
+  });
+
+  const variants = source.variants ?? [];
+  if (variants.length > 0) {
+    const variantDocs = [];
+    for (const v of variants) {
+      const variantSku = await nextAvailableSku(v.sku, async (sku) => {
+        const found = await ProductVariant.findOne({ sku });
+        return !!found;
+      });
+      variantDocs.push({
+        productId: product._id,
+        name: v.name,
+        sku: variantSku,
+        attributes: v.attributes ?? [],
+        retailPrice: v.retailPrice,
+        images: v.images ?? [],
+        isActive: v.isActive !== false,
+      });
+    }
+    await ProductVariant.insertMany(variantDocs);
+  }
+
+  return getProductById(String(product._id));
 }
 
 export async function updateProduct(productId: string, data: Partial<IProduct>) {

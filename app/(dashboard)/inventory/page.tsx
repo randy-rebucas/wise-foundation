@@ -41,8 +41,16 @@ interface OrgInventoryItem {
 }
 
 
+interface ProductVariantOption {
+  _id: string;
+  name: string;
+  sku: string;
+  isActive?: boolean;
+}
+
 interface MovementForm {
   productId: string;
+  variantId?: string;
   type: "IN" | "OUT" | "TRANSFER" | "ADJUSTMENT";
   quantity: number;
   unitCost: number;
@@ -55,6 +63,7 @@ interface OrgTransferForm {
   fromOrganizationId: string;
   toOrganizationId: string;
   productId: string;
+  variantId?: string;
   quantity: number;
   reference: string;
   notes: string;
@@ -83,6 +92,7 @@ interface Product {
   _id: string;
   name: string;
   sku: string;
+  variantCount?: number | null;
 }
 
 interface Branch {
@@ -102,7 +112,7 @@ interface InventoryItem {
     category: string;
     retailPrice: number;
   };
-  variantId?: { name: string; sku: string };
+  variantId: { name: string; sku: string } | null | undefined;
 }
 
 interface StockMovement {
@@ -112,6 +122,7 @@ interface StockMovement {
   previousQuantity: number;
   newQuantity: number;
   productId: { name: string; sku: string };
+  variantId: { name: string; sku: string } | null | undefined;
   performedBy: { name: string };
   fromBranchId?: { name: string; code: string };
   toBranchId?: { name: string; code: string };
@@ -222,7 +233,7 @@ export default function InventoryPage() {
   } = useQuery<Product[]>({
     queryKey: ["products-simple"],
     queryFn: async () => {
-      const res = await fetch("/api/products?limit=100&isActive=true");
+      const res = await fetch("/api/products?limit=100&isActive=true&includeVariantSummary=true");
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
       return (data.data ?? []) as Product[];
@@ -263,12 +274,58 @@ export default function InventoryPage() {
   });
   const organizations = orgsResult ?? [];
 
+  const {
+    data: movementVariantsRaw = [],
+    isLoading: movementVariantsLoading,
+  } = useQuery({
+    queryKey: ["inventory-movement-variants", movementForm.productId],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${movementForm.productId}/variants`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Failed to load variants");
+      return (data.data ?? []) as ProductVariantOption[];
+    },
+    enabled: movementOpen && !!movementForm.productId,
+  });
+
+  const movementVariants = movementVariantsRaw.filter((v) => v.isActive !== false);
+
+  const {
+    data: orgTransferVariantsRaw = [],
+    isLoading: orgTransferVariantsLoading,
+  } = useQuery({
+    queryKey: ["inventory-org-transfer-variants", orgTransferForm.productId],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${orgTransferForm.productId}/variants`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Failed to load variants");
+      return (data.data ?? []) as ProductVariantOption[];
+    },
+    enabled: orgTransferOpen && !!orgTransferForm.productId,
+  });
+
+  const orgTransferVariants = orgTransferVariantsRaw.filter((v) => v.isActive !== false);
+
+  const movementFormReady =
+    !!movementForm.productId &&
+    !movementVariantsLoading &&
+    (movementVariants.length === 0 || !!movementForm.variantId);
+
+  const orgTransferFormReady =
+    !!orgTransferForm.productId &&
+    !orgTransferVariantsLoading &&
+    (orgTransferVariants.length === 0 || !!orgTransferForm.variantId);
+
   const movementMutation = useMutation({
     mutationFn: async (form: MovementForm) => {
       const res = await fetch("/api/inventory/movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, branchId: branchIdForInventory }),
+        body: JSON.stringify({
+          ...form,
+          branchId: branchIdForInventory,
+          variantId: form.variantId || undefined,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Movement failed (${res.status})`);
@@ -289,7 +346,10 @@ export default function InventoryPage() {
       const res = await fetch("/api/inventory/org-transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          variantId: form.variantId || undefined,
+        }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Transfer failed (${res.status})`);
@@ -607,7 +667,9 @@ export default function InventoryPage() {
               <Label>Product *</Label>
               <Select
                 value={orgTransferForm.productId}
-                onValueChange={(v) => setOrgTransferForm((f) => ({ ...f, productId: v }))}
+                onValueChange={(v) =>
+                  setOrgTransferForm((f) => ({ ...f, productId: v, variantId: undefined }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select product" />
@@ -616,11 +678,41 @@ export default function InventoryPage() {
                   {products.map((p) => (
                     <SelectItem key={p._id} value={p._id}>
                       {p.name} ({p.sku})
+                      {typeof p.variantCount === "number" && p.variantCount > 0
+                        ? ` · ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {orgTransferVariantsLoading && orgTransferForm.productId && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading variants…
+              </div>
+            )}
+            {orgTransferVariants.length > 0 && (
+              <div className="space-y-2">
+                <Label>Variant *</Label>
+                <Select
+                  value={orgTransferForm.variantId ?? ""}
+                  onValueChange={(v) => setOrgTransferForm((f) => ({ ...f, variantId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select variant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orgTransferVariants.map((v) => (
+                      <SelectItem key={v._id} value={v._id}>
+                        {v.name} ({v.sku})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Quantity *</Label>
@@ -662,7 +754,7 @@ export default function InventoryPage() {
                 setOrgTransferError("");
                 orgTransferMutation.mutate(orgTransferForm);
               }}
-              disabled={orgTransferMutation.isPending}
+              disabled={orgTransferMutation.isPending || !orgTransferFormReady}
             >
               {orgTransferMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Transfer
@@ -694,7 +786,9 @@ export default function InventoryPage() {
               <Label>Product *</Label>
               <Select
                 value={movementForm.productId}
-                onValueChange={(v) => setMovementForm((f) => ({ ...f, productId: v }))}
+                onValueChange={(v) =>
+                  setMovementForm((f) => ({ ...f, productId: v, variantId: undefined }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select product" />
@@ -703,11 +797,42 @@ export default function InventoryPage() {
                   {products.map((p) => (
                     <SelectItem key={p._id} value={p._id}>
                       {p.name} ({p.sku})
+                      {typeof p.variantCount === "number" && p.variantCount > 0
+                        ? ` · ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`
+                        : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {movementVariantsLoading && movementForm.productId && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading variants…
+              </div>
+            )}
+            {movementVariants.length > 0 && (
+              <div className="space-y-2">
+                <Label>Variant *</Label>
+                <Select
+                  value={movementForm.variantId ?? ""}
+                  onValueChange={(v) => setMovementForm((f) => ({ ...f, variantId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select variant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {movementVariants.map((v) => (
+                      <SelectItem key={v._id} value={v._id}>
+                        {v.name} ({v.sku})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -809,7 +934,7 @@ export default function InventoryPage() {
                 setFormError("");
                 movementMutation.mutate(movementForm);
               }}
-              disabled={movementMutation.isPending}
+              disabled={movementMutation.isPending || !movementFormReady}
             >
               {movementMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Record

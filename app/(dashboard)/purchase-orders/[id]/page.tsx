@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, PackageCheck, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, PackageCheck, CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -101,6 +101,21 @@ export default function PurchaseOrderDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-order", id] }),
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Update failed", description: err.message }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Purchase order deleted" });
+      router.push("/purchase-orders");
+    },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Delete failed", description: err.message }),
   });
 
   const receiveMutation = useMutation({
@@ -214,11 +229,37 @@ export default function PurchaseOrderDetailPage() {
             </Badge>
             {po.status === "draft" && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/purchase-orders?edit=${id}`)}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
                 <Button size="sm" onClick={() => statusMutation.mutate("submitted")} disabled={statusMutation.isPending}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Submit
                 </Button>
-                <Button variant="destructive" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Delete purchase order ${po.poNumber}? This cannot be undone.`
+                      )
+                    ) {
+                      return;
+                    }
+                    deleteMutation.mutate();
+                  }}
+                  disabled={deleteMutation.isPending || statusMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
