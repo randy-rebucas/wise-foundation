@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
-import { cloudinaryConfigured } from "@/lib/utils/cloudinary";
+import { imageUploadConfigured } from "@/lib/server/localImageStorage";
 
 const DEFAULTS: PublicAppSettings = {
   appName: "Glowish",
@@ -26,7 +26,7 @@ export function toPublicAppSettings(
     receiptFooter?: string;
   } | null
 ): PublicAppSettings {
-  if (!doc) return { ...DEFAULTS, imageUploadEnabled: cloudinaryConfigured() };
+  if (!doc) return { ...DEFAULTS, imageUploadEnabled: imageUploadConfigured() };
   return {
     appName: doc.appName ?? DEFAULTS.appName,
     appTagline: doc.appTagline ?? DEFAULTS.appTagline,
@@ -36,7 +36,7 @@ export function toPublicAppSettings(
       doc.memberDefaultDiscountPercent ?? DEFAULTS.memberDefaultDiscountPercent,
     defaultLowStockThreshold: doc.defaultLowStockThreshold ?? DEFAULTS.defaultLowStockThreshold,
     receiptFooter: doc.receiptFooter ?? DEFAULTS.receiptFooter,
-    imageUploadEnabled: cloudinaryConfigured(),
+    imageUploadEnabled: imageUploadConfigured(),
   };
 }
 

@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { AppBrand } from "@/components/branding/AppBrand";
+import { Loader2 } from "lucide-react";
 
 function AccountLoginForm() {
   const router = useRouter();
@@ -68,15 +69,13 @@ function AccountLoginForm() {
   return (
     <Card className="border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
-            <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
-          </div>
-          <div>
-            <p className="font-bold text-lg tracking-wide leading-none text-primary">Shop account</p>
-            <p className="text-xs text-muted-foreground">Sign in to track orders and check out faster</p>
-          </div>
-        </div>
+        <AppBrand
+          theme="account"
+          appName="Shop account"
+          appTagline="Sign in to track orders and check out faster"
+          className="mb-3"
+          priority
+        />
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>Use the email and password you chose when you registered.</CardDescription>
       </CardHeader>

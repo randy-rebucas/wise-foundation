@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { APP_LOGO_SRC } from "@/lib/constants/branding";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
@@ -16,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Glowish",
   description: "Glowish — point of sale, inventory, and online storefront for retail teams.",
+  icons: {
+    icon: APP_LOGO_SRC,
+    apple: APP_LOGO_SRC,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

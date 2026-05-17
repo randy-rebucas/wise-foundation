@@ -23,7 +23,7 @@ const UserSchema = new Schema<IUser>(
     branchIds: [{ type: Schema.Types.ObjectId, ref: "Branch" }],
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", default: null },
     name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,

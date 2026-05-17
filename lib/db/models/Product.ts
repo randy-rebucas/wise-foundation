@@ -41,9 +41,9 @@ const ProductSchema = new Schema<IProduct>(
   { timestamps: true }
 );
 
-ProductSchema.index({ sku: 1 }, { unique: true });
 ProductSchema.index({ category: 1, deletedAt: 1 });
 ProductSchema.index({ isActive: 1, deletedAt: 1 });
+ProductSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { deletedAt: null } });
 ProductSchema.index({ name: "text", tags: "text" });
 
 /** Drop stale compiled model (Next.js dev / HMR) so schema changes apply. */

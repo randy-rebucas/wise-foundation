@@ -1,3 +1,4 @@
+import { AppLogo } from "@/components/branding/AppLogo";
 import { AlertTriangle } from "lucide-react";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
@@ -20,8 +21,9 @@ export default async function MaintenancePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 px-4">
       <div className="max-w-md w-full text-center">
+        <AppLogo size="2xl" className="mx-auto mb-6" priority />
         <div className="flex justify-center mb-6">
-          <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-full">
+          <div className="rounded-full bg-amber-100 p-4 dark:bg-amber-900/30">
             <AlertTriangle className="h-12 w-12 text-amber-600 dark:text-amber-500" />
           </div>
         </div>

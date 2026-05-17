@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { unauthorizedResponse } from "@/lib/utils/apiResponse";
 import type { NextRequest } from "next/server";
+import { effectivePermissions } from "@/lib/permissions";
 import type { SessionUser } from "@/types";
 
 export type AuthedRequest = NextRequest & { user: SessionUser };
@@ -13,7 +14,11 @@ export function withAuth(handler: Handler) {
     if (!session?.user) return unauthorizedResponse();
 
     const authedReq = req as AuthedRequest;
-    authedReq.user = session.user as SessionUser;
+    const base = session.user as SessionUser;
+    authedReq.user = {
+      ...base,
+      permissions: effectivePermissions(base),
+    };
 
     return handler(authedReq, ctx);
   };

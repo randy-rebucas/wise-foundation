@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, UserPlus } from "lucide-react";
+import { AppBrand } from "@/components/branding/AppBrand";
+import { Loader2 } from "lucide-react";
 
 export default function AccountRegisterPage() {
   const router = useRouter();
@@ -78,15 +79,13 @@ export default function AccountRegisterPage() {
     <div className="mx-auto w-full max-w-md py-8">
       <Card className="border-0 shadow-xl">
         <CardHeader className="space-y-1 pb-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <UserPlus className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-bold text-lg tracking-tight">Create your shop account</p>
-              <p className="text-xs text-muted-foreground">For online purchases only — not for distributor access.</p>
-            </div>
-          </div>
+          <AppBrand
+            theme="account"
+            appName="Create your shop account"
+            appTagline="For online purchases only — not for distributor access."
+            className="mb-3"
+            priority
+          />
           <CardTitle className="text-2xl font-bold">Register</CardTitle>
           <CardDescription>Save your details for faster checkout and order history.</CardDescription>
         </CardHeader>

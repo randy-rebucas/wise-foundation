@@ -33,7 +33,6 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 );
 
 ProductVariantSchema.index({ productId: 1, deletedAt: 1 });
-ProductVariantSchema.index({ sku: 1 }, { unique: true });
 
 if (mongoose.models.ProductVariant) {
   mongoose.deleteModel("ProductVariant");

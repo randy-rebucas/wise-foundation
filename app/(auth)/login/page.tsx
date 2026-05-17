@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, ShoppingBag, ShieldCheck } from "lucide-react";
+import { AppBrand } from "@/components/branding/AppBrand";
+import { Loader2, ShieldCheck } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -69,19 +70,7 @@ function LoginForm() {
   return (
     <Card className="border-0 shadow-2xl">
       <CardHeader className="space-y-1 pb-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
-            <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
-          </div>
-          <div>
-            <p className="font-bold text-lg tracking-wide leading-none" style={{ color: "hsl(var(--glowish-blue))" }}>
-              Glowish
-            </p>
-            <p className="text-[10px] text-muted-foreground tracking-widest uppercase">
-              POS & online store
-            </p>
-          </div>
-        </div>
+        <AppBrand theme="auth" className="mb-3" priority />
         <CardTitle className="text-2xl font-bold">Team sign in</CardTitle>
         <CardDescription>Distributors, branches, and operations — authorized accounts only.</CardDescription>
       </CardHeader>

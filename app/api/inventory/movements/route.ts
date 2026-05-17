@@ -4,6 +4,7 @@ import { getStockMovements, getStockMovementsByOrg, processStockMovement } from 
 import { stockMovementSchema } from "@/lib/validations/inventory.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -27,7 +28,9 @@ const getHandler = async (req: AuthedRequest) => {
       limit,
       total: result.total,
     });
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };
@@ -48,6 +51,8 @@ const postHandler = async (req: AuthedRequest) => {
 
     return successResponse(result, "Stock movement processed", 201);
   } catch (error) {
+    const branchErr = branchAccessErrorResponse(error);
+    if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }

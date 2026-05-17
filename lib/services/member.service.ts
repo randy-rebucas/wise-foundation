@@ -4,6 +4,7 @@ import { Member } from "@/lib/db/models/Member";
 import { generateMemberId } from "@/lib/utils/generateMemberId";
 import type { CreateMemberInput, UpdateMemberInput } from "@/lib/validations/member.schema";
 import type { SessionUser } from "@/types";
+import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
 
 function refIdToString(id: unknown): string | null {
   if (id == null) return null;
@@ -67,12 +68,8 @@ export async function getMembers(
   const query: Record<string, unknown> = { ...baseFilter };
   if (status) query.status = status;
   if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { phone: { $regex: search, $options: "i" } },
-      { memberId: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-    ];
+    const rx = caseInsensitiveRegex(search);
+    query.$or = [{ name: rx }, { phone: rx }, { memberId: rx }, { email: rx }];
   }
 
   const skip = (page - 1) * limit;

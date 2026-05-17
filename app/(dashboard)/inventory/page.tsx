@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
@@ -138,12 +138,8 @@ export default function InventoryPage() {
   const queryClient = useQueryClient();
 
   const defaultBranchId = session?.user?.branchIds?.[0] ?? "";
-  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [manualBranchId, setManualBranchId] = useState<string | null>(null);
   const needsBranchSelect = !defaultBranchId;
-
-  useEffect(() => {
-    if (defaultBranchId) setSelectedBranchId(defaultBranchId);
-  }, [defaultBranchId]);
 
   const isAdmin = session?.user?.role === "ADMIN";
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN" && !!session?.user?.organizationId;
@@ -163,13 +159,8 @@ export default function InventoryPage() {
     },
   });
 
-  useEffect(() => {
-    if (defaultBranchId) return;
-    if (branches.length === 0) return;
-    setSelectedBranchId((prev) => prev || branches[0]!._id);
-  }, [defaultBranchId, branches]);
-
-  const branchIdForInventory = selectedBranchId || defaultBranchId;
+  const branchIdForInventory =
+    manualBranchId ?? defaultBranchId ?? (needsBranchSelect ? (branches[0]?._id ?? "") : "");
   const inventoryQueryEnabled = isOrgAdmin || !!branchIdForInventory;
 
   const [orgFilter, setOrgFilter] = useState("all");
@@ -389,9 +380,9 @@ export default function InventoryPage() {
               <p className="text-sm text-destructive">No branches found. Create one under Admin → Branches.</p>
             ) : (
               <Select
-                value={selectedBranchId || undefined}
+                value={branchIdForInventory || undefined}
                 onValueChange={(id) => {
-                  setSelectedBranchId(id);
+                  setManualBranchId(id);
                   setPage(1);
                   setMovPage(1);
                 }}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { APP_LOGO_SRC } from "@/lib/constants/branding";
 import { useCartStore } from "@/store/cartStore";
 import {
   Dialog,
@@ -80,6 +81,7 @@ function printReceipt(
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
   <style>
     body{font-family:monospace;font-size:13px;width:320px;margin:0 auto;padding:16px}
+    .logo{display:block;margin:0 auto 8px;max-height:88px;width:auto}
     h2{text-align:center;margin:0 0 4px}
     p{text-align:center;margin:2px 0;font-size:11px}
     table{width:100%;border-collapse:collapse;margin:8px 0}
@@ -89,6 +91,7 @@ function printReceipt(
     .change{color:#16a34a;font-weight:bold}
     @media print{button{display:none}}
   </style></head><body>
+  <img class="logo" src="${typeof window !== "undefined" ? window.location.origin : ""}${APP_LOGO_SRC}" alt="" />
   <h2>${print.storeTitle}</h2>
   <p>${print.whenLabel}</p>
   <p>Order: <strong>${result.orderNumber}</strong></p>

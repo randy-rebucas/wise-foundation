@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
@@ -429,9 +429,11 @@ export default function PurchaseOrdersPage() {
     }
   }, [toast]);
 
+  const editFromUrlHandled = useRef(false);
   useEffect(() => {
     const editId = searchParams.get("edit");
-    if (!editId) return;
+    if (!editId || editFromUrlHandled.current) return;
+    editFromUrlHandled.current = true;
     void openEdit(editId);
     router.replace("/purchase-orders");
   }, [searchParams, openEdit, router]);

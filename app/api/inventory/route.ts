@@ -2,6 +2,7 @@ import { withAuth } from "@/lib/middleware/withAuth";
 import { getInventory, getInventoryByOrg } from "@/lib/services/inventory.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -25,7 +26,9 @@ const getHandler = async (req: AuthedRequest) => {
       limit,
       total: result.total,
     });
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };

@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
+import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
 
 /** Stable string for a user's `organizationId` ref (ObjectId or populated subdoc). */
 export function userOrganizationIdString(user: { organizationId?: unknown } | null | undefined): string | null {
@@ -28,10 +29,8 @@ export async function getUsers(search?: string, role?: string, page = 1, limit =
   if (role) filter.role = role;
   if (organizationId) filter.organizationId = organizationId;
   if (search) {
-    filter.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
-    ];
+    const rx = caseInsensitiveRegex(search);
+    filter.$or = [{ name: rx }, { email: rx }];
   }
 
   const [users, total] = await Promise.all([

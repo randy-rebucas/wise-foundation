@@ -1,5 +1,8 @@
 import { Schema, model, models, type Document } from "mongoose";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/permissions";
 import type { UserRole } from "@/types";
+
+export { DEFAULT_ROLE_PERMISSIONS };
 
 export interface IRole extends Document {
   name: UserRole;
@@ -27,39 +30,6 @@ const RoleSchema = new Schema<IRole>(
   { timestamps: true }
 );
 
-RoleSchema.index({ name: 1 }, { unique: true });
 RoleSchema.index({ deletedAt: 1 });
 
 export const Role = models.Role || model<IRole>("Role", RoleSchema);
-
-export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  ADMIN: [
-    "manage:branches",
-    "manage:users",
-    "manage:products",
-    "manage:inventory",
-    "use:pos",
-    "view:reports",
-    "manage:members",
-    "manage:orders",
-    "manage:organizations",
-    "manage:roles",
-  ],
-  ORG_ADMIN: [
-    "manage:organizations",
-    "manage:users",
-    "view:reports",
-  ],
-  BRANCH_MANAGER: [
-    "manage:products",
-    "manage:inventory",
-    "use:pos",
-    "view:reports",
-    "manage:members",
-    "manage:orders",
-  ],
-  STAFF: ["use:pos", "manage:members", "manage:orders"],
-  INVENTORY_MANAGER: ["manage:products", "manage:inventory", "view:reports"],
-  MEMBER: ["view:own_orders"],
-  CUSTOMER: [],
-};

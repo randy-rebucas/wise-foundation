@@ -12,7 +12,7 @@ export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
   memberDefaultDiscountPercent: 10,
   defaultLowStockThreshold: 10,
   receiptFooter: "",
-  imageUploadEnabled: false,
+  imageUploadEnabled: true,
 };
 
 const TenantContext = createContext<PublicAppSettings>(DEFAULT_PUBLIC_APP_SETTINGS);

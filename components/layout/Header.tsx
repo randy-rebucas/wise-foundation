@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { Bell, Search } from "lucide-react";
+import { AppLogo } from "@/components/branding/AppLogo";
 import { useTenant } from "@/components/providers/TenantProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,14 +19,13 @@ export function Header({ title, subtitle, action }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:gap-4 sm:px-6 sm:py-0">
-      <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-primary sm:text-xs">
-          {appName}
-        </p>
-        <h1 className="truncate text-lg font-semibold sm:text-xl">{title}</h1>
-        {subtitle && (
-          <p className="truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
-        )}
+      <div className="flex min-w-0 flex-1 basis-[min(100%,12rem)] items-center gap-2.5">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold sm:text-xl">{title}</h1>
+          {subtitle && (
+            <p className="truncate text-xs text-muted-foreground sm:text-sm">{subtitle}</p>
+          )}
+        </div>
       </div>
       <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
         {action && <div className="shrink-0">{action}</div>}

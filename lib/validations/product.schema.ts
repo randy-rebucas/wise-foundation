@@ -1,4 +1,15 @@
 import { z } from "zod";
+import { MAX_GALLERY_IMAGES } from "@/lib/constants/gallery";
+import { parseImageUrl } from "@/lib/utils/imageUrl";
+
+const imageUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (s) => parseImageUrl(s) !== null,
+    "Each image must be a valid http(s) URL or /uploads/ path"
+  )
+  .transform((s) => parseImageUrl(s)!);
 
 export const createProductSchema = z.object({
   name: z.string().min(2, "Name is required").max(200),
@@ -9,7 +20,7 @@ export const createProductSchema = z.object({
   retailPrice: z.number().min(0, "Price must be positive"),
   isActive: z.boolean().default(true),
   tags: z.array(z.string()).default([]),
-  images: z.array(z.string()).max(24).default([]),
+  images: z.array(imageUrlSchema).max(MAX_GALLERY_IMAGES).default([]),
 });
 
 export const createVariantSchema = z.object({
@@ -19,7 +30,7 @@ export const createVariantSchema = z.object({
     z.object({ key: z.string(), value: z.string() })
   ),
   retailPrice: z.number().min(0),
-  images: z.array(z.string()).max(24).default([]),
+  images: z.array(imageUrlSchema).max(MAX_GALLERY_IMAGES).default([]),
 });
 
 export const updateProductSchema = createProductSchema.partial();

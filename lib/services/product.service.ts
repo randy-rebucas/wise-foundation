@@ -10,6 +10,13 @@ import {
   type CreateVariantInput,
 } from "@/lib/validations/product.schema";
 import type { ProductCategory } from "@/types";
+import { deleteMediaAssetsByUrls } from "@/lib/services/media.service";
+
+async function cleanupRemovedImageUrls(previous: string[] | undefined, next: string[] | undefined) {
+  const nextSet = new Set(next ?? []);
+  const removed = (previous ?? []).filter((url) => !nextSet.has(url));
+  if (removed.length) await deleteMediaAssetsByUrls(removed);
+}
 
 interface ProductFilter {
   category?: ProductCategory;
@@ -181,6 +188,19 @@ export async function cloneProduct(productId: string) {
 
 export async function updateProduct(productId: string, data: Partial<IProduct>) {
   await connectDB();
+
+  if (data.images !== undefined) {
+    const existing = await Product.findOne({ _id: productId, deletedAt: null })
+      .select("images")
+      .lean();
+    if (existing) {
+      await cleanupRemovedImageUrls(
+        existing.images as string[] | undefined,
+        data.images as string[]
+      );
+    }
+  }
+
   return Product.findOneAndUpdate(
     { _id: productId, deletedAt: null },
     { $set: data },
@@ -190,6 +210,16 @@ export async function updateProduct(productId: string, data: Partial<IProduct>) 
 
 export async function deleteProduct(productId: string) {
   await connectDB();
+
+  const existing = await Product.findOne({ _id: productId }).select("images").lean();
+  if (existing?.images?.length) {
+    await deleteMediaAssetsByUrls(existing.images as string[]);
+  }
+
+  const variants = await ProductVariant.find({ productId }).select("images").lean();
+  const variantUrls = variants.flatMap((v) => (v.images as string[] | undefined) ?? []);
+  if (variantUrls.length) await deleteMediaAssetsByUrls(variantUrls);
+
   return Product.findOneAndUpdate(
     { _id: productId },
     { $set: { deletedAt: new Date(), isActive: false } },
@@ -211,6 +241,19 @@ export async function getProductVariants(productId: string) {
 
 export async function updateProductVariant(variantId: string, data: Partial<CreateVariantInput>) {
   await connectDB();
+
+  if (data.images !== undefined) {
+    const existing = await ProductVariant.findOne({ _id: variantId, deletedAt: null })
+      .select("images")
+      .lean();
+    if (existing) {
+      await cleanupRemovedImageUrls(
+        existing.images as string[] | undefined,
+        data.images as string[]
+      );
+    }
+  }
+
   return ProductVariant.findOneAndUpdate(
     { _id: variantId, deletedAt: null },
     { $set: data },
@@ -220,6 +263,12 @@ export async function updateProductVariant(variantId: string, data: Partial<Crea
 
 export async function deleteProductVariant(variantId: string) {
   await connectDB();
+
+  const existing = await ProductVariant.findOne({ _id: variantId }).select("images").lean();
+  if (existing?.images?.length) {
+    await deleteMediaAssetsByUrls(existing.images as string[]);
+  }
+
   return ProductVariant.findOneAndUpdate(
     { _id: variantId },
     { $set: { deletedAt: new Date(), isActive: false } },

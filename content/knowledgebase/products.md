@@ -35,7 +35,7 @@ Use **Add product** from the admin dashboard quick actions or the products scree
 
 ## Images
 
-If **Cloudinary** or similar is configured, follow your tenant’s image size and naming standards—broken images slow down POS browsing.
+Uploaded images are stored under **public/uploads** on the server. Follow your tenant’s image size and naming standards—broken images slow down POS browsing.
 
 ## Related
 

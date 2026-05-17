@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Settings } from "lucide-react";
+import { AppBrand } from "@/components/branding/AppBrand";
+import { Loader2 } from "lucide-react";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -102,14 +103,14 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-lg space-y-6">
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <div className="p-3 bg-primary rounded-xl">
-              <Settings className="h-8 w-8 text-primary-foreground" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold">Welcome to Glowish</h1>
-          <p className="text-muted-foreground">Complete the setup to get started</p>
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <AppBrand
+            theme="setup"
+            appName={`Welcome to ${form.appName}`}
+            appTagline="Complete the setup to get started"
+            className="flex-col items-center gap-4"
+            priority
+          />
         </div>
 
         {bootstrapError && (

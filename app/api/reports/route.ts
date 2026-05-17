@@ -12,13 +12,16 @@ import {
   getOrgInventorySummary,
 } from "@/lib/services/report.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { requireBranchAccessIfPresent } from "@/lib/utils/branchAccess";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") ?? "summary";
-    const branchId = searchParams.get("branchId") ?? undefined;
+    const branchId =
+      (await requireBranchAccessIfPresent(req.user, searchParams.get("branchId"))) ?? undefined;
     const days = Math.min(Math.max(parseInt(searchParams.get("days") ?? "30") || 30, 1), 365);
 
     const organizationId =
@@ -67,7 +70,9 @@ const getHandler = async (req: AuthedRequest) => {
       default:
         return errorResponse("Invalid report type");
     }
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };

@@ -15,7 +15,6 @@ import {
   BarChart3,
   GitBranch,
   LogOut,
-  ShoppingBag,
   Settings,
   ChevronRight,
   Truck,
@@ -25,8 +24,11 @@ import {
   LayoutGrid,
   Globe2,
   BookOpen,
+  Images,
 } from "lucide-react";
+import { hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { AppBrand } from "@/components/branding/AppBrand";
 import { useTenant } from "@/components/providers/TenantProvider";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Online store", path: "/", icon: Globe2, allAuthenticated: true },
   { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
   { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
+  { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
   { label: "Purchase Orders", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
@@ -85,7 +88,6 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
-  const { appName, appTagline } = useTenant();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -100,14 +102,18 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
   }
 
   const displayUser = session?.user ?? initialUser;
-  const userPermissions = initialUser.permissions;
-  const userRole = initialUser.role;
+  const accessUser = {
+    role: displayUser.role,
+    permissions: displayUser.permissions ?? [],
+  };
 
   function canAccess(item: NavItem): boolean {
     if (item.allAuthenticated) return true;
-    if (item.roles) return item.roles.includes(userRole);
-    if (!item.permission) return userRole !== "MEMBER";
-    return userRole === "ADMIN" || userPermissions.includes(item.permission);
+    if (item.roles) {
+      return item.roles.includes(accessUser.role);
+    }
+    if (!item.permission) return accessUser.role !== "MEMBER";
+    return hasPermission(accessUser, item.permission);
   }
 
   const initials = displayUser?.name
@@ -146,19 +152,8 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
         className
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-        <div className="p-2 rounded-lg" style={{ background: "hsl(var(--glowish-gold))" }}>
-          <ShoppingBag className="h-5 w-5" style={{ color: "hsl(var(--glowish-navy))" }} />
-        </div>
-        <div className="min-w-0">
-          <p className="font-bold text-sm tracking-wide truncate" style={{ color: "hsl(var(--glowish-gold))" }}>
-            {appName}
-          </p>
-          <p className="text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase truncate">
-            {appTagline}
-          </p>
-        </div>
+      <div className="border-b border-sidebar-border px-6 py-6">
+        <AppBrand theme="sidebar" priority />
       </div>
 
       <ScrollArea className="min-h-0 flex-1 px-3 py-4">
@@ -168,7 +163,7 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
             Main
           </p>
           {NAV_ITEMS.filter(canAccess).map((item) => (
-            <NavLink key={item.path} item={item} />
+            <NavLink key={`${item.path}-${item.label}`} item={item} />
           ))}
         </nav>
 
@@ -179,7 +174,7 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
               Admin
             </p>
             {ADMIN_ITEMS.filter(canAccess).map((item) => (
-              <NavLink key={item.path} item={item} />
+              <NavLink key={`${item.path}-${item.label}`} item={item} />
             ))}
           </nav>
         )}
@@ -195,7 +190,7 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{displayUser?.name}</p>
-            <p className="text-xs opacity-60 truncate">{userRole.replace(/_/g, " ")}</p>
+            <p className="text-xs opacity-60 truncate">{accessUser.role.replace(/_/g, " ")}</p>
           </div>
           <Button
             variant="ghost"

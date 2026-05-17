@@ -5,7 +5,7 @@
 ### 1. Core Utility File
 - **File**: `lib/utils/maintenance.ts`
 - **Function**: `isMaintenanceMode()` checks `process.env.MAINTENANCE_MODE === 'true'`
-- **Bypass Roles**: `['ADMIN']`
+- **Bypass Roles**: none (`MAINTENANCE_BYPASS_ROLES` is empty — ADMIN is blocked too)
 
 ### 2. Proxy (Request Level)
 - **File**: `proxy.ts`
@@ -13,7 +13,7 @@
 - **Flow**:
   1. Allows public paths: `/login`, `/setup`, `/maintenance`, `/api/setup`, `/api/auth`
   2. Gets user session
-  3. If maintenance active AND user is NOT admin → redirects to `/maintenance`
+  3. If maintenance active → redirects to `/maintenance` (no role bypass)
   4. If API call during maintenance → returns 503
 
 ### 3. Root Page

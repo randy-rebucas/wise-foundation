@@ -8,15 +8,20 @@ import {
   notFoundResponse,
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
+import { assertBranchAccess } from "@/lib/utils/branchAccess";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    await assertBranchAccess(req.user, id);
     const branch = await getBranchById(id);
     if (!branch) return notFoundResponse("Branch not found");
     return successResponse(branch);
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };

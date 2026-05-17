@@ -5,6 +5,9 @@ import { getOrders } from "@/lib/services/order.service";
 import { checkoutSchema } from "@/lib/validations/order.schema";
 import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
+import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
+import { requireBranchAccessIfPresent } from "@/lib/utils/branchAccess";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -18,13 +21,21 @@ const getHandler = async (req: AuthedRequest) => {
       return forbiddenResponse();
     }
 
-    const branchId = searchParams.get("branchId") ?? req.user.branchIds[0];
     const status = searchParams.get("status") ?? undefined;
     const type = searchParams.get("type") ?? undefined;
     const { page, limit } = parsePagination(searchParams);
 
     const organizationId =
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
+
+    let branchId: string | undefined;
+    if (organizationId) {
+      branchId = (await requireBranchAccessIfPresent(req.user, searchParams.get("branchId"))) ?? undefined;
+    } else {
+      const resolved = await resolveInventoryBranchId(searchParams.get("branchId"), req.user);
+      if (!resolved) return errorResponse("Branch ID is required");
+      branchId = resolved;
+    }
 
     const result = await getOrders(branchId, { status, type, memberId }, page, limit, organizationId);
     return successResponse(result.orders, undefined, 200, {
@@ -34,7 +45,9 @@ const getHandler = async (req: AuthedRequest) => {
       pendingCount: result.pendingCount,
       approvedCount: result.approvedCount,
     });
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };
@@ -48,8 +61,11 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
+    const branchId = await resolveInventoryBranchId(parsed.data.branchId, req.user);
+    if (!branchId) return errorResponse("Branch ID is required");
+
     const result = await processCheckout({
-      branchId: parsed.data.branchId,
+      branchId,
       cashierId: req.user.id,
       items: parsed.data.items.map((i) => ({ ...i, variantId: i.variantId ?? undefined })),
       memberId: parsed.data.memberId,
@@ -61,6 +77,8 @@ const postHandler = async (req: AuthedRequest) => {
 
     return successResponse(result, "Order completed", 201);
   } catch (error) {
+    const branchErr = branchAccessErrorResponse(error);
+    if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }

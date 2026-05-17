@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "@/lib/validations/auth.schema";
 import { verifyCredentials } from "@/lib/services/auth.service";
+import { effectivePermissions } from "@/lib/permissions";
 import type { UserRole } from "@/types";
 
 declare module "next-auth" {
@@ -68,11 +69,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (token && session.user) {
+        const role = token.role as UserRole;
         session.user.id = token.sub!;
-        session.user.role = token.role as UserRole;
+        session.user.role = role;
         session.user.branchIds = token.branchIds as string[];
         session.user.organizationId = (token.organizationId as string | null) ?? null;
-        session.user.permissions = token.permissions as string[];
+        session.user.permissions = effectivePermissions({
+          role,
+          permissions: (token.permissions as string[]) ?? [],
+        });
       }
       return session;
     },

@@ -24,7 +24,7 @@ A full-stack retail platform for multi-branch and multi-organization operations.
 | Validation | Zod |
 | UI | Tailwind CSS + shadcn/ui (Radix UI) |
 | State | Zustand (cart), TanStack Query (server state) |
-| Images | Cloudinary |
+| Images | Local filesystem (`public/uploads`) |
 
 ## Getting Started
 
@@ -45,7 +45,7 @@ AUTH_URL=http://localhost:3000
 
 `AUTH_SECRET` and `AUTH_URL` are what Auth.js / NextAuth v5 expect. (`NEXTAUTH_SECRET` / `NEXTAUTH_URL` are still accepted as aliases in many setups.)
 
-Optional: `CLOUDINARY_*` for image uploads, `MAINTENANCE_MODE=true` to show the maintenance page.
+Optional: `UPLOAD_DIR` (absolute path; default `public/uploads`), `UPLOAD_FOLDER_ROOT` (default from app name), `MAINTENANCE_MODE=true` for maintenance page.
 
 Generate secrets with:
 ```bash

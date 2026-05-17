@@ -5,6 +5,8 @@ import { assertBranchAssignableForMemberCreate, getMembers, createMember } from 
 import { createMemberSchema } from "@/lib/validations/member.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
+import { requireBranchAccessIfPresent } from "@/lib/utils/branchAccess";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -19,6 +21,9 @@ const getHandler = async (req: AuthedRequest) => {
       req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
 
     let branchId = branchFromQuery;
+    if (branchId) {
+      branchId = (await requireBranchAccessIfPresent(req.user, branchId)) ?? undefined;
+    }
     if (!organizationId && req.user.role !== "ADMIN") {
       branchId = branchId ?? req.user.branchIds?.[0] ?? undefined;
     }
@@ -41,7 +46,9 @@ const getHandler = async (req: AuthedRequest) => {
       activeCount: result.activeCount,
       inactiveCount: result.inactiveCount,
     });
-  } catch {
+  } catch (err) {
+    const branchErr = branchAccessErrorResponse(err);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };

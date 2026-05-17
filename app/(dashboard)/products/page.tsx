@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, type ChangeEvent } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -38,12 +38,18 @@ import {
   Upload,
   FileSpreadsheet,
   Dices,
-  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import {
+  ImageGalleryEditor,
+  DEFAULT_MAX_GALLERY_IMAGES,
+} from "@/components/products/ImageGalleryEditor";
+import { FileDropzone } from "@/components/shared/FileDropzone";
+import { uploadProductImageFiles } from "@/lib/client/uploadProductImages";
 
-import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { useImageUploadEnabled } from "@/hooks/useImageUploadEnabled";
 import type { ProductCategory } from "@/types";
 
 interface Product {
@@ -159,17 +165,11 @@ function randomEan13Barcode(): string {
   return body + check;
 }
 
-const MAX_GALLERY_IMAGES = 12;
-
-function revokeBlobPreviewUrls(urls: readonly string[]) {
-  for (const u of urls) {
-    if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-  }
-}
+const MAX_GALLERY_IMAGES = DEFAULT_MAX_GALLERY_IMAGES;
 
 export default function ProductsPage() {
   const money = useFormatCurrency();
-  const { imageUploadEnabled } = useTenant();
+  const { configured: imageUploadEnabled } = useImageUploadEnabled();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -189,17 +189,15 @@ export default function ProductsPage() {
   const [importBusy, setImportBusy] = useState(false);
   const [productImageUploading, setProductImageUploading] = useState(false);
   const [variantImageUploading, setVariantImageUploading] = useState(false);
-  const [productPendingPreviewUrls, setProductPendingPreviewUrls] = useState<string[]>([]);
-  const [variantPendingPreviewUrls, setVariantPendingPreviewUrls] = useState<string[]>([]);
+  const productUploadsInFlight = useRef(0);
+  const variantUploadsInFlight = useRef(0);
+  const [productPendingUploadCount, setProductPendingUploadCount] = useState(0);
+  const [variantPendingUploadCount, setVariantPendingUploadCount] = useState(0);
   const [importSummary, setImportSummary] = useState<{
     created: number;
     updated: number;
     errors: { row: number; sku?: string; message: string }[];
   } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const productImagesInputRef = useRef<HTMLInputElement>(null);
-  const variantImagesInputRef = useRef<HTMLInputElement>(null);
-
   const {
     data: products = [],
     isLoading,
@@ -340,127 +338,66 @@ export default function ProductsPage() {
   });
 
   function closeVariantsDialog() {
-    setVariantPendingPreviewUrls((prev) => {
-      revokeBlobPreviewUrls(prev);
-      return [];
-    });
+    setVariantPendingUploadCount(0);
     setVariantsProduct(null);
   }
 
-  async function postProductImages(files: File[]): Promise<string[]> {
-    const fd = new FormData();
-    for (const f of files) fd.append("files", f);
-    const res = await fetch("/api/products/images", {
-      method: "POST",
-      body: fd,
-      credentials: "include",
-    });
-    const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("application/json")) {
-      throw new Error(
-        res.status === 401 || res.status === 403
-          ? "You do not have permission to upload images (or your session expired). Sign in again."
-          : `Upload failed (HTTP ${res.status}). Expected JSON from the server.`
-      );
-    }
-    const data = (await res.json()) as {
-      success?: boolean;
-      error?: string;
-      data?: { urls?: string[] };
-    };
-    if (!data.success) throw new Error(data.error ?? "Upload failed");
-    const urls = data.data?.urls;
-    if (!Array.isArray(urls)) throw new Error("Invalid upload response");
-    return urls;
-  }
+  async function uploadProductImages(files: File[]) {
+    if (!files.length) return;
 
-  async function handleProductImagesChange(e: ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const list = input.files;
-    input.value = "";
-    if (!list?.length) return;
-    const files = Array.from(list);
-    const room =
-      MAX_GALLERY_IMAGES -
-      form.images.length -
-      productPendingPreviewUrls.length;
-    if (room <= 0) {
-      toast({
-        title: "Image limit reached",
-        description: `You can add up to ${MAX_GALLERY_IMAGES} images per product.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    const slice = files.slice(0, room);
-    const blobUrls = slice.map((file) => URL.createObjectURL(file));
-    setProductPendingPreviewUrls((prev) => [...prev, ...blobUrls]);
+    const batchSize = files.length;
+    setProductPendingUploadCount((c) => c + batchSize);
+    productUploadsInFlight.current += 1;
     setProductImageUploading(true);
     try {
-      const urls = await postProductImages(slice);
-      revokeBlobPreviewUrls(blobUrls);
-      setProductPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      const urls = await uploadProductImageFiles(files);
       setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
       toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
     } catch (err) {
-      revokeBlobPreviewUrls(blobUrls);
-      setProductPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
       toast({
         title: "Upload failed",
         description: err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
-      setProductImageUploading(false);
+      setProductPendingUploadCount((c) => Math.max(0, c - batchSize));
+      productUploadsInFlight.current -= 1;
+      if (productUploadsInFlight.current <= 0) {
+        productUploadsInFlight.current = 0;
+        setProductImageUploading(false);
+      }
     }
   }
 
-  async function handleVariantImagesChange(e: ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const list = input.files;
-    input.value = "";
-    if (!list?.length) return;
-    const files = Array.from(list);
-    const room =
-      MAX_GALLERY_IMAGES -
-      variantForm.images.length -
-      variantPendingPreviewUrls.length;
-    if (room <= 0) {
-      toast({
-        title: "Image limit reached",
-        description: `You can add up to ${MAX_GALLERY_IMAGES} images per variant.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    const slice = files.slice(0, room);
-    const blobUrls = slice.map((file) => URL.createObjectURL(file));
-    setVariantPendingPreviewUrls((prev) => [...prev, ...blobUrls]);
+  async function uploadVariantImages(files: File[]) {
+    if (!files.length) return;
+
+    const batchSize = files.length;
+    setVariantPendingUploadCount((c) => c + batchSize);
+    variantUploadsInFlight.current += 1;
     setVariantImageUploading(true);
     try {
-      const urls = await postProductImages(slice);
-      revokeBlobPreviewUrls(blobUrls);
-      setVariantPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
+      const urls = await uploadProductImageFiles(files);
       setVariantForm((f) => ({ ...f, images: [...f.images, ...urls] }));
       toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
     } catch (err) {
-      revokeBlobPreviewUrls(blobUrls);
-      setVariantPendingPreviewUrls((prev) => prev.filter((u) => !blobUrls.includes(u)));
       toast({
         title: "Upload failed",
         description: err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
       });
     } finally {
-      setVariantImageUploading(false);
+      setVariantPendingUploadCount((c) => Math.max(0, c - batchSize));
+      variantUploadsInFlight.current -= 1;
+      if (variantUploadsInFlight.current <= 0) {
+        variantUploadsInFlight.current = 0;
+        setVariantImageUploading(false);
+      }
     }
   }
 
   function openCreateVariant() {
-    setVariantPendingPreviewUrls((prev) => {
-      revokeBlobPreviewUrls(prev);
-      return [];
-    });
+    setVariantPendingUploadCount(0);
     setVariantForm(defaultVariantForm);
     setEditVariantId(null);
     setVariantError("");
@@ -468,10 +405,7 @@ export default function ProductsPage() {
   }
 
   function openEditVariant(v: Variant) {
-    setVariantPendingPreviewUrls((prev) => {
-      revokeBlobPreviewUrls(prev);
-      return [];
-    });
+    setVariantPendingUploadCount(0);
     setVariantForm({
       name: v.name,
       sku: v.sku,
@@ -501,10 +435,7 @@ export default function ProductsPage() {
   }
 
   function resetForm() {
-    setProductPendingPreviewUrls((prev) => {
-      revokeBlobPreviewUrls(prev);
-      return [];
-    });
+    setProductPendingUploadCount(0);
     setForm(defaultForm);
     setEditId(null);
     setFormError("");
@@ -551,7 +482,6 @@ export default function ProductsPage() {
   function openImportDialog() {
     setImportSummary(null);
     setImportOpen(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleImportFile(file: File) {
@@ -591,10 +521,7 @@ export default function ProductsPage() {
   }
 
   function openEdit(product: Product) {
-    setProductPendingPreviewUrls((prev) => {
-      revokeBlobPreviewUrls(prev);
-      return [];
-    });
+    setProductPendingUploadCount(0);
     setForm({
       name: product.name,
       description: product.description ?? "",
@@ -680,10 +607,7 @@ export default function ProductsPage() {
             size="icon"
             title="Manage Variants"
             onClick={() => {
-              setVariantPendingPreviewUrls((prev) => {
-                revokeBlobPreviewUrls(prev);
-                return [];
-              });
+              setVariantPendingUploadCount(0);
               setVariantsProduct(p);
               setVariantFormOpen(false);
               setVariantForm(defaultVariantForm);
@@ -811,22 +735,24 @@ export default function ProductsPage() {
             </p>
             <div className="space-y-2">
               <Label className="text-foreground">CSV file</Label>
-              <Input
-                ref={fileInputRef}
-                type="file"
+              <FileDropzone
                 accept=".csv,text/csv"
                 disabled={importBusy}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
+                onFilesSelected={(files) => {
+                  const f = files[0];
                   if (f) void handleImportFile(f);
                 }}
-              />
-              {importBusy && (
-                <div className="flex items-center gap-2 text-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Importing…
-                </div>
-              )}
+                idleLabel={importBusy ? "Importing…" : "Drag a CSV here or click to browse"}
+                activeLabel="Drop CSV to import"
+                hint=".csv format only"
+              >
+                {importBusy ? (
+                  <>
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm font-medium">Importing…</span>
+                  </>
+                ) : undefined}
+              </FileDropzone>
             </div>
             {importSummary && importSummary.errors.length > 0 && (
               <Alert variant="destructive">
@@ -991,87 +917,19 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label className="text-xs">Variant photos</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {variantForm.images.length + variantPendingPreviewUrls.length}/{MAX_GALLERY_IMAGES}
-                    </span>
-                  </div>
-                  <input
-                    ref={variantImagesInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    multiple
-                    className="hidden"
-                    onChange={handleVariantImagesChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    disabled={
-                      variantImageUploading ||
-                      variantForm.images.length + variantPendingPreviewUrls.length >=
-                        MAX_GALLERY_IMAGES
-                    }
-                    onClick={() => variantImagesInputRef.current?.click()}
-                  >
-                    {variantImageUploading ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    ) : (
-                      <ImageIcon className="h-3 w-3 mr-1" />
-                    )}
-                    Upload images
-                  </Button>
-                  {(variantForm.images.length > 0 || variantPendingPreviewUrls.length > 0) && (
-                    <ul className="flex flex-wrap gap-2 pt-1">
-                      {variantForm.images.map((url, idx) => (
-                        <li key={`${url}-${idx}`} className="relative group">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt=""
-                            className="h-16 w-16 rounded-md object-cover border bg-muted"
-                          />
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full shadow-sm border p-0"
-                            title="Remove image"
-                            aria-label="Remove image"
-                            disabled={variantImageUploading}
-                            onClick={() =>
-                              setVariantForm((f) => ({
-                                ...f,
-                                images: f.images.filter((_, i) => i !== idx),
-                              }))
-                            }
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </Button>
-                        </li>
-                      ))}
-                      {variantPendingPreviewUrls.map((url) => (
-                        <li
-                          key={url}
-                          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-muted ring-1 ring-border"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt="" className="h-full w-full object-cover" />
-                          <div
-                            className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50"
-                            aria-hidden
-                          >
-                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <ImageGalleryEditor
+                  label="Variant photos"
+                  size="sm"
+                  images={variantForm.images}
+                  onImagesChange={(images) => setVariantForm((f) => ({ ...f, images }))}
+                  onUploadFiles={uploadVariantImages}
+                  pendingUploadCount={variantPendingUploadCount}
+                  maxImages={MAX_GALLERY_IMAGES}
+                  uploading={variantImageUploading}
+                  uploadEnabled={imageUploadEnabled}
+                  deleteFromStorageOnRemove={!editVariantId}
+                  helperText="Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each)."
+                />
 
                 <div className="flex justify-end gap-2">
                   <Button
@@ -1265,99 +1123,22 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Photos</Label>
-                <span className="text-xs text-muted-foreground">
-                  {form.images.length + productPendingPreviewUrls.length}/{MAX_GALLERY_IMAGES}
-                </span>
-              </div>
-              <input
-                ref={productImagesInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                multiple
-                className="hidden"
-                onChange={handleProductImagesChange}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={
-                  productImageUploading ||
-                  form.images.length + productPendingPreviewUrls.length >= MAX_GALLERY_IMAGES
-                }
-                onClick={() => productImagesInputRef.current?.click()}
-              >
-                {productImageUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <ImageIcon className="h-4 w-4 mr-2" />
-                )}
-                Upload images
-              </Button>
-              {(form.images.length > 0 || productPendingPreviewUrls.length > 0) && (
-                <ul className="flex flex-wrap gap-2 pt-1">
-                  {form.images.map((url, idx) => (
-                    <li key={`${url}-${idx}`} className="relative group">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={url}
-                        alt=""
-                        className="h-20 w-20 rounded-md object-cover border bg-muted"
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-sm border"
-                        title="Remove image"
-                        aria-label="Remove image"
-                        disabled={productImageUploading}
-                        onClick={() =>
-                          setForm((f) => ({
-                            ...f,
-                            images: f.images.filter((_, i) => i !== idx),
-                          }))
-                        }
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </li>
-                  ))}
-                  {productPendingPreviewUrls.map((url) => (
-                    <li
-                      key={url}
-                      className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md border bg-muted ring-1 ring-border"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="h-full w-full object-cover" />
-                      <div
-                        className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/50"
-                        aria-hidden
-                      >
-                        <Loader2 className="h-7 w-7 animate-spin text-primary" />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="text-xs text-muted-foreground">
-                JPEG, PNG, WebP, or GIF · up to 5 MB each · stored in Cloudinary
-                {!imageUploadEnabled && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <span className="text-amber-700 dark:text-amber-400">
-                      Uploads are off: set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and
-                      CLOUDINARY_API_SECRET for this server process (e.g. <code className="text-[0.7rem]">.env.local</code>
-                      ), then restart <code className="text-[0.7rem]">next dev</code>.
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
+            <ImageGalleryEditor
+              label="Photos"
+              images={form.images}
+              onImagesChange={(images) => setForm((f) => ({ ...f, images }))}
+              onUploadFiles={uploadProductImages}
+              pendingUploadCount={productPendingUploadCount}
+              maxImages={MAX_GALLERY_IMAGES}
+              uploading={productImageUploading}
+              uploadEnabled={imageUploadEnabled}
+              deleteFromStorageOnRemove={!editId}
+              helperText={
+                imageUploadEnabled
+                  ? "Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each, saved under public/uploads)."
+                  : "Add images by URL. To enable uploads, ensure the server can write to public/uploads."
+              }
+            />
 
             {/* Pricing */}
             <div>

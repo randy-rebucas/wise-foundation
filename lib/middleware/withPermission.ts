@@ -1,3 +1,4 @@
+import { hasPermission, isPlatformAdmin } from "@/lib/permissions";
 import { forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "./withAuth";
 
@@ -22,16 +23,16 @@ export function withPermission(
 
   return (handler: Handler) => {
     return async (req: AuthedRequest, ctx?: unknown): Promise<Response> => {
-      const { role, permissions: userPermissions = [] } = req.user ?? {};
+      const user = req.user;
+      if (!user) return forbiddenResponse("Unauthorized");
 
-      // ADMIN bypasses all checks
-      if (role === "ADMIN") return handler(req, ctx);
+      if (isPlatformAdmin(user.role)) return handler(req, ctx);
 
-      // Additional role bypasses (e.g. ORG_ADMIN on org-scoped routes)
-      if (opts?.allowRoles?.includes(role)) return handler(req, ctx);
+      if (opts?.allowRoles?.includes(user.role)) return handler(req, ctx);
 
-      const hasAll = requiredPermissions.every((p) => userPermissions.includes(p));
-      if (!hasAll) return forbiddenResponse("Insufficient permissions");
+      if (!hasPermission(user, ...requiredPermissions)) {
+        return forbiddenResponse("Insufficient permissions");
+      }
 
       return handler(req, ctx);
     };

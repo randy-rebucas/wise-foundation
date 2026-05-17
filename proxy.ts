@@ -103,6 +103,11 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // Public read-only upload config — no session required
+  if (pathname === "/api/products/images/status") {
+    return NextResponse.next();
+  }
+
   const session = await auth();
 
   if (!session && matchesPrefixList(pathname, UNAUTHENTICATED)) {
