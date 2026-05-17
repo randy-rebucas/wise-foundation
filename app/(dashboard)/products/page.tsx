@@ -352,6 +352,7 @@ export default function ProductsPage() {
     try {
       const urls = await uploadProductImageFiles(files);
       setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      queryClient.invalidateQueries({ queryKey: ["media"] });
       toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
     } catch (err) {
       toast({
@@ -379,6 +380,7 @@ export default function ProductsPage() {
     try {
       const urls = await uploadProductImageFiles(files);
       setVariantForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      queryClient.invalidateQueries({ queryKey: ["media"] });
       toast({ title: "Images uploaded", description: `${urls.length} file(s) added.` });
     } catch (err) {
       toast({

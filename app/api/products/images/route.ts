@@ -46,10 +46,14 @@ const postHandler = async (req: AuthedRequest) => {
     const assets = await uploadAndRegisterImages(files, folder, uploadedBy);
     const items = assets.map((a) => serializeMediaAssetForApi(a));
 
-    return successResponse({
-      urls: items.map((u) => u.url),
-      items,
-    });
+    return successResponse(
+      {
+        urls: items.map((u) => u.url),
+        items,
+      },
+      "Product images uploaded",
+      201
+    );
   } catch (e) {
     if (e instanceof Error) return errorResponse(e.message);
     return serverErrorResponse();

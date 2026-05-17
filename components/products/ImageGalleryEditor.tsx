@@ -127,8 +127,8 @@ export function ImageGalleryEditor({
     console.log("[ImageGalleryEditor] File input changed", { filesCount: e.target.files?.length, pickerDisabled });
     const list = e.target.files;
     e.target.value = "";
-    if (!list?.length || pickerDisabled) {
-      console.log("[ImageGalleryEditor] No files or picker disabled, returning");
+    if (!list?.length || pickerDisabled || !uploadEnabled) {
+      console.log("[ImageGalleryEditor] No files, picker disabled, or upload disabled; returning");
       return;
     }
     console.log("[ImageGalleryEditor] Calling handleUploadFiles");
@@ -138,6 +138,14 @@ export function ImageGalleryEditor({
   async function handleUploadFiles(files: File[]) {
     console.log("[ImageGalleryEditor] handleUploadFiles called", { filesCount: files.length, room: maxImages - totalCount });
     const room = maxImages - totalCount;
+    if (!uploadEnabled) {
+      toast({
+        variant: "destructive",
+        title: "Uploads unavailable",
+        description: "Image upload is not available. Add an image URL or choose from the media library.",
+      });
+      return;
+    }
     if (room <= 0) {
       console.log("[ImageGalleryEditor] Image limit reached");
       toast({
@@ -279,7 +287,7 @@ export function ImageGalleryEditor({
         type="file"
         accept={IMAGE_UPLOAD_ACCEPT}
         multiple
-        disabled={pickerDisabled}
+          disabled={pickerDisabled || !uploadEnabled}
         className="sr-only"
         onChange={handleFileInputChange}
       />
@@ -288,7 +296,7 @@ export function ImageGalleryEditor({
         accept={IMAGE_UPLOAD_ACCEPT}
         multiple
         maxFileSizeBytes={MAX_IMAGE_UPLOAD_BYTES}
-        disabled={pickerDisabled}
+        disabled={pickerDisabled || !uploadEnabled}
         busy={uploading}
         fileInputRef={fileInputRef}
         variant={size === "sm" ? "compact" : "default"}

@@ -27,10 +27,14 @@ export async function uploadProductImageFiles(files: File[]): Promise<string[]> 
     const data = await parseJsonResponse<{
       success?: boolean;
       error?: string;
-      data?: { urls?: string[] };
+      data?: { urls?: string[]; items?: { url?: string }[] };
     }>(res);
     if (!data.success) throw new Error(data.error ?? "Upload failed");
-    const urls = data.data?.urls;
+    const urls =
+      data.data?.urls ??
+      data.data?.items
+        ?.map((item) => item.url)
+        .filter((url): url is string => typeof url === "string" && url.length > 0);
     if (!Array.isArray(urls) || urls.length === 0) {
       throw new Error("Upload completed but no image URLs were returned.");
     }
