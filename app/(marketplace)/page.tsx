@@ -112,35 +112,51 @@ const BENEFITS = [
   },
 ];
 
+const STOCK_IMAGES = {
+  products: [
+    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
+  ],
+  avatars: [
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
+    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80",
+    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
+    "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80",
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+  ],
+};
+
 const REVIEWS = [
   {
     name: "Angelica D.",
     title: "Verified buyer",
-    avatar: "https://i.pravatar.cc/96?img=47",
+    avatar: STOCK_IMAGES.avatars[0],
     text: "Glowish products transformed my skin. It feels fresh, soft, and glowing every day.",
   },
   {
     name: "Rhealyn M.",
     title: "Verified buyer",
-    avatar: "https://i.pravatar.cc/96?img=32",
+    avatar: STOCK_IMAGES.avatars[1],
     text: "The exfoliating bar is amazing. My skin feels smoother and brighter.",
   },
   {
     name: "Lara C.",
     title: "Verified buyer",
-    avatar: "https://i.pravatar.cc/96?img=44",
+    avatar: STOCK_IMAGES.avatars[2],
     text: "Finally found skincare that suits my skin. Natural, effective, and worth every peso.",
   },
   {
     name: "Isabella S.",
     title: "Premium member",
-    avatar: "https://i.pravatar.cc/96?img=49",
+    avatar: STOCK_IMAGES.avatars[3],
     text: "The products feel gentle and premium. My routine looks prettier and feels more consistent.",
   },
   {
     name: "Mika A.",
     title: "Verified buyer",
-    avatar: "https://i.pravatar.cc/96?img=26",
+    avatar: STOCK_IMAGES.avatars[4],
     text: "Fast delivery, beautiful packaging, and the skincare gives such a clean glow.",
   },
 ];
@@ -226,6 +242,7 @@ export default function MarketplaceCatalogPage() {
 
   const img = (r: Row) => r.images?.[0];
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
+  const stockProductImage = (index: number) => STOCK_IMAGES.products[index % STOCK_IMAGES.products.length];
   const heroProducts = rows.slice(0, 3);
   const scrollFeedback = (direction: "prev" | "next") => {
     const node = feedbackRef.current;
@@ -238,16 +255,16 @@ export default function MarketplaceCatalogPage() {
   };
 
   return (
-    <div className="overflow-hidden px-4 pb-6 pt-5 text-[#2A4C6A] sm:px-6">
+    <div className="overflow-hidden px-4 pb-6 pt-5 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A] sm:px-6">
       <div className="mx-auto max-w-7xl">
         <section className="relative isolate overflow-hidden sm:p-8 lg:min-h-[620px] lg:p-10">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_58%_20%,rgba(255,255,255,0.72),transparent_20%),radial-gradient(circle_at_75%_45%,rgba(0,229,255,0.2),transparent_34%),radial-gradient(circle_at_86%_56%,rgba(255,51,204,0.18),transparent_34%)]" />
           <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
             <div className="space-y-6">
               <div className="max-w-xl space-y-4">
-                <h1 className="font-serif text-4xl font-semibold leading-tight tracking-tight text-[#2B6B56] sm:text-5xl lg:text-6xl">
+                <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#2B6B56] sm:text-5xl lg:text-6xl">
                   Glow Naturally,
-                  <span className="block font-sans text-5xl font-semibold italic text-[#d965c9] sm:text-6xl lg:text-7xl">
+                  <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl lg:text-7xl">
                     Wish Beautifully
                   </span>
                 </h1>
@@ -294,27 +311,18 @@ export default function MarketplaceCatalogPage() {
               <div className="absolute inset-x-[4%] bottom-[14%] h-20 rounded-[50%] bg-white/30 blur-2xl" />
               {HERO_PRODUCT_POSITIONS.map((position, index) => {
                 const product = heroProducts[index];
-                const imageUrl = product ? img(product) : null;
+                const imageUrl = product ? img(product) || stockProductImage(index) : stockProductImage(index);
                 return (
                   <div
                     key={position}
                     className={`absolute ${position} overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/58 p-3 shadow-[0_22px_50px_rgba(68,47,107,0.22)] backdrop-blur-md`}
                   >
                     <div className="relative h-full overflow-hidden rounded-[1rem] bg-gradient-to-br from-white/70 to-pink-100/60">
-                      {imageUrl ? (
-                        isRemote(imageUrl) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <Image src={imageUrl} alt="" fill className="object-cover" sizes="180px" />
-                        )
+                      {isRemote(imageUrl) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full flex-col items-center justify-center gap-3 text-[#6ea43f]">
-                          <Package className="h-12 w-12" />
-                          <span className="text-center text-xs font-semibold text-[#2B6B56]">
-                            Glowish Care
-                          </span>
-                        </div>
+                        <Image src={imageUrl} alt="" fill className="object-cover" sizes="180px" />
                       )}
                     </div>
                   </div>
@@ -335,7 +343,7 @@ export default function MarketplaceCatalogPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
               Shop by category
             </p>
-            <h2 className="text-2xl font-semibold tracking-tight text-[#3c2e60]">
+            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
               Find your next Glowish ritual
             </h2>
           </div>
@@ -368,7 +376,7 @@ export default function MarketplaceCatalogPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
                 Featured products
               </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[#3c2e60]">
+              <h2 className="mt-2 font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
                 Beauty favorites ready to ship
               </h2>
               <p className="mt-1 text-sm text-[#2A4C6A]/75">
@@ -427,7 +435,10 @@ export default function MarketplaceCatalogPage() {
                 {meta?.total ?? rows.length} product{(meta?.total ?? 0) === 1 ? "" : "s"}
               </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {rows.map((r) => (
+                {rows.map((r, index) => {
+                  const imageUrl = img(r) || stockProductImage(index);
+
+                  return (
                   <Link
                     key={r._id}
                     href={`/product/${encodeURIComponent(r.slug)}`}
@@ -435,27 +446,21 @@ export default function MarketplaceCatalogPage() {
                   >
                     <Card className="h-full overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
                       <div className="relative aspect-[4/3] overflow-hidden bg-white/35">
-                        {img(r) ? (
-                          isRemote(img(r)!) ? (
+                        {isRemote(imageUrl) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={img(r)}
+                              src={imageUrl}
                               alt=""
                               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                             />
                           ) : (
                             <Image
-                              src={img(r)!}
+                              src={imageUrl}
                               alt=""
                               fill
                               className="object-cover transition duration-500 group-hover:scale-105"
                               sizes="(max-width:768px) 100vw, (max-width:1280px) 33vw, 25vw"
                             />
-                          )
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[#2A4C6A]/45">
-                            <Package className="h-12 w-12 opacity-40" />
-                          </div>
                         )}
                         <span
                           className="absolute right-3 top-3 rounded-full border border-white/70 bg-white/65 p-2 text-[#3c2e60] shadow-sm backdrop-blur"
@@ -485,7 +490,8 @@ export default function MarketplaceCatalogPage() {
                       </CardContent>
                     </Card>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
               {meta?.hasMore && (
                 <div className="flex justify-center pt-6">
@@ -522,7 +528,7 @@ export default function MarketplaceCatalogPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
                 Customer feedback
               </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[#3c2e60]">
+              <h2 className="mt-2 font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
                 What our customers say
               </h2>
             </div>

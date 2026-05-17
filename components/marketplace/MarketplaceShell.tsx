@@ -116,6 +116,12 @@ export function MarketplaceShell({
   const isHome = pathname === "/";
   const isShop =
     pathname === "/shop" || pathname.startsWith("/product/");
+  const hasCustomFooter =
+    pathname === "/shop" ||
+    pathname === "/categories" ||
+    pathname === "/about-us" ||
+    pathname === "/reviews" ||
+    pathname === "/contact";
   const primaryNav = [
     { href: "/", label: "Home", active: isHome },
     { href: "/shop", label: "Shop", active: isShop },
@@ -351,7 +357,7 @@ export function MarketplaceShell({
         <main className={cn("w-full flex-1", isHome ? "" : "mx-auto max-w-6xl px-4 py-8")}>
           {children}
         </main>
-        {!isHome && (
+        {!isHome && !hasCustomFooter && (
           <footer className="border-t py-8 text-center text-sm text-muted-foreground">
             <AppLogo size="lg" className="mx-auto mb-3 opacity-90" />
             <p>
