@@ -88,12 +88,19 @@ export default function PurchaseOrdersPage() {
       const res = await fetch(`/api/purchase-orders?${params}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase orders (${res.status})`);
-      return json as { data: PurchaseOrder[]; meta?: { total: number } };
+      return json as {
+        data: PurchaseOrder[];
+        meta?: {
+          total: number;
+          statusCounts?: Record<string, number>;
+        };
+      };
     },
   });
 
   const orders: PurchaseOrder[] = listResult?.data ?? [];
   const total = listResult?.meta?.total ?? 0;
+  const statusCounts = listResult?.meta?.statusCounts ?? {};
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -152,10 +159,10 @@ export default function PurchaseOrdersPage() {
     router.replace("/purchase-orders");
   }, [searchParams, openEdit, router]);
 
-  const draftCount = orders.filter((o) => o.status === "draft").length;
-  const submittedCount = orders.filter((o) => o.status === "submitted").length;
-  const approvedCount = orders.filter((o) => o.status === "approved").length;
-  const receivedCount = orders.filter((o) => o.status === "received").length;
+  const draftCount = statusCounts.draft ?? 0;
+  const submittedCount = statusCounts.submitted ?? 0;
+  const approvedCount = statusCounts.approved ?? 0;
+  const receivedCount = statusCounts.received ?? 0;
 
   const columns = [
     {

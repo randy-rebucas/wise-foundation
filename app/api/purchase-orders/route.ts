@@ -1,6 +1,10 @@
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getPurchaseOrders, createPurchaseOrder } from "@/lib/services/purchaseOrder.service";
+import {
+  getPurchaseOrders,
+  createPurchaseOrder,
+  getPurchaseOrderStatusCounts,
+} from "@/lib/services/purchaseOrder.service";
 import { createPurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
 import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -14,11 +18,15 @@ const getHandler = async (req: AuthedRequest) => {
     const limit = parseInt(searchParams.get("limit") ?? "20");
     const organizationId = searchParams.get("organizationId") ?? undefined;
 
-    const result = await getPurchaseOrders(req.user, branchId, status, page, limit, organizationId);
+    const [result, statusCounts] = await Promise.all([
+      getPurchaseOrders(req.user, branchId, status, page, limit, organizationId),
+      getPurchaseOrderStatusCounts(req.user, branchId, organizationId),
+    ]);
     return successResponse(result.orders, undefined, 200, {
       page,
       limit,
       total: result.total,
+      statusCounts,
     });
   } catch (error) {
     console.error("[GET /api/purchase-orders]", error);
@@ -41,7 +49,7 @@ const postHandler = async (req: AuthedRequest) => {
       }
     }
 
-    const po = await createPurchaseOrder(req.user.id, parsed.data);
+    const po = await createPurchaseOrder(req.user.id, parsed.data, req.user);
     return successResponse(po, "Purchase order created", 201);
   } catch (error) {
     console.error("[POST /api/purchase-orders]", error);

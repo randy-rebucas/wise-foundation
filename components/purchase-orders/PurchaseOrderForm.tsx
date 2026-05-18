@@ -23,6 +23,7 @@ import {
   type ProductHit,
   type ProductVariantOption,
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
+import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -290,7 +291,7 @@ export function PurchaseOrderForm({
       productName: p.name,
       baseProductName: p.name,
       sku: p.sku,
-      unitCost: p.retailPrice,
+      unitCost: defaultProcurementUnitCost(p.retailPrice),
       variantId: undefined,
       variants: undefined,
       variantsLoading: true,
@@ -332,7 +333,7 @@ export function PurchaseOrderForm({
       variantId: variant._id,
       productName: `${baseName} — ${variant.name}`,
       sku: variant.sku,
-      unitCost: variant.retailPrice,
+      unitCost: defaultProcurementUnitCost(variant.retailPrice),
     });
   }
 

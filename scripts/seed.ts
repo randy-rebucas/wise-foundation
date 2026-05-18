@@ -27,8 +27,8 @@ const OrgInventorySchema = new s({ organizationId: { type: oid, ref: "Organizati
 const MemberSchema = new s({ memberId: String, name: String, email: String, phone: String, address: String, birthdate: Date, discountPercent: { type: Number, default: 10 }, status: { type: String, default: "active" }, branchId: { type: oid, ref: "Branch", default: null }, organizationId: { type: oid, ref: "Organization", default: null }, joinedAt: { type: Date, default: Date.now }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const OrderSchema = new s({ branchId: { type: oid, ref: "Branch", default: null }, organizationId: { type: oid, ref: "Organization", default: null }, buyerOrganizationId: { type: oid, ref: "Organization", default: null }, sellerOrganizationId: { type: oid, ref: "Organization", default: null }, orderNumber: { type: String, unique: true }, type: { type: String, enum: ["POS", "DISTRIBUTOR", "B2B"], default: "POS" }, status: { type: String, enum: ["pending", "approved", "paid", "delivered", "completed", "cancelled", "refunded"], default: "pending" }, memberId: { type: oid, ref: "Member", default: null }, memberName: String, cashierId: { type: oid, ref: "User" }, subtotal: Number, discountAmount: { type: Number, default: 0 }, discountPercent: { type: Number, default: 0 }, total: Number, amountPaid: { type: Number, default: 0 }, change: { type: Number, default: 0 }, paymentMethod: { type: String, default: "cash" }, notes: String, approvedAt: { type: Date, default: null }, paidAt: { type: Date, default: null }, completedAt: { type: Date, default: null }, deliveryReceiptNumber: String, receivedByName: String, deliveredAt: { type: Date, default: null }, deliveredBy: { type: oid, ref: "User", default: null }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const OrderItemSchema = new s({ orderId: { type: oid, ref: "Order" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, productName: String, sku: String, quantity: Number, unitPrice: Number, cost: { type: Number, default: 0 }, total: Number }, { timestamps: true });
-const PurchaseOrderSchema = new s({ poNumber: { type: String, unique: true }, branchId: { type: oid, ref: "Branch" }, supplierId: { type: oid, ref: "Supplier" }, status: { type: String, enum: ["draft", "submitted", "approved", "received", "cancelled"], default: "draft" }, subtotal: { type: Number, default: 0 }, tax: { type: Number, default: 0 }, total: { type: Number, default: 0 }, notes: String, expectedAt: Date, receivedAt: Date, createdBy: { type: oid, ref: "User" }, deletedAt: { type: Date, default: null } }, { timestamps: true });
-const PurchaseOrderItemSchema = new s({ purchaseOrderId: { type: oid, ref: "PurchaseOrder" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, productName: String, sku: String, quantityOrdered: Number, quantityReceived: { type: Number, default: 0 }, unitCost: Number, total: Number }, { timestamps: true });
+const PurchaseOrderSchema = new s({ organizationId: { type: oid, ref: "Organization", required: true }, branchId: { type: oid, ref: "Branch", default: null }, poNumber: { type: String, unique: true, required: true }, status: { type: String, enum: ["draft", "submitted", "approved", "received", "cancelled"], default: "draft" }, subtotal: { type: Number, default: 0 }, total: { type: Number, default: 0 }, expectedDeliveryDate: { type: Date, default: null }, notes: String, createdBy: { type: oid, ref: "User", required: true }, approvedBy: { type: oid, ref: "User", default: null }, approvedAt: { type: Date, default: null }, receivedBy: { type: oid, ref: "User", default: null }, receivedAt: { type: Date, default: null }, deletedAt: { type: Date, default: null } }, { timestamps: true });
+const PurchaseOrderItemSchema = new s({ purchaseOrderId: { type: oid, ref: "PurchaseOrder", required: true }, productId: { type: oid, ref: "Product", required: true }, variantId: { type: oid, ref: "ProductVariant", default: null }, productName: String, sku: String, quantity: Number, receivedQuantity: { type: Number, default: 0 }, unitCost: Number, total: Number }, { timestamps: true });
 const StockMovementSchema = new s({ branchId: { type: oid, ref: "Branch", default: null }, organizationId: { type: oid, ref: "Organization", default: null }, fromOrganizationId: { type: oid, ref: "Organization", default: null }, toOrganizationId: { type: oid, ref: "Organization", default: null }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, type: { type: String, enum: ["IN", "OUT", "TRANSFER", "ADJUSTMENT"] }, quantity: Number, previousQuantity: Number, newQuantity: Number, reference: String, notes: String, performedBy: { type: oid, ref: "User" } }, { timestamps: true });
 const CommissionSchema = new s({ organizationId: { type: oid, ref: "Organization" }, orderId: { type: oid, ref: "Order" }, saleAmount: Number, rate: Number, amount: Number, status: { type: String, enum: ["pending", "paid", "cancelled"], default: "pending" }, paidAt: { type: Date, default: null }, paidBy: { type: oid, ref: "User", default: null }, notes: String }, { timestamps: true });
 const TransactionSchema = new s({ branchId: { type: oid, ref: "Branch", default: null }, orderId: { type: oid, ref: "Order" }, type: { type: String, enum: ["SALE", "REFUND", "ADJUSTMENT"] }, amount: Number, paymentMethod: String, performedBy: { type: oid, ref: "User" } }, { timestamps: true });
@@ -438,42 +438,73 @@ export async function runSeed(): Promise<void> {
   // ── 13. Purchase Orders ─────────────────────────────────────────────────────
   console.log("\n[13] Purchase Orders");
   const poData = [
-    { branch: hq, supplier: sup1, items: [{ p: products[0], qty: 100, unitCost: Math.round(products[0].retailPrice * 0.4) }, { p: products[3], qty: 50, unitCost: Math.round(products[3].retailPrice * 0.4) }], status: "received" },
-    { branch: northBranch, supplier: sup2, items: [{ p: products[6], qty: 80, unitCost: Math.round(products[6].retailPrice * 0.4) }, { p: products[7], qty: 60, unitCost: Math.round(products[7].retailPrice * 0.4) }], status: "approved" },
-    { branch: southBranch, supplier: sup3, items: [{ p: products[9], qty: 40, unitCost: Math.round(products[9].retailPrice * 0.4) }, { p: products[11], qty: 30, unitCost: Math.round(products[11].retailPrice * 0.4) }], status: "submitted" },
-    { branch: hq, supplier: sup1, items: [{ p: products[1], qty: 120, unitCost: Math.round(products[1].retailPrice * 0.4) }], status: "draft" },
+    {
+      organization: distOrg,
+      branch: hq,
+      items: [
+        { p: products[0], qty: 100, unitCost: Math.round(products[0].retailPrice * 0.4) },
+        { p: products[3], qty: 50, unitCost: Math.round(products[3].retailPrice * 0.4) },
+      ],
+      status: "received",
+    },
+    {
+      organization: franOrg,
+      branch: northBranch,
+      items: [
+        { p: products[6], qty: 80, unitCost: Math.round(products[6].retailPrice * 0.4) },
+        { p: products[7], qty: 60, unitCost: Math.round(products[7].retailPrice * 0.4) },
+      ],
+      status: "approved",
+    },
+    {
+      organization: partnerOrg,
+      branch: null,
+      items: [
+        { p: products[9], qty: 40, unitCost: Math.round(products[9].retailPrice * 0.4) },
+        { p: products[11], qty: 30, unitCost: Math.round(products[11].retailPrice * 0.4) },
+      ],
+      status: "submitted",
+    },
+    {
+      organization: distOrg,
+      branch: null,
+      items: [{ p: products[1], qty: 120, unitCost: Math.round(products[1].retailPrice * 0.4) }],
+      status: "draft",
+    },
   ] as const;
 
   for (let i = 0; i < poData.length; i++) {
-    const { branch, supplier, items, status } = poData[i];
+    const { organization, branch, items, status } = poData[i];
     const subtotal = items.reduce((s, it) => s + it.unitCost * it.qty, 0);
     const poDate = new Date(Date.now() - (poData.length - i) * 10 * 86400000);
 
     const po = await PO.create({
       poNumber: `PO-${pad(i + 1)}`,
-      branchId: branch._id,
-      supplierId: supplier._id,
+      organizationId: organization._id,
+      branchId: branch?._id ?? null,
       status,
       subtotal,
-      tax: 0,
       total: subtotal,
-      notes: `Purchase order from ${supplier.name}`,
-      expectedAt: new Date(poDate.getTime() + 7 * 86400000),
+      notes: `Replenishment for ${organization.name}`,
+      expectedDeliveryDate: new Date(poDate.getTime() + 7 * 86400000),
       receivedAt: status === "received" ? new Date(poDate.getTime() + 5 * 86400000) : null,
+      receivedBy: status === "received" ? invMgr._id : null,
       createdBy: admin._id,
       createdAt: poDate,
     });
 
-    await POItem.insertMany(items.map((it) => ({
-      purchaseOrderId: po._id,
-      productId: it.p._id,
-      productName: it.p.name,
-      sku: it.p.sku,
-      quantityOrdered: it.qty,
-      quantityReceived: status === "received" ? it.qty : 0,
-      unitCost: it.unitCost,
-      total: it.unitCost * it.qty,
-    })));
+    await POItem.insertMany(
+      items.map((it) => ({
+        purchaseOrderId: po._id,
+        productId: it.p._id,
+        productName: it.p.name,
+        sku: it.p.sku,
+        quantity: it.qty,
+        receivedQuantity: status === "received" ? it.qty : 0,
+        unitCost: it.unitCost,
+        total: it.unitCost * it.qty,
+      }))
+    );
   }
   console.log(`  ${poData.length} purchase orders seeded`);
 
