@@ -7,7 +7,7 @@ import {
   uploadImageBlobToStorage,
   type UploadedImageResult,
 } from "@/lib/server/imageUpload";
-import { deleteStoredImage } from "@/lib/server/localImageStorage";
+import { deleteStoredImage } from "@/lib/server/imageStorage";
 import { parseStoredUploadKey } from "@/lib/utils/storedImageUrl";
 
 const MAX_SEARCH_LENGTH = 100;

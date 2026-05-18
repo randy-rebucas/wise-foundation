@@ -5,6 +5,7 @@ import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { UPLOAD_URL_PREFIX } from "@/lib/constants/uploads";
+import { sanitizeUploadFolder } from "@/lib/server/uploadPathUtils";
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -20,7 +21,7 @@ export function getUploadRootDir(): string {
   return path.join(process.cwd(), "public", "uploads");
 }
 
-export function imageUploadConfigured(): boolean {
+export function localImageStorageConfigured(): boolean {
   try {
     const root = getUploadRootDir();
     mkdirSync(root, { recursive: true });
@@ -31,14 +32,9 @@ export function imageUploadConfigured(): boolean {
   }
 }
 
-function sanitizeFolder(folder: string): string {
-  const segments = folder
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((s) => s.trim())
-    .filter((s) => s && s !== "." && s !== "..");
-  if (!segments.length) throw new Error("Invalid upload folder");
-  return segments.join("/");
+/** @deprecated Use `imageUploadConfigured` from `@/lib/server/imageStorage`. */
+export function imageUploadConfigured(): boolean {
+  return localImageStorageConfigured();
 }
 
 function extensionForMime(mime: string): string {
@@ -52,7 +48,7 @@ export function buildPublicUploadUrl(relativePath: string): string {
 
 export function resolveAbsoluteUploadPath(relativePath: string): string {
   const root = path.resolve(getUploadRootDir());
-  const safe = sanitizeFolder(relativePath.replace(/^\/+/, ""));
+  const safe = sanitizeUploadFolder(relativePath.replace(/^\/+/, ""));
   const absolute = path.resolve(root, safe);
   const relative = path.relative(root, absolute);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
@@ -72,7 +68,7 @@ export async function saveImageBuffer(
   folder: string,
   mime: string
 ): Promise<LocalImageSaveResult> {
-  const safeFolder = sanitizeFolder(folder);
+  const safeFolder = sanitizeUploadFolder(folder);
   const filename = `${randomUUID()}${extensionForMime(mime)}`;
   const publicId = `${safeFolder}/${filename}`;
   const absolute = resolveAbsoluteUploadPath(publicId);
@@ -93,7 +89,7 @@ export function saveImageBufferSync(
   folder: string,
   mime: string
 ): LocalImageSaveResult {
-  const safeFolder = sanitizeFolder(folder);
+  const safeFolder = sanitizeUploadFolder(folder);
   const filename = `${randomUUID()}${extensionForMime(mime)}`;
   const publicId = `${safeFolder}/${filename}`;
   const absolute = resolveAbsoluteUploadPath(publicId);

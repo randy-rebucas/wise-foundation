@@ -35,3 +35,17 @@ export const receivePurchaseOrderSchema = z.object({
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
 export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>;
 export type ReceivePurchaseOrderInput = z.infer<typeof receivePurchaseOrderSchema>;
+
+export const signPurchaseOrderSchema = z.object({
+  role: z.enum(["submit", "approve"]),
+  signedByName: z.string().trim().min(1, "Signer name is required").max(120),
+  signatureDataUrl: z
+    .string()
+    .min(1, "Signature is required")
+    .refine(
+      (v) => /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim()),
+      "Invalid signature image"
+    ),
+});
+
+export type SignPurchaseOrderInput = z.infer<typeof signPurchaseOrderSchema>;

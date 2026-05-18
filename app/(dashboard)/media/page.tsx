@@ -61,6 +61,7 @@ export default function MediaPage() {
   const {
     configured: uploadReady,
     isLoading: uploadStatusLoading,
+    backend: uploadBackend,
     mediaLibraryFolder: libraryFolder,
   } = useImageUploadEnabled();
 
@@ -277,17 +278,36 @@ export default function MediaPage() {
                 </FileDropzone>
                 {!uploadStatusLoading && !uploadReady && (
                   <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-                    Uploads unavailable — the server cannot write to{" "}
-                    <span className="font-mono text-[0.7rem] sm:text-xs">public/uploads</span> (or set{" "}
-                    <span className="font-mono text-[0.7rem] sm:text-xs">UPLOAD_DIR</span>).
+                    Uploads unavailable — set{" "}
+                    <span className="font-mono text-[0.7rem] sm:text-xs">CLOUDINARY_URL</span> (or{" "}
+                    <span className="font-mono text-[0.7rem] sm:text-xs">CLOUDINARY_CLOUD_NAME</span>,{" "}
+                    <span className="font-mono text-[0.7rem] sm:text-xs">API_KEY</span>,{" "}
+                    <span className="font-mono text-[0.7rem] sm:text-xs">API_SECRET</span>) on Vercel, or
+                    use a writable <span className="font-mono text-[0.7rem] sm:text-xs">public/uploads</span>{" "}
+                    directory locally.
                   </p>
                 )}
                 {(uploadStatusLoading || uploadReady) && (
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Stored under{" "}
-                    <span className="break-all font-mono text-[0.7rem] text-foreground/90 sm:text-xs">
-                      public/uploads/{libraryFolder ?? "glowish/media/library"}
-                    </span>
+                    {uploadBackend === "cloudinary" ? (
+                      <>
+                        Stored in{" "}
+                        <span className="font-mono text-[0.7rem] text-foreground/90 sm:text-xs">
+                          Cloudinary
+                        </span>{" "}
+                        under folder{" "}
+                        <span className="break-all font-mono text-[0.7rem] text-foreground/90 sm:text-xs">
+                          {libraryFolder ?? "glowish/media/library"}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Stored under{" "}
+                        <span className="break-all font-mono text-[0.7rem] text-foreground/90 sm:text-xs">
+                          public/uploads/{libraryFolder ?? "glowish/media/library"}
+                        </span>
+                      </>
+                    )}
                   </p>
                 )}
               </CardContent>

@@ -1,4 +1,9 @@
-import { imageUploadConfigured, getUploadRootDir } from "@/lib/server/localImageStorage";
+import {
+  getImageStorageBackend,
+  getStorageDescription,
+  imageUploadConfigured,
+} from "@/lib/server/imageStorage";
+import { getUploadRootDir } from "@/lib/server/localImageStorage";
 import {
   getUploadRootFolder,
   getMediaLibraryFolder,
@@ -10,10 +15,12 @@ import { successResponse } from "@/lib/utils/apiResponse";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const backend = getImageStorageBackend();
   return successResponse({
     configured: imageUploadConfigured(),
+    backend,
     uploadUrlPrefix: UPLOAD_URL_PREFIX,
-    storagePath: getUploadRootDir(),
+    storagePath: backend === "local" ? getUploadRootDir() : getStorageDescription(),
     rootFolder: getUploadRootFolder(),
     mediaLibraryFolder: getMediaLibraryFolder(),
     productCatalogFolder: getProductCatalogFolder(),

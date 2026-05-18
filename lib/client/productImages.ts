@@ -1,9 +1,9 @@
 import { parseJsonResponse } from "@/lib/client/parseJsonResponse";
-import { isStoredUploadUrl } from "@/lib/utils/storedImageUrl";
+import { isManagedStorageUrl } from "@/lib/utils/storedImageUrl";
 
 /** Remove locally stored images for URLs (best-effort; ignores external URLs). */
 export async function deleteProductImagesFromStorage(urls: string[]): Promise<void> {
-  const storedUrls = urls.filter(isStoredUploadUrl);
+  const storedUrls = urls.filter(isManagedStorageUrl);
   if (!storedUrls.length) return;
 
   const res = await fetch("/api/products/images", {

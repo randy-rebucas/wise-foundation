@@ -24,7 +24,7 @@ A full-stack retail platform for multi-branch and multi-organization operations.
 | Validation | Zod |
 | UI | Tailwind CSS + shadcn/ui (Radix UI) |
 | State | Zustand (cart), TanStack Query (server state) |
-| Images | Local filesystem (`public/uploads`) |
+| Images | Cloudinary (production) or local `public/uploads` (dev) |
 
 ## Getting Started
 
@@ -45,7 +45,13 @@ AUTH_URL=http://localhost:3000
 
 `AUTH_SECRET` and `AUTH_URL` are what Auth.js / NextAuth v5 expect. (`NEXTAUTH_SECRET` / `NEXTAUTH_URL` are still accepted as aliases in many setups.)
 
-Optional: `UPLOAD_DIR` (absolute path; default `public/uploads`), `UPLOAD_FOLDER_ROOT` (default from app name), `MAINTENANCE_MODE=true` for maintenance page.
+Optional:
+
+- **Cloudinary** (recommended on Vercel): `CLOUDINARY_URL` *or* `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- **Local uploads** (dev): `UPLOAD_DIR` (absolute path; default `public/uploads`), `UPLOAD_FOLDER_ROOT` (default from app name)
+- `MAINTENANCE_MODE=true` for maintenance page
+
+When Cloudinary env vars are set, uploads use Cloudinary automatically; otherwise the app falls back to the local filesystem if it is writable.
 
 Generate secrets with:
 ```bash

@@ -1,6 +1,13 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 import type { PurchaseOrderStatus } from "@/types";
 
+export interface IPurchaseOrderSignatureEmbed {
+  name: string;
+  userId: Types.ObjectId;
+  imageDataUrl: string;
+  signedAt: Date;
+}
+
 export interface IPurchaseOrder extends Document {
   organizationId: Types.ObjectId;
   branchId?: Types.ObjectId | null;
@@ -13,12 +20,24 @@ export interface IPurchaseOrder extends Document {
   createdBy: Types.ObjectId;
   approvedBy?: Types.ObjectId | null;
   approvedAt?: Date | null;
+  submittedSignature?: IPurchaseOrderSignatureEmbed | null;
+  approvedSignature?: IPurchaseOrderSignatureEmbed | null;
   receivedBy?: Types.ObjectId | null;
   receivedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
 }
+
+const PurchaseOrderSignatureSchema = new Schema<IPurchaseOrderSignatureEmbed>(
+  {
+    name: { type: String, required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    imageDataUrl: { type: String, required: true },
+    signedAt: { type: Date, required: true },
+  },
+  { _id: false }
+);
 
 const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   {
@@ -38,6 +57,8 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     approvedAt: { type: Date, default: null },
+    submittedSignature: { type: PurchaseOrderSignatureSchema, default: null },
+    approvedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     receivedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     receivedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },

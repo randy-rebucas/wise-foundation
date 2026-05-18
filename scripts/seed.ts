@@ -391,10 +391,10 @@ export async function runSeed(): Promise<void> {
   console.log("\n[12] B2B Orders");
   const b2bOrders = [];
   const b2bData = [
-    { seller: distOrg, buyer: franOrg,    items: [{ p: products[0], qty: 50 }, { p: products[6], qty: 30 }], status: "approved" },
-    { seller: distOrg, buyer: partnerOrg, items: [{ p: products[3], qty: 20 }, { p: products[9], qty: 15 }], status: "paid"     },
-    { seller: franOrg, buyer: partnerOrg, items: [{ p: products[1], qty: 40 }],                               status: "pending"  },
-  ];
+    { seller: distOrg, buyer: franOrg, items: [{ p: products[0], qty: 50 }, { p: products[6], qty: 30 }], status: "approved" },
+    { seller: distOrg, buyer: partnerOrg, items: [{ p: products[3], qty: 20 }, { p: products[9], qty: 15 }], status: "paid" },
+    { seller: franOrg, buyer: partnerOrg, items: [{ p: products[1], qty: 40 }], status: "pending" },
+  ] as const;
 
   for (let i = 0; i < b2bData.length; i++) {
     const { seller, buyer, items, status } = b2bData[i];
@@ -438,11 +438,11 @@ export async function runSeed(): Promise<void> {
   // ── 13. Purchase Orders ─────────────────────────────────────────────────────
   console.log("\n[13] Purchase Orders");
   const poData = [
-    { branch: hq,          supplier: sup1, items: [{ p: products[0], qty: 100, unitCost: Math.round(products[0].retailPrice * 0.4) }, { p: products[3], qty: 50, unitCost: Math.round(products[3].retailPrice * 0.4) }], status: "received" },
-    { branch: northBranch, supplier: sup2, items: [{ p: products[6], qty: 80,  unitCost: Math.round(products[6].retailPrice * 0.4) }, { p: products[7], qty: 60, unitCost: Math.round(products[7].retailPrice * 0.4) }], status: "approved" },
-    { branch: southBranch, supplier: sup3, items: [{ p: products[9], qty: 40,  unitCost: Math.round(products[9].retailPrice * 0.4) }, { p: products[11],qty: 30, unitCost: Math.round(products[11].retailPrice * 0.4) }], status: "submitted"},
-    { branch: hq,          supplier: sup1, items: [{ p: products[1], qty: 120, unitCost: Math.round(products[1].retailPrice * 0.4) }], status: "draft"    },
-  ];
+    { branch: hq, supplier: sup1, items: [{ p: products[0], qty: 100, unitCost: Math.round(products[0].retailPrice * 0.4) }, { p: products[3], qty: 50, unitCost: Math.round(products[3].retailPrice * 0.4) }], status: "received" },
+    { branch: northBranch, supplier: sup2, items: [{ p: products[6], qty: 80, unitCost: Math.round(products[6].retailPrice * 0.4) }, { p: products[7], qty: 60, unitCost: Math.round(products[7].retailPrice * 0.4) }], status: "approved" },
+    { branch: southBranch, supplier: sup3, items: [{ p: products[9], qty: 40, unitCost: Math.round(products[9].retailPrice * 0.4) }, { p: products[11], qty: 30, unitCost: Math.round(products[11].retailPrice * 0.4) }], status: "submitted" },
+    { branch: hq, supplier: sup1, items: [{ p: products[1], qty: 120, unitCost: Math.round(products[1].retailPrice * 0.4) }], status: "draft" },
+  ] as const;
 
   for (let i = 0; i < poData.length; i++) {
     const { branch, supplier, items, status } = poData[i];

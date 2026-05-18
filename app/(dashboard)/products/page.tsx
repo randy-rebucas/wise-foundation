@@ -1137,8 +1137,8 @@ export default function ProductsPage() {
               deleteFromStorageOnRemove={!editId}
               helperText={
                 imageUploadEnabled
-                  ? "Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each, saved under public/uploads)."
-                  : "Add images by URL. To enable uploads, ensure the server can write to public/uploads."
+                  ? "Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each)."
+                  : "Add images by URL. To enable uploads, configure Cloudinary or a writable public/uploads folder."
               }
             />
 

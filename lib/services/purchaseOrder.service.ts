@@ -95,8 +95,15 @@ export async function getPurchaseOrders(
   return { orders, total, pages: Math.ceil(total / limit) };
 }
 
+function assertValidObjectId(id: string, label = "ID"): void {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new Error(`Invalid ${label}`);
+  }
+}
+
 export async function getPurchaseOrderById(poId: string) {
   await connectDB();
+  assertValidObjectId(poId, "purchase order id");
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
     .populate("branchId", "name code")
@@ -153,7 +160,7 @@ export async function createPurchaseOrder(userId: string, input: CreatePurchaseO
   }));
 
   await PurchaseOrderItem.insertMany(itemDocs);
-  return po;
+  return PurchaseOrder.findById(po._id).lean();
 }
 
 export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrderInput) {

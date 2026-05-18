@@ -22,7 +22,9 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
     const po = await getPurchaseOrderByIdForUser(id, req.user);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po);
-  } catch {
+  } catch (error) {
+    console.error("[GET /api/purchase-orders/[id]]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };
@@ -41,7 +43,8 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order updated");
   } catch (error) {
-    if (error instanceof Error) return errorResponse(error.message);
+    console.error("[PUT /api/purchase-orders/[id]]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };
@@ -57,7 +60,8 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, `Purchase order ${status}`);
   } catch (error) {
-    if (error instanceof Error) return errorResponse(error.message);
+    console.error("[PATCH /api/purchase-orders/[id]]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };
@@ -69,7 +73,8 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!deleted) return notFoundResponse("Purchase order not found");
     return successResponse(null, "Purchase order deleted");
   } catch (error) {
-    if (error instanceof Error) return errorResponse(error.message);
+    console.error("[DELETE /api/purchase-orders/[id]]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };

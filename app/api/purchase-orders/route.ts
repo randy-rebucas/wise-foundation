@@ -20,7 +20,9 @@ const getHandler = async (req: AuthedRequest) => {
       limit,
       total: result.total,
     });
-  } catch {
+  } catch (error) {
+    console.error("[GET /api/purchase-orders]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };
@@ -42,7 +44,8 @@ const postHandler = async (req: AuthedRequest) => {
     const po = await createPurchaseOrder(req.user.id, parsed.data);
     return successResponse(po, "Purchase order created", 201);
   } catch (error) {
-    if (error instanceof Error) return errorResponse(error.message);
+    console.error("[POST /api/purchase-orders]", error);
+    if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
 };

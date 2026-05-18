@@ -1,7 +1,4 @@
-import {
-  deleteStoredImage,
-  saveImageBuffer,
-} from "@/lib/server/localImageStorage";
+import { deleteStoredImage, saveImageBuffer } from "@/lib/server/imageStorage";
 import { MAX_IMAGE_UPLOAD_BYTES } from "@/lib/constants/gallery";
 import { fileExtension, IMAGE_FILE_EXTENSIONS } from "@/lib/utils/imageFileAccept";
 
@@ -102,10 +99,12 @@ export async function resolveUploadMime(blob: Blob): Promise<string | null> {
   return sniffImageMime(blob);
 }
 
-export async function rollbackStoredUploads(uploaded: { publicId: string }[]) {
+export async function rollbackStoredUploads(
+  uploaded: { publicId: string; url?: string }[]
+) {
   await Promise.all(
     uploaded.map((item) =>
-      deleteStoredImage(item.publicId).catch(() => {
+      deleteStoredImage(item.publicId, { url: item.url }).catch(() => {
         /* best-effort */
       })
     )

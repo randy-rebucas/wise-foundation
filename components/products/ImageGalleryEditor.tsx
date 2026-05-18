@@ -16,7 +16,7 @@ import {
 } from "@/lib/constants/gallery";
 import { parseImageUrl } from "@/lib/utils/imageUrl";
 import { reorderGalleryItems } from "@/lib/utils/gallery";
-import { isStoredUploadUrl } from "@/lib/utils/storedImageUrl";
+import { isManagedStorageUrl } from "@/lib/utils/storedImageUrl";
 import { FileDropzone } from "@/components/shared/FileDropzone";
 import { cn } from "@/lib/utils";
 
@@ -164,7 +164,7 @@ export function ImageGalleryEditor({
     if (!url) return;
     onImagesChange(images.filter((_, i) => i !== index));
 
-    if (!deleteFromStorageOnRemove || !isStoredUploadUrl(url)) return;
+    if (!deleteFromStorageOnRemove || !isManagedStorageUrl(url)) return;
 
     try {
       await deleteProductImagesFromStorage([url]);

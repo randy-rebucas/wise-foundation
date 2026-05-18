@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withAuth } from "@/lib/middleware/withAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { imageUploadConfigured } from "@/lib/server/localImageStorage";
+import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { deleteMediaAssetsByUrls } from "@/lib/services/media.service";
 import { MAX_IMAGES_PER_UPLOAD_BATCH } from "@/lib/constants/gallery";
 import { getProductCatalogFolder } from "@/lib/server/uploadFolders";
@@ -25,7 +25,7 @@ const postHandler = async (req: AuthedRequest) => {
   try {
     if (!imageUploadConfigured()) {
       return errorResponse(
-        "Image upload is not available. Ensure the server can write to public/uploads (or set UPLOAD_DIR).",
+        "Image upload is not available. Configure Cloudinary (CLOUDINARY_URL or CLOUDINARY_* env vars) or ensure the server can write to public/uploads.",
         503
       );
     }

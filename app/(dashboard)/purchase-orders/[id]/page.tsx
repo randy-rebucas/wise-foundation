@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, PackageCheck, CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  PackageCheck,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Pencil,
+  Trash2,
+  FileDown,
+  PenLine,
+} from "lucide-react";
+import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
+import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
+import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -54,6 +67,16 @@ interface PurchaseOrderDetail {
   approvedAt?: string;
   receivedAt?: string;
   createdAt: string;
+  submittedSignature?: {
+    name: string;
+    signedAt: string;
+    imageDataUrl: string;
+  } | null;
+  approvedSignature?: {
+    name: string;
+    signedAt: string;
+    imageDataUrl: string;
+  } | null;
   items: POItemDetail[];
 }
 
@@ -71,11 +94,45 @@ export default function PurchaseOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
+  const [signOpen, setSignOpen] = useState(false);
+  const [signRole, setSignRole] = useState<PurchaseOrderSignRole>("submit");
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  useEffect(() => {
+    const sign = searchParams.get("sign");
+    if (sign === "submit" || sign === "approve") {
+      setSignRole(sign);
+      setSignOpen(true);
+      router.replace(`/purchase-orders/${id}`);
+    }
+  }, [searchParams, id, router]);
+
+  function openSign(role: PurchaseOrderSignRole) {
+    setSignRole(role);
+    setSignOpen(true);
+  }
+
+  async function handleDownloadPdf() {
+    if (!po) return;
+    setPdfLoading(true);
+    try {
+      await downloadPurchaseOrderPdf(id, po.poNumber);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "PDF download failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   const { data: po, isLoading, isError, error } = useQuery({
     queryKey: ["purchase-order", id],
@@ -223,7 +280,20 @@ export default function PurchaseOrderDetailPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleDownloadPdf()}
+              disabled={pdfLoading}
+            >
+              {pdfLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4 mr-2" />
+              )}
+              Download PDF
+            </Button>
             <Badge variant={STATUS_BADGE[po.status] ?? "secondary"} className="text-sm px-3 py-1">
               {po.status.toUpperCase()}
             </Badge>
@@ -237,9 +307,9 @@ export default function PurchaseOrderDetailPage() {
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
-                <Button size="sm" onClick={() => statusMutation.mutate("submitted")} disabled={statusMutation.isPending}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Submit
+                <Button size="sm" onClick={() => openSign("submit")}>
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Sign & Submit
                 </Button>
                 <Button
                   variant="destructive"
@@ -267,9 +337,9 @@ export default function PurchaseOrderDetailPage() {
             )}
             {po.status === "submitted" && (
               <>
-                <Button size="sm" onClick={() => statusMutation.mutate("approved")} disabled={statusMutation.isPending}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve
+                <Button size="sm" onClick={() => openSign("approve")}>
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Sign & Approve
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
                   <XCircle className="h-4 w-4 mr-2" />
@@ -285,6 +355,45 @@ export default function PurchaseOrderDetailPage() {
             )}
           </div>
         </div>
+
+        {(po.submittedSignature || po.approvedSignature) && (
+          <div className="grid gap-4 sm:grid-cols-2 border rounded-lg p-4">
+            {po.submittedSignature ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Submitted signature
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={po.submittedSignature.imageDataUrl}
+                  alt={`Signature of ${po.submittedSignature.name}`}
+                  className="h-16 max-w-full object-contain rounded border bg-white"
+                />
+                <p className="text-sm font-medium">{po.submittedSignature.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {dateTime(po.submittedSignature.signedAt)}
+                </p>
+              </div>
+            ) : null}
+            {po.approvedSignature ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Approved signature
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={po.approvedSignature.imageDataUrl}
+                  alt={`Signature of ${po.approvedSignature.name}`}
+                  className="h-16 max-w-full object-contain rounded border bg-white"
+                />
+                <p className="text-sm font-medium">{po.approvedSignature.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {dateTime(po.approvedSignature.signedAt)}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         {/* Info Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
@@ -436,6 +545,21 @@ export default function PurchaseOrderDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PurchaseOrderSignDialog
+        open={signOpen}
+        onOpenChange={setSignOpen}
+        poId={id}
+        poNumber={po.poNumber}
+        role={signRole}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
+          queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+          toast({
+            title: signRole === "submit" ? "Purchase order submitted" : "Purchase order approved",
+          });
+        }}
+      />
     </div>
   );
 }

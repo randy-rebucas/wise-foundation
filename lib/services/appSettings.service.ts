@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
-import { imageUploadConfigured } from "@/lib/server/localImageStorage";
+import { imageUploadConfigured } from "@/lib/server/imageStorage";
 
 const DEFAULTS: PublicAppSettings = {
   appName: "Glowish",

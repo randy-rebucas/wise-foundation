@@ -1,5 +1,6 @@
 export interface ImageUploadStatus {
   configured: boolean;
+  backend?: "cloudinary" | "local";
   uploadUrlPrefix?: string;
   storagePath?: string;
   rootFolder?: string;

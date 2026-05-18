@@ -21,6 +21,7 @@ export function useImageUploadEnabled() {
   return {
     configured,
     isLoading,
+    backend: status?.backend,
     rootFolder: status?.rootFolder,
     mediaLibraryFolder: status?.mediaLibraryFolder,
     productCatalogFolder: status?.productCatalogFolder,
