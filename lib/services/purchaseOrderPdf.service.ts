@@ -6,7 +6,11 @@ import { createRequire } from "module";
 import PDFDocument from "pdfkit";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { getPurchaseOrderById } from "@/lib/services/purchaseOrder.service";
-import { formatCurrency, formatDateTimeInTimezone } from "@/lib/utils";
+import {
+  formatCurrencyForPdf,
+  formatDateTimeInTimezone,
+  sanitizePdfText,
+} from "@/lib/utils";
 import { signatureDataUrlToBuffer } from "@/lib/utils/signatureDataUrl";
 
 type PoPdfRow = {
@@ -122,7 +126,7 @@ function drawSignatureBlock(
   doc
     .fontSize(8)
     .fillColor("#333333")
-    .text(signature.name, x, metaY, { width })
+    .text(sanitizePdfText(signature.name), x, metaY, { width })
     .text(formatDateTimeInTimezone(signature.signedAt, timezone), x, metaY + 11, { width });
 }
 
@@ -133,24 +137,25 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
   const settings = await getPublicAppSettings();
   const po = poRaw as unknown as PoPdfRow;
   const items = Array.isArray(po.items) ? po.items : [];
-  const money = (n: number) => formatCurrency(n, settings.currency);
+  const money = (n: number) => formatCurrencyForPdf(n, settings.currency);
   const when = (d: Date | string | null | undefined) =>
-    d ? formatDateTimeInTimezone(d, settings.timezone) : "—";
+    d ? sanitizePdfText(formatDateTimeInTimezone(d, settings.timezone)) : "-";
+  const txt = (value: string) => sanitizePdfText(value);
 
   const { doc, toBuffer } = createPdfDocument();
   const marginLeft = doc.page.margins.left;
   const pageWidth = doc.page.width - marginLeft - doc.page.margins.right;
 
-  doc.fontSize(18).fillColor("#1e3157").text(settings.appName);
+  doc.fontSize(18).fillColor("#1e3157").text(txt(settings.appName));
   doc.moveDown(0.25);
   doc.fontSize(14).fillColor("#333333").text("Purchase Order");
-  doc.fontSize(11).fillColor("#666666").text(po.poNumber);
+  doc.fontSize(11).fillColor("#666666").text(txt(po.poNumber));
   doc.moveDown(0.5);
 
   doc
     .fontSize(9)
     .fillColor("#444444")
-    .text(`Status: ${po.status.toUpperCase()}  ·  Created: ${when(po.createdAt)}`);
+    .text(txt(`Status: ${po.status.toUpperCase()} | Created: ${when(po.createdAt)}`));
 
   if (po.expectedDeliveryDate) {
     doc.text(`Expected delivery: ${when(po.expectedDeliveryDate)}`);
@@ -162,16 +167,16 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
   if (org?.name) {
     doc.fontSize(10).fillColor("#1e3157").text("Organization", { underline: true });
     doc.fontSize(9).fillColor("#333333");
-    doc.text(org.name);
-    if (org.type) doc.text(org.type);
-    if (org.contactPerson) doc.text(`Contact: ${org.contactPerson}`);
-    if (org.email) doc.text(org.email);
-    if (org.phone) doc.text(org.phone);
+    doc.text(txt(org.name));
+    if (org.type) doc.text(txt(org.type));
+    if (org.contactPerson) doc.text(txt(`Contact: ${org.contactPerson}`));
+    if (org.email) doc.text(txt(org.email));
+    if (org.phone) doc.text(txt(org.phone));
     doc.moveDown(0.5);
   }
 
   if (po.createdBy?.name) {
-    doc.fontSize(9).fillColor("#666666").text(`Prepared by: ${po.createdBy.name}`);
+    doc.fontSize(9).fillColor("#666666").text(txt(`Prepared by: ${po.createdBy.name}`));
     doc.moveDown(0.5);
   }
 
@@ -200,8 +205,8 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
       doc.addPage();
       rowY = doc.page.margins.top;
     }
-    doc.text(item.productName ?? "", colProduct, rowY, { width: 190 });
-    doc.text(item.sku ?? "", colSku, rowY, { width: 85 });
+    doc.text(txt(item.productName ?? ""), colProduct, rowY, { width: 190 });
+    doc.text(txt(item.sku ?? ""), colSku, rowY, { width: 85 });
     doc.text(String(item.quantity ?? 0), colQty, rowY, { width: 40, align: "right" });
     doc.text(money(item.unitCost ?? 0), colUnit, rowY, { width: 55, align: "right" });
     doc.text(money(item.total ?? 0), colTotal, rowY, { width: 55, align: "right" });
@@ -223,7 +228,7 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
 
   if (po.notes?.trim()) {
     doc.fontSize(9).fillColor("#444444").text("Notes", marginLeft, rowY);
-    doc.fontSize(9).fillColor("#333333").text(po.notes.trim(), marginLeft, rowY + 12, {
+    doc.fontSize(9).fillColor("#333333").text(txt(po.notes.trim()), marginLeft, rowY + 12, {
       width: pageWidth,
     });
     rowY = doc.y + 16;
@@ -269,7 +274,9 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
     .fontSize(7)
     .fillColor("#999999")
     .text(
-      `Generated ${formatDateTimeInTimezone(new Date(), settings.timezone)} · ${settings.appName}`,
+      txt(
+        `Generated ${formatDateTimeInTimezone(new Date(), settings.timezone)} - ${settings.appName}`
+      ),
       marginLeft,
       footerY,
       { align: "center", width: pageWidth }

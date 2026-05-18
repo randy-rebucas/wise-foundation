@@ -1,6 +1,7 @@
 import "server-only";
 
 import { v2 as cloudinary } from "cloudinary";
+import { normalizeCloudinaryError } from "@/lib/server/cloudinaryErrors";
 import { sanitizeUploadFolder } from "@/lib/server/uploadPathUtils";
 
 let configApplied = false;
@@ -10,6 +11,10 @@ function applyCloudinaryConfig(): void {
 
   const cloudinaryUrl = process.env.CLOUDINARY_URL?.trim();
   if (cloudinaryUrl) {
+    if (!cloudinaryUrl.toLowerCase().startsWith("cloudinary://")) {
+      throw new Error("CLOUDINARY_URL must start with cloudinary://");
+    }
+    cloudinary.config(true);
     cloudinary.config({ secure: true });
   } else {
     const cloud_name = process.env.CLOUDINARY_CLOUD_NAME?.trim();
@@ -71,7 +76,7 @@ export async function saveImageBufferToCloudinary(
         ...(format ? { format } : {}),
       },
       (error, uploadResult) => {
-        if (error) reject(error);
+        if (error) reject(normalizeCloudinaryError(error));
         else if (!uploadResult) reject(new Error("Cloudinary upload returned no result"));
         else resolve(uploadResult);
       }
@@ -94,8 +99,22 @@ export async function deleteCloudinaryImage(publicId: string): Promise<void> {
   if (!trimmed) return;
 
   await cloudinary.uploader.destroy(trimmed, { resource_type: "image" }).catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("not found") || message.includes("404")) return;
-    throw err;
+    const normalized = normalizeCloudinaryError(err);
+    if (normalized.message.includes("not found") || normalized.httpCode === 404) return;
+    throw normalized;
   });
+}
+
+/** Quick credential / account check for status endpoints. */
+export async function pingCloudinary(): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!cloudinaryConfigured()) {
+    return { ok: false, error: "Cloudinary is not configured" };
+  }
+  try {
+    applyCloudinaryConfig();
+    await cloudinary.api.ping();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: normalizeCloudinaryError(err).message };
+  }
 }

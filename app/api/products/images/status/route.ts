@@ -1,4 +1,6 @@
+import { pingCloudinary } from "@/lib/server/cloudinaryStorage";
 import {
+  cloudinaryConfigured,
   getImageStorageBackend,
   getStorageDescription,
   imageUploadConfigured,
@@ -16,9 +18,14 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const backend = getImageStorageBackend();
+  const cloudinaryPing = cloudinaryConfigured() ? await pingCloudinary() : null;
+
   return successResponse({
     configured: imageUploadConfigured(),
     backend,
+    cloudinary: cloudinaryPing
+      ? { configured: true, ok: cloudinaryPing.ok, error: cloudinaryPing.ok ? undefined : cloudinaryPing.error }
+      : { configured: false, ok: false },
     uploadUrlPrefix: UPLOAD_URL_PREFIX,
     storagePath: backend === "local" ? getUploadRootDir() : getStorageDescription(),
     rootFolder: getUploadRootFolder(),

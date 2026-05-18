@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isCloudinaryAccountError, normalizeCloudinaryError } from "@/lib/server/cloudinaryErrors";
 import {
   cloudinaryConfigured,
   deleteCloudinaryImage,
@@ -40,7 +41,18 @@ export async function saveImageBuffer(
   mime: string
 ): Promise<ImageSaveResult> {
   if (cloudinaryConfigured()) {
-    return saveImageBufferToCloudinary(buffer, folder, mime);
+    try {
+      return await saveImageBufferToCloudinary(buffer, folder, mime);
+    } catch (err) {
+      if (isCloudinaryAccountError(err) && localImageStorageConfigured()) {
+        console.warn(
+          "[imageStorage] Cloudinary unavailable, falling back to local storage:",
+          err instanceof Error ? err.message : err
+        );
+        return saveLocalImageBuffer(buffer, folder, mime);
+      }
+      throw normalizeCloudinaryError(err);
+    }
   }
   return saveLocalImageBuffer(buffer, folder, mime);
 }

@@ -9,6 +9,10 @@ import {
   serializeMediaAssetForApi,
   uploadAndRegisterImages,
 } from "@/lib/services/media.service";
+import {
+  CloudinaryUploadError,
+  httpStatusForCloudinaryError,
+} from "@/lib/server/cloudinaryErrors";
 import { errorResponse, serverErrorResponse, successResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -69,6 +73,9 @@ const postHandler = async (req: AuthedRequest) => {
     );
   } catch (e) {
     console.error("[POST /api/media]", e);
+    if (e instanceof CloudinaryUploadError) {
+      return errorResponse(e.message, httpStatusForCloudinaryError(e));
+    }
     if (e instanceof Error) return errorResponse(e.message, 500);
     return serverErrorResponse();
   }

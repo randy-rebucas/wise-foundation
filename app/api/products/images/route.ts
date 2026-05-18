@@ -7,6 +7,10 @@ import { MAX_IMAGES_PER_UPLOAD_BATCH } from "@/lib/constants/gallery";
 import { getProductCatalogFolder } from "@/lib/server/uploadFolders";
 import { collectImageFilesFromFormData } from "@/lib/server/imageUpload";
 import { serializeMediaAssetForApi, uploadAndRegisterImages } from "@/lib/services/media.service";
+import {
+  CloudinaryUploadError,
+  httpStatusForCloudinaryError,
+} from "@/lib/server/cloudinaryErrors";
 import { errorResponse, serverErrorResponse, successResponse } from "@/lib/utils/apiResponse";
 import { parseImageUrl } from "@/lib/utils/imageUrl";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -55,7 +59,11 @@ const postHandler = async (req: AuthedRequest) => {
       201
     );
   } catch (e) {
-    if (e instanceof Error) return errorResponse(e.message);
+    console.error("[POST /api/products/images]", e);
+    if (e instanceof CloudinaryUploadError) {
+      return errorResponse(e.message, httpStatusForCloudinaryError(e));
+    }
+    if (e instanceof Error) return errorResponse(e.message, 500);
     return serverErrorResponse();
   }
 };
