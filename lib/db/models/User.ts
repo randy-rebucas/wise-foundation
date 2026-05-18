@@ -1,5 +1,18 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
+import type {
+  MarketplaceCustomerReview,
+  MarketplacePaymentMethod,
+  MarketplaceSavedAddress,
+  MarketplaceWishlistItem,
+} from "@/lib/types/customerAccount";
 import type { UserRole } from "@/types";
+
+export interface IUserMarketplace {
+  wishlist: MarketplaceWishlistItem[];
+  savedAddresses: MarketplaceSavedAddress[];
+  paymentMethods: MarketplacePaymentMethod[];
+  reviews: MarketplaceCustomerReview[];
+}
 
 export interface IUser extends Document {
   branchIds: Types.ObjectId[];
@@ -13,10 +26,80 @@ export interface IUser extends Document {
   phone?: string;
   isActive: boolean;
   lastLoginAt?: Date;
+  marketplace?: IUserMarketplace;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
 }
+
+const WishlistItemSchema = new Schema(
+  {
+    productId: { type: String, required: true },
+    variantId: { type: String, default: null },
+    slug: { type: String, required: true },
+    name: { type: String, required: true },
+    variantName: { type: String },
+    sku: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    image: { type: String },
+    addedAt: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const SavedAddressSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    label: { type: String, required: true },
+    fullName: { type: String, required: true },
+    phone: { type: String, required: true },
+    line1: { type: String, required: true },
+    line2: { type: String },
+    city: { type: String, required: true },
+    region: { type: String, required: true },
+    postalCode: { type: String, required: true },
+    isDefault: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const PaymentMethodSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ["card", "gcash", "bank_transfer"],
+      required: true,
+    },
+    label: { type: String, required: true },
+    last4: { type: String },
+    isDefault: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const CustomerReviewSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    productId: { type: String, required: true },
+    productName: { type: String, required: true },
+    productSlug: { type: String },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    text: { type: String, required: true },
+    createdAt: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const MarketplaceSchema = new Schema(
+  {
+    wishlist: { type: [WishlistItemSchema], default: [] },
+    savedAddresses: { type: [SavedAddressSchema], default: [] },
+    paymentMethods: { type: [PaymentMethodSchema], default: [] },
+    reviews: { type: [CustomerReviewSchema], default: [] },
+  },
+  { _id: false }
+);
 
 const UserSchema = new Schema<IUser>(
   {
@@ -35,6 +118,7 @@ const UserSchema = new Schema<IUser>(
     phone: { type: String },
     isActive: { type: Boolean, default: true },
     lastLoginAt: { type: Date },
+    marketplace: { type: MarketplaceSchema, default: () => ({}) },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

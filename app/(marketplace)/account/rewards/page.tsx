@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Crown, Gift, Loader2, Star } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
 import { Button } from "@/components/ui/button";
+import {
+  PREMIUM_ORDER_COUNT,
+  PREMIUM_POINTS_THRESHOLD,
+  PREMIUM_SPEND_THRESHOLD,
+} from "@/lib/types/customerAccount";
 import { cn } from "@/lib/utils";
 
 type RewardsData = {
@@ -17,8 +22,12 @@ type RewardsData = {
 
 export default function AccountRewardsPage() {
   const [data, setData] = useState<RewardsData | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setError("");
+    setLoading(true);
     try {
       const res = await fetch("/api/account/dashboard");
       const json = await res.json();
@@ -31,9 +40,15 @@ export default function AccountRewardsPage() {
           isPremiumMember: d.isPremiumMember,
           orders: d.orders,
         });
+      } else {
+        setError(json.error ?? "Could not load rewards");
+        setData(null);
       }
     } catch {
+      setError("Could not load rewards");
       setData(null);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -43,7 +58,7 @@ export default function AccountRewardsPage() {
     });
   }, [load]);
 
-  if (!data) {
+  if (loading) {
     return (
       <div className="flex justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
@@ -51,8 +66,30 @@ export default function AccountRewardsPage() {
     );
   }
 
-  const nextTierPoints = 500;
-  const progress = Math.min(100, (data.rewardPoints / nextTierPoints) * 100);
+  if (!data) {
+    return (
+      <>
+        <AccountPageHeader
+          title="Rewards & Points"
+          description="Earn points on every purchase and unlock member benefits."
+        />
+        <p className="mt-4 text-sm text-destructive">{error || "Could not load rewards."}</p>
+      </>
+    );
+  }
+
+  const paidOrders = data.orders.filter((o) =>
+    ["paid", "delivered", "completed", "approved"].includes(o.status.toLowerCase())
+  );
+  const spend = paidOrders.reduce((s, o) => s + o.total, 0);
+  const progress = Math.min(
+    100,
+    Math.max(
+      (data.rewardPoints / PREMIUM_POINTS_THRESHOLD) * 100,
+      (paidOrders.length / PREMIUM_ORDER_COUNT) * 100,
+      (spend / PREMIUM_SPEND_THRESHOLD) * 100
+    )
+  );
 
   return (
     <>
@@ -73,7 +110,7 @@ export default function AccountRewardsPage() {
             {data.rewardPoints.toLocaleString()}
           </p>
           <p className="mt-2 text-sm text-[#2A4C6A]/75">
-            1 point per ₱1 spent on completed orders
+            1 point per ₱1 on paid, delivered, or completed orders
           </p>
         </article>
 
@@ -94,7 +131,8 @@ export default function AccountRewardsPage() {
       <section className="mt-6 rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
         <h2 className="font-semibold text-[#1e3157]">Progress to Premium</h2>
         <p className="mt-1 text-sm text-[#2A4C6A]/75">
-          Reach {nextTierPoints} points or 5+ orders to unlock premium perks.
+          Reach {PREMIUM_POINTS_THRESHOLD} points, {PREMIUM_ORDER_COUNT}+ orders, or ₱
+          {PREMIUM_SPEND_THRESHOLD.toLocaleString()} in spend.
         </p>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/80">
           <div
@@ -103,7 +141,8 @@ export default function AccountRewardsPage() {
           />
         </div>
         <p className="mt-2 text-xs text-[#2A4C6A]/60">
-          {data.rewardPoints} / {nextTierPoints} points
+          {data.rewardPoints} / {PREMIUM_POINTS_THRESHOLD} points · {paidOrders.length} /{" "}
+          {PREMIUM_ORDER_COUNT} orders
         </p>
       </section>
 
@@ -114,7 +153,7 @@ export default function AccountRewardsPage() {
             <p className="font-semibold text-[#1e3157]">How to earn more</p>
             <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-[#2A4C6A]/75">
               <li>Complete checkout on marketplace orders</li>
-              <li>Points are added when payment is confirmed</li>
+              <li>Points accrue from confirmed purchases</li>
               <li>Premium members get early access to new drops</li>
             </ul>
             <Button asChild className="mt-4 rounded-xl bg-violet-600 text-white hover:bg-violet-700">

@@ -74,12 +74,12 @@ export function OrdersList({
             <div className="flex items-center gap-3 sm:flex-col sm:items-end">
               <p className="font-bold text-[#1e3157]">{money(order.total)}</p>
               <Button
-                type="button"
+                asChild
                 variant="outline"
                 size="sm"
                 className="rounded-xl border-white/70 bg-white/65 text-xs"
               >
-                View Details
+                <Link href={`/account/orders/${order._id}`}>View Details</Link>
               </Button>
             </div>
           </li>

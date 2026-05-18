@@ -6,6 +6,11 @@ import {
   listMyMarketplaceOrders,
   type CustomerOrderRow,
 } from "@/lib/services/customerOrders.service";
+import {
+  PREMIUM_ORDER_COUNT,
+  PREMIUM_POINTS_THRESHOLD,
+  PREMIUM_SPEND_THRESHOLD,
+} from "@/lib/types/customerAccount";
 import type { OrderStatus, UserRole } from "@/types";
 
 const PAID_STATUSES: OrderStatus[] = ["paid", "delivered", "completed", "approved"];
@@ -49,7 +54,11 @@ export function resolveAccountStatus(
   }
 
   const { paidCount, spend } = paidOrderSpend(orders);
-  if (paidCount >= 5 || spend >= 10_000) {
+  if (
+    paidCount >= PREMIUM_ORDER_COUNT ||
+    spend >= PREMIUM_SPEND_THRESHOLD ||
+    calculateRewardPoints(orders) >= PREMIUM_POINTS_THRESHOLD
+  ) {
     return { label: "Premium Member", isPremiumMember: true };
   }
   if (paidCount >= 1) {

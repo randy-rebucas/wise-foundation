@@ -13,7 +13,6 @@ import { AccountPageHeader } from "@/components/marketplace/account/AccountPageH
 import { OrdersList } from "@/components/marketplace/account/OrdersList";
 import { formatMemberSince, formatPhone } from "@/components/marketplace/account/orderUtils";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
-import { useMarketplaceWishlistStore } from "@/store/marketplaceWishlistStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CustomerOrderRow } from "@/lib/services/customerOrders.service";
@@ -38,21 +37,28 @@ type DashboardData = {
 
 export default function ShopAccountPage() {
   const cartCount = useMarketplaceCartStore((s) => s.getCount());
-  const wishlistCount = useMarketplaceWishlistStore((s) => s.getCount());
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loadError, setLoadError] = useState("");
 
   const loadDashboard = useCallback(async () => {
     setLoadError("");
     try {
-      const res = await fetch("/api/account/dashboard");
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const [dashRes, wishRes] = await Promise.all([
+        fetch("/api/account/dashboard"),
+        fetch("/api/account/wishlist"),
+      ]);
+      const json = await dashRes.json();
+      if (!dashRes.ok || !json.success) {
         setLoadError(json.error ?? "Could not load account");
         setDashboard(null);
         return;
       }
       setDashboard(json.data as DashboardData);
+      const wishJson = await wishRes.json();
+      if (wishRes.ok && wishJson.success) {
+        setWishlistCount((wishJson.data as unknown[]).length);
+      }
     } catch {
       setLoadError("Could not load account");
       setDashboard(null);

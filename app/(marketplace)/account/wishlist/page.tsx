@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingBag, Trash2 } from "lucide-react";
+import { Heart, Loader2, ShoppingBag, Trash2 } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
+import { useAccountWishlist } from "@/components/marketplace/account/useAccountWishlist";
 import { Button } from "@/components/ui/button";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
-import { useMarketplaceWishlistStore } from "@/store/marketplaceWishlistStore";
+import { useToast } from "@/hooks/use-toast";
 
 function isRemote(url: string) {
   return /^https?:\/\//i.test(url);
@@ -15,9 +16,20 @@ function isRemote(url: string) {
 
 export default function AccountWishlistPage() {
   const money = useFormatCurrency();
-  const items = useMarketplaceWishlistStore((s) => s.items);
-  const removeItem = useMarketplaceWishlistStore((s) => s.removeItem);
+  const { toast } = useToast();
+  const { items, loading, error, removeItem } = useAccountWishlist();
   const addToCart = useMarketplaceCartStore((s) => s.addItem);
+
+  async function handleRemove(productId: string, variantId: string | null) {
+    try {
+      await removeItem(productId, variantId);
+    } catch (e) {
+      toast({
+        title: e instanceof Error ? e.message : "Could not remove item",
+        variant: "destructive",
+      });
+    }
+  }
 
   return (
     <>
@@ -26,7 +38,13 @@ export default function AccountWishlistPage() {
         description="Products you've saved for later."
       />
 
-      {items.length === 0 ? (
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
+        </div>
+      ) : items.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-white/65 bg-white/60 p-10 text-center shadow-sm">
           <Heart className="mx-auto h-10 w-10 text-pink-400" />
           <p className="mt-4 text-sm text-[#2A4C6A]/75">Your wishlist is empty.</p>
@@ -95,7 +113,7 @@ export default function AccountWishlistPage() {
                   size="sm"
                   variant="outline"
                   className="rounded-xl border-white/70 bg-white/65"
-                  onClick={() => removeItem(item.productId, item.variantId)}
+                  onClick={() => void handleRemove(item.productId, item.variantId)}
                 >
                   <Trash2 className="mr-1.5 h-4 w-4" />
                   Remove

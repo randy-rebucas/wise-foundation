@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ACCOUNT_NAV, isAccountNavActive } from "@/components/marketplace/account/accountNav";
 import { UserAvatar } from "@/components/marketplace/account/UserAvatar";
 import { useRequireCustomer } from "@/components/marketplace/account/useRequireCustomer";
+import { useMarketplaceNotificationReadsStore } from "@/store/marketplaceNotificationReadsStore";
 
 type ProfileSummary = {
   name: string;
@@ -21,19 +22,29 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { ready, user } = useRequireCustomer();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const isNotificationRead = useMarketplaceNotificationReadsStore((s) => s.isRead);
 
   const loadProfile = useCallback(async () => {
     try {
-      const res = await fetch("/api/account/dashboard");
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const [dashRes, notifRes] = await Promise.all([
+        fetch("/api/account/dashboard"),
+        fetch("/api/account/notifications"),
+      ]);
+      const json = await dashRes.json();
+      if (dashRes.ok && json.success) {
         const p = json.data.profile as ProfileSummary;
         setProfile(p);
+      }
+      const notifJson = await notifRes.json();
+      if (notifRes.ok && notifJson.success) {
+        const items = notifJson.data as { id: string }[];
+        setUnreadNotifications(items.filter((n) => !isNotificationRead(n.id)).length);
       }
     } catch {
       /* sidebar falls back to session */
     }
-  }, []);
+  }, [isNotificationRead]);
 
   useEffect(() => {
     if (ready) {
@@ -93,6 +104,11 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
                       <item.icon className="h-4 w-4" />
                     </span>
                     <span className="flex-1">{item.label}</span>
+                    {item.href === "/account/notifications" && unreadNotifications > 0 ? (
+                      <span className="rounded-full bg-pink-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {unreadNotifications}
+                      </span>
+                    ) : null}
                     <ChevronRight className="h-3.5 w-3.5 opacity-50" />
                   </Link>
                 );

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { WishlistButton } from "@/components/marketplace/WishlistButton";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 
@@ -210,10 +211,23 @@ export default function MarketplaceProductPage() {
             </div>
           </div>
 
-          <Button size="lg" className="w-full gap-2" onClick={addToCart} disabled={maxStock <= 0}>
-            <ShoppingBag className="h-4 w-4" />
-            Add to cart
-          </Button>
+          <div className="flex gap-2">
+            <Button size="lg" className="flex-1 gap-2" onClick={addToCart} disabled={maxStock <= 0}>
+              <ShoppingBag className="h-4 w-4" />
+              Add to cart
+            </Button>
+            <WishlistButton
+              productId={data._id}
+              variantId={selectedVariant?._id ?? null}
+              slug={data.slug}
+              name={data.name}
+              variantName={selectedVariant?.name}
+              sku={displaySku}
+              price={price}
+              image={displayImage}
+              className="h-11 w-11 shrink-0"
+            />
+          </div>
         </div>
       </div>
     </div>

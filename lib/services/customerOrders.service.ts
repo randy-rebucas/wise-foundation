@@ -5,6 +5,11 @@ import { OrderItem } from "@/lib/db/models/OrderItem";
 import { Product } from "@/lib/db/models/Product";
 import type { OrderStatus } from "@/types";
 
+export type CustomerOrderLineSummary = {
+  productId: string;
+  productName: string;
+};
+
 export type CustomerOrderRow = {
   _id: string;
   orderNumber: string;
@@ -15,6 +20,7 @@ export type CustomerOrderRow = {
   shipSummary: string;
   thumbnailUrl: string | null;
   itemCount: number;
+  lineItems: CustomerOrderLineSummary[];
 };
 
 export async function listMyMarketplaceOrders(customerUserId: string, limit = 50): Promise<CustomerOrderRow[]> {
@@ -53,18 +59,27 @@ export async function listMyMarketplaceOrders(customerUserId: string, limit = 50
     products.map((p) => [String(p._id), (p.images?.[0] as string | undefined) ?? null])
   );
 
-  const metaByOrderId = new Map<string, { thumbnailUrl: string | null; itemCount: number }>();
+  const metaByOrderId = new Map<
+    string,
+    { thumbnailUrl: string | null; itemCount: number; lineItems: CustomerOrderLineSummary[] }
+  >();
   for (const item of lineItems) {
     const orderKey = String(item.orderId);
     const qty = item.quantity as number;
+    const productId = String(item.productId);
+    const productName = item.productName as string;
     const existing = metaByOrderId.get(orderKey);
     if (existing) {
       existing.itemCount += qty;
+      if (!existing.lineItems.some((l) => l.productId === productId)) {
+        existing.lineItems.push({ productId, productName });
+      }
       continue;
     }
     metaByOrderId.set(orderKey, {
-      thumbnailUrl: imageByProductId.get(String(item.productId)) ?? null,
+      thumbnailUrl: imageByProductId.get(productId) ?? null,
       itemCount: qty,
+      lineItems: [{ productId, productName }],
     });
   }
 
@@ -86,6 +101,7 @@ export async function listMyMarketplaceOrders(customerUserId: string, limit = 50
       shipSummary,
       thumbnailUrl: meta?.thumbnailUrl ?? null,
       itemCount: meta?.itemCount ?? 0,
+      lineItems: meta?.lineItems ?? [],
     };
   });
 }

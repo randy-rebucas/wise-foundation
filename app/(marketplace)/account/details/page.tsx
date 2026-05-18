@@ -25,6 +25,7 @@ export default function AccountDetailsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [loadError, setLoadError] = useState("");
   const [profileMsg, setProfileMsg] = useState("");
   const [profileError, setProfileError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -34,6 +35,7 @@ export default function AccountDetailsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const res = await fetch("/api/users/me");
       const json = await res.json();
@@ -41,6 +43,8 @@ export default function AccountDetailsPage() {
         const data = json.data as MeProfile & { createdAt?: string };
         setProfile(data);
         setProfileForm({ name: data.name ?? "", phone: data.phone ?? "" });
+      } else {
+        setLoadError(json.error ?? "Could not load profile");
       }
     } finally {
       setLoading(false);
@@ -128,6 +132,8 @@ export default function AccountDetailsPage() {
         title="Account Details"
         description="Update your profile and sign-in password."
       />
+
+      {loadError ? <p className="mt-4 text-sm text-destructive">{loadError}</p> : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <form

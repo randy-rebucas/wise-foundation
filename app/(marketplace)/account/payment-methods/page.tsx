@@ -1,16 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { CreditCard, Plus, Star, Trash2, Wallet } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CreditCard, Loader2, Plus, Star, Trash2, Wallet } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  useMarketplacePaymentMethodsStore,
-  type MarketplacePaymentMethod,
-  type PaymentMethodType,
-} from "@/store/marketplacePaymentMethodsStore";
+import type { MarketplacePaymentMethod, PaymentMethodType } from "@/lib/types/customerAccount";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABELS: Record<PaymentMethodType, string> = {
@@ -25,35 +21,96 @@ function MethodIcon({ type }: { type: PaymentMethodType }) {
 }
 
 export default function AccountPaymentMethodsPage() {
-  const items = useMarketplacePaymentMethodsStore((s) => s.items);
-  const addMethod = useMarketplacePaymentMethodsStore((s) => s.addMethod);
-  const removeMethod = useMarketplacePaymentMethodsStore((s) => s.removeMethod);
-  const setDefault = useMarketplacePaymentMethodsStore((s) => s.setDefault);
-
+  const [items, setItems] = useState<MarketplacePaymentMethod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState<PaymentMethodType>("gcash");
   const [label, setLabel] = useState("");
   const [last4, setLast4] = useState("");
 
-  function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    addMethod({
-      type,
-      label: label.trim() || TYPE_LABELS[type],
-      last4: last4.trim() || undefined,
-      isDefault: items.length === 0,
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      const res = await fetch("/api/account/payment-methods");
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error ?? "Could not load payment methods");
+        setItems([]);
+        return;
+      }
+      setItems(json.data as MarketplacePaymentMethod[]);
+    } catch {
+      setError("Could not load payment methods");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void load();
     });
-    setLabel("");
-    setLast4("");
-    setShowForm(false);
+  }, [load]);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/account/payment-methods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          label: label.trim() || TYPE_LABELS[type],
+          last4: last4.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error ?? "Could not save");
+        return;
+      }
+      setItems(json.data as MarketplacePaymentMethod[]);
+      setLabel("");
+      setLast4("");
+      setShowForm(false);
+    } catch {
+      setError("Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeMethod(id: string) {
+    const res = await fetch(`/api/account/payment-methods?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    const json = await res.json();
+    if (res.ok && json.success) setItems(json.data as MarketplacePaymentMethod[]);
+  }
+
+  async function setDefault(id: string) {
+    const res = await fetch("/api/account/payment-methods", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ methodId: id }),
+    });
+    const json = await res.json();
+    if (res.ok && json.success) setItems(json.data as MarketplacePaymentMethod[]);
   }
 
   return (
     <>
       <AccountPageHeader
         title="Payment Methods"
-        description="Saved payment options for faster checkout. Display names only — no card numbers are stored."
+        description="Saved payment options for faster checkout. Only display labels are stored — never full card numbers."
       />
+
+      {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
       <Button
         type="button"
@@ -111,8 +168,8 @@ export default function AccountPaymentMethodsPage() {
             />
           </div>
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" className="rounded-xl bg-violet-600 text-white hover:bg-violet-700">
-              Save method
+            <Button type="submit" disabled={saving} className="rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+              {saving ? "Saving…" : "Save method"}
             </Button>
             <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setShowForm(false)}>
               Cancel
@@ -121,11 +178,15 @@ export default function AccountPaymentMethodsPage() {
         </form>
       ) : null}
 
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="mt-8 flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-[#6ea43f]" />
+        </div>
+      ) : items.length === 0 ? (
         <p className="mt-8 text-sm text-[#2A4C6A]/70">No payment methods saved yet.</p>
       ) : (
         <ul className="mt-6 space-y-4">
-          {items.map((method: MarketplacePaymentMethod) => (
+          {items.map((method) => (
             <li
               key={method.id}
               className="flex flex-col gap-4 rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
@@ -156,7 +217,7 @@ export default function AccountPaymentMethodsPage() {
                     size="sm"
                     variant="outline"
                     className="rounded-xl text-xs"
-                    onClick={() => setDefault(method.id)}
+                    onClick={() => void setDefault(method.id)}
                   >
                     <Star className="mr-1 h-3.5 w-3.5" />
                     Set default
@@ -167,7 +228,7 @@ export default function AccountPaymentMethodsPage() {
                   size="sm"
                   variant="ghost"
                   className="rounded-xl text-xs text-destructive"
-                  onClick={() => removeMethod(method.id)}
+                  onClick={() => void removeMethod(method.id)}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />
                   Remove
