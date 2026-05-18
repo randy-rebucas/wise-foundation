@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -299,13 +300,11 @@ export default function PurchaseOrderDetailPage() {
             </Badge>
             {po.status === "draft" && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push(`/purchase-orders?edit=${id}`)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/purchase-orders/${id}/edit`}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Link>
                 </Button>
                 <Button size="sm" onClick={() => openSign("submit")}>
                   <PenLine className="h-4 w-4 mr-2" />

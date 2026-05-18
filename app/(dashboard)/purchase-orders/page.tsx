@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,15 +9,8 @@ import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/shared/StatCard";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  ShoppingBag,
   Plus,
   Eye,
   Pencil,
@@ -30,7 +23,6 @@ import {
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { PurchaseOrderForm } from "@/components/purchase-orders/PurchaseOrderForm";
 import type { OrganizationType } from "@/components/purchase-orders/purchaseOrderFormTypes";
 
 interface PurchaseOrder {
@@ -71,9 +63,6 @@ export default function PurchaseOrdersPage() {
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editingPoId, setEditingPoId] = useState<string | null>(null);
-  const [editingPoNumber, setEditingPoNumber] = useState("");
 
   const {
     data: listResult,
@@ -138,26 +127,11 @@ export default function PurchaseOrdersPage() {
     deleteMutation.mutate(po._id);
   }
 
-  function closeEdit() {
-    setEditOpen(false);
-    setEditingPoId(null);
-    setEditingPoNumber("");
-  }
-
-  const openEdit = useCallback((poId: string, poNumber?: string) => {
-    setEditingPoId(poId);
-    setEditingPoNumber(poNumber ?? "");
-    setEditOpen(true);
-  }, []);
-
-  const editFromUrlHandled = useRef(false);
   useEffect(() => {
     const editId = searchParams.get("edit");
-    if (!editId || editFromUrlHandled.current) return;
-    editFromUrlHandled.current = true;
-    openEdit(editId);
-    router.replace("/purchase-orders");
-  }, [searchParams, openEdit, router]);
+    if (!editId) return;
+    router.replace(`/purchase-orders/${editId}/edit`);
+  }, [searchParams, router]);
 
   const draftCount = statusCounts.draft ?? 0;
   const submittedCount = statusCounts.submitted ?? 0;
@@ -243,14 +217,10 @@ export default function PurchaseOrdersPage() {
         <div className="flex justify-end gap-1">
           {o.status === "draft" && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Edit purchase order"
-                aria-label="Edit purchase order"
-                onClick={() => openEdit(o._id, o.poNumber)}
-              >
-                <Pencil className="h-4 w-4" />
+              <Button variant="ghost" size="icon" title="Edit purchase order" asChild>
+                <Link href={`/purchase-orders/${o._id}/edit`} aria-label="Edit purchase order">
+                  <Pencil className="h-4 w-4" />
+                </Link>
               </Button>
               <Button
                 variant="ghost"
@@ -359,34 +329,6 @@ export default function PurchaseOrdersPage() {
           onPageChange={setPage}
         />
       </div>
-
-      <Dialog
-        open={editOpen}
-        onOpenChange={(open) => {
-          if (!open) closeEdit();
-        }}
-      >
-        <DialogContent className="max-w-2xl overflow-y-visible sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              Edit {editingPoNumber || "Purchase Order"}
-            </DialogTitle>
-          </DialogHeader>
-          {editingPoId ? (
-            <PurchaseOrderForm
-              key={editingPoId}
-              mode="edit"
-              poId={editingPoId}
-              onCancel={closeEdit}
-              onSuccess={() => {
-                closeEdit();
-                toast({ title: "Purchase order updated" });
-              }}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
