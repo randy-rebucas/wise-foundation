@@ -1,6 +1,5 @@
-import { pingCloudinary } from "@/lib/server/cloudinaryStorage";
+import { cloudinaryConfigured, pingCloudinary } from "@/lib/server/cloudinaryStorage";
 import {
-  cloudinaryConfigured,
   getImageStorageBackend,
   getStorageDescription,
   imageUploadConfigured,
