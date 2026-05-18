@@ -1,10 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Lock,
+  Package,
+  ShoppingBag,
+  Truck,
+} from "lucide-react";
+import { AppLogo } from "@/components/branding/AppLogo";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,10 +25,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+const STOCK_IMAGES = {
+  hero: [
+    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
+  ],
+  product:
+    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
+};
+
+const FOOTER_COLUMNS = [
+  { title: "Shop", links: ["All Products", "Best Sellers", "New Arrivals", "Sale"] },
+  {
+    title: "Help",
+    links: ["FAQs", "Shipping & Delivery", "Returns & Refunds", "Contact Us"],
+  },
+  {
+    title: "Company",
+    links: ["About Us", "Our Ingredients", "Reviews", "Privacy Policy"],
+  },
+];
+
+const CHECKOUT_STEPS = [
+  { id: "cart", label: "Cart" },
+  { id: "information", label: "Information" },
+  { id: "shipping", label: "Shipping" },
+  { id: "payment", label: "Payment" },
+  { id: "review", label: "Review" },
+] as const;
+
+const SHIPPING_OPTIONS = [
+  {
+    id: "standard",
+    title: "Standard Shipping",
+    detail: "3-5 business days",
+    price: 120,
+  },
+  {
+    id: "express",
+    title: "Express Shipping",
+    detail: "1-2 business days",
+    price: 250,
+  },
+  {
+    id: "same_day",
+    title: "Same Day Delivery (Metro Manila)",
+    detail: "Order before 12nn",
+    price: 350,
+  },
+] as const;
+
+const PAYMENT_OPTIONS = [
+  { id: "card" as const, label: "Credit / Debit Card", badges: ["Visa", "Mastercard"] },
+  { id: "gcash" as const, label: "GCash", badges: ["GCash"] },
+  { id: "bank_transfer" as const, label: "Bank Transfer", badges: ["Bank"] },
+  { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
+];
 
 export default function MarketplaceCheckoutPage() {
   const router = useRouter();
@@ -29,18 +98,33 @@ export default function MarketplaceCheckoutPage() {
   const subtotal = getSubtotal();
 
   const [loading, setLoading] = useState(false);
+  const [shippingMethod, setShippingMethod] =
+    useState<(typeof SHIPPING_OPTIONS)[number]["id"]>("standard");
+  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [saveInfo, setSaveInfo] = useState(true);
+
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    line1: "",
-    line2: "",
-    city: "",
-    region: "",
-    postalCode: "",
+    fullName: "Maria Santos",
+    email: "hello@glowish.ph",
+    phone: "+63 912 345 6789",
+    line1: "123 Glowish Lane",
+    line2: "Unit 5B",
+    city: "Quezon City",
+    region: "Metro Manila",
+    postalCode: "1100",
+    country: "Philippines",
     paymentMethod: "card" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
     notes: "",
   });
+
+  const shippingCost =
+    SHIPPING_OPTIONS.find((option) => option.id === shippingMethod)?.price ?? 120;
+  const total = subtotal + shippingCost;
+  const isRemote = (url: string) => /^https?:\/\//i.test(url);
+
+  function lineImage(url: string | undefined) {
+    return url || STOCK_IMAGES.product;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,10 +159,13 @@ export default function MarketplaceCheckoutPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? "Checkout failed");
-      const { orderNumber, total } = json.data as { orderNumber: string; total: number };
+      const { orderNumber, total: orderTotal } = json.data as {
+        orderNumber: string;
+        total: number;
+      };
       clear();
       router.push(
-        `/checkout/success?orderNumber=${encodeURIComponent(orderNumber)}&total=${encodeURIComponent(String(total))}`
+        `/checkout/success?orderNumber=${encodeURIComponent(orderNumber)}&total=${encodeURIComponent(String(orderTotal))}`
       );
     } catch (err) {
       toast({
@@ -93,183 +180,448 @@ export default function MarketplaceCheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Checkout</CardTitle>
-          <CardDescription>Your cart is empty.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button asChild>
-            <Link href="/">Browse products</Link>
+      <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
+        <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+          <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
+          <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
+            Checkout
+          </h1>
+          <p className="mt-2 text-sm text-[#2A4C6A]/75">Your cart is empty.</p>
+          <Button className="mt-6 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+            <Link href="/shop">Browse products</Link>
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Checkout</h1>
-          <p className="text-muted-foreground mt-1">Shipping & payment — demo capture (orders are recorded as paid).</p>
+    <form
+      onSubmit={submit}
+      className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]"
+    >
+      <div className="mx-auto max-w-7xl space-y-5">
+        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[260px]">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
+          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+            <div>
+              <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#1e3157] sm:text-5xl">
+                Checkout
+              </h1>
+              <div className="mt-3 flex items-center gap-2 text-sm text-[#2A4C6A]/70">
+                <Link href="/" className="hover:text-[#2B6B56]">
+                  Home
+                </Link>
+                <span>/</span>
+                <Link href="/cart" className="hover:text-[#2B6B56]">
+                  Cart
+                </Link>
+                <span>/</span>
+                <span className="font-semibold text-[#3c2e60]">Checkout</span>
+              </div>
+            </div>
+
+            <div className="relative min-h-[200px] lg:min-h-[240px]">
+              <div className="absolute inset-x-[8%] bottom-6 h-20 rounded-[50%] bg-white/45 blur-2xl" />
+              {STOCK_IMAGES.hero.map((image, index) => {
+                const positions = [
+                  "left-[16%] top-[24%] h-40 w-32 rotate-[-5deg]",
+                  "left-[42%] top-[5%] h-52 w-36",
+                  "right-[5%] top-[30%] h-44 w-40 rotate-[5deg]",
+                ];
+                return (
+                  <div
+                    key={image}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[2rem] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  >
+                    <div
+                      className="h-full rounded-[1.4rem] bg-cover bg-center"
+                      style={{ backgroundImage: `url(${image})` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/65 bg-white/55 px-4 py-5 shadow-sm backdrop-blur-xl sm:px-6">
+          <ol className="flex flex-wrap items-center justify-between gap-4">
+            {CHECKOUT_STEPS.map((step, index) => {
+              const active = step.id === "information";
+              const completed = step.id === "cart";
+              return (
+                <li key={step.id} className="flex min-w-[4.5rem] flex-1 flex-col items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold",
+                      completed && "border-violet-300 bg-violet-100 text-violet-600",
+                      active && "border-[#6ea43f] bg-[#6ea43f] text-white",
+                      !completed && !active && "border-white/70 bg-white/60 text-[#2A4C6A]/45"
+                    )}
+                  >
+                    {completed ? <Check className="h-5 w-5" /> : index + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-center text-xs font-semibold",
+                      active ? "text-[#6ea43f]" : "text-[#2A4C6A]/65"
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="mt-4 h-1 overflow-hidden rounded-full bg-violet-100">
+            <div className="h-full w-[40%] rounded-full bg-[#6ea43f]" />
+          </div>
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="space-y-5">
+            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+                Contact Information
+              </h2>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[#2A4C6A]/75">
+                  <Checkbox
+                    checked={marketingOptIn}
+                    onCheckedChange={(checked) => setMarketingOptIn(checked === true)}
+                  />
+                  Keep me updated on news and exclusive offers
+                </label>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+                Shipping Address
+              </h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="fullName">Full Name *</Label>
+                  <Input
+                    id="fullName"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.fullName}
+                    onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number *</Label>
+                  <Input
+                    id="phone"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country *</Label>
+                  <Select
+                    value={form.country}
+                    onValueChange={(value) => setForm((f) => ({ ...f, country: value }))}
+                  >
+                    <SelectTrigger id="country" className="rounded-xl border-white/70 bg-white/65">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Philippines">Philippines</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="line1">Address *</Label>
+                  <Input
+                    id="line1"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.line1}
+                    onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="line2">Apartment, suite, etc. (optional)</Label>
+                  <Input
+                    id="line2"
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.line2}
+                    onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.city}
+                    onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="postal">Postal Code *</Label>
+                  <Input
+                    id="postal"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.postalCode}
+                    onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="region">Province / Region *</Label>
+                  <Input
+                    id="region"
+                    required
+                    className="rounded-xl border-white/70 bg-white/65"
+                    value={form.region}
+                    onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-[#2A4C6A]/75 sm:col-span-2">
+                  <Checkbox
+                    checked={saveInfo}
+                    onCheckedChange={(checked) => setSaveInfo(checked === true)}
+                  />
+                  Save this information for next time
+                </label>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+                Shipping Method
+              </h2>
+              <div className="mt-4 space-y-3">
+                {SHIPPING_OPTIONS.map((option) => {
+                  const selected = shippingMethod === option.id;
+                  return (
+                    <label
+                      key={option.id}
+                      className={cn(
+                        "flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition",
+                        selected
+                          ? "border-violet-300 bg-violet-50/80"
+                          : "border-white/70 bg-white/50 hover:bg-white/70"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="shippingMethod"
+                          checked={selected}
+                          onChange={() => setShippingMethod(option.id)}
+                          className="h-4 w-4 accent-[#6ea43f]"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-[#1e3157]">{option.title}</p>
+                          <p className="text-xs text-[#2A4C6A]/65">{option.detail}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-[#1e3157]">{money(option.price)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+
+          <div className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+                  Order Summary
+                </h2>
+                <Link href="/cart" className="text-xs font-semibold text-[#6ea43f] hover:underline">
+                  Edit Cart &gt;
+                </Link>
+              </div>
+              <ul className="max-h-56 space-y-3 overflow-y-auto pr-1">
+                {items.map((line) => {
+                  const imageUrl = lineImage(line.image);
+                  return (
+                    <li
+                      key={`${line.productId}-${line.variantId ?? ""}`}
+                      className="flex gap-3 border-b border-white/50 pb-3 last:border-0 last:pb-0"
+                    >
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/70 bg-white/60">
+                        {isRemote(imageUrl) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <Image src={imageUrl} alt="" fill className="object-cover" sizes="56px" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold text-[#1e3157]">{line.name}</p>
+                        <p className="text-xs text-[#2A4C6A]/65">
+                          {line.variantName ?? "30ml"} · Qty {line.quantity}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-bold text-[#1e3157]">
+                        {money(line.price * line.quantity)}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4 space-y-2 border-t border-white/60 pt-4 text-sm">
+                <div className="flex justify-between text-[#2A4C6A]/80">
+                  <span>Subtotal</span>
+                  <span className="font-semibold text-[#1e3157]">{money(subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-[#2A4C6A]/80">
+                  <span>Shipping</span>
+                  <span className="font-semibold text-[#1e3157]">{money(shippingCost)}</span>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    className="rounded-xl border-white/70 bg-white/65"
+                    placeholder="Promo code"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0 rounded-xl border-white/70 bg-white/65"
+                  >
+                    Apply
+                  </Button>
+                </div>
+                <div className="flex justify-between pt-2 text-lg font-bold text-[#6ea43f]">
+                  <span>Total</span>
+                  <span>{money(total)}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+                Payment Method
+              </h2>
+              <div className="mt-4 space-y-3">
+                {PAYMENT_OPTIONS.map((option) => {
+                  const selected = form.paymentMethod === option.id;
+                  return (
+                    <label
+                      key={option.id}
+                      className={cn(
+                        "flex cursor-pointer items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
+                        selected
+                          ? "border-violet-300 bg-violet-50/80"
+                          : "border-white/70 bg-white/50 hover:bg-white/70"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          checked={selected}
+                          onChange={() =>
+                            setForm((f) => ({ ...f, paymentMethod: option.id }))
+                          }
+                          className="h-4 w-4 accent-[#6ea43f]"
+                        />
+                        <span className="text-sm font-semibold text-[#1e3157]">{option.label}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {option.badges.map((badge) => (
+                          <span
+                            key={badge}
+                            className="rounded-md border border-white/70 bg-white/65 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#2A4C6A]/60"
+                          >
+                            {badge}
+                          </span>
+                        ))}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <Button
+                type="submit"
+                className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Placing order…
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-2 h-4 w-4" />
+                    Proceed to Payment
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="mt-2 w-full text-[#2A4C6A]/70"
+                asChild
+              >
+                <Link href="/cart">&lt; Back to Cart</Link>
+              </Button>
+            </section>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Shipping</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2 space-y-2">
-              <Label htmlFor="fullName">Full name</Label>
-              <Input
-                id="fullName"
-                required
-                value={form.fullName}
-                onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                required
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label htmlFor="line1">Address line 1</Label>
-              <Input
-                id="line1"
-                required
-                value={form.line1}
-                onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2 space-y-2">
-              <Label htmlFor="line2">Address line 2 (optional)</Label>
-              <Input
-                id="line2"
-                value={form.line2}
-                onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                required
-                value={form.city}
-                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">Province / region</Label>
-              <Input
-                id="region"
-                required
-                value={form.region}
-                onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="postal">Postal code</Label>
-              <Input
-                id="postal"
-                required
-                value={form.postalCode}
-                onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Payment</CardTitle>
-            <CardDescription>Simulated payment — choose a method for your records.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Method</Label>
-              <Select
-                value={form.paymentMethod}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, paymentMethod: v as typeof f.paymentMethod }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="card">Card (instant)</SelectItem>
-                  <SelectItem value="gcash">GCash (instant)</SelectItem>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="cash">Cash on delivery</SelectItem>
-                  <SelectItem value="credit">Credit terms</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Order notes (optional)</Label>
-              <textarea
-                id="notes"
-                rows={2}
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div>
-        <Card className="lg:sticky lg:top-20">
-          <CardHeader>
-            <CardTitle>Order summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <ul className="text-sm space-y-2 max-h-48 overflow-y-auto">
-              {items.map((i) => (
-                <li key={`${i.productId}-${i.variantId ?? ""}`} className="flex justify-between gap-2">
-                  <span className="truncate">
-                    {i.name} ×{i.quantity}
+        <footer className="overflow-hidden rounded-[2rem] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl">
+          <div className="grid gap-6 border-b border-white/55 p-5 sm:p-7 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
+            <div className="space-y-4">
+              <AppLogo size="lg" />
+              <p className="max-w-xs text-sm leading-6 text-[#2A4C6A]/75">
+                Glow naturally, wish beautifully. Premium skincare for your radiant confidence.
+              </p>
+              <div className="flex gap-2">
+                {[ShoppingBag, Truck, CreditCard].map((Icon, index) => (
+                  <span
+                    key={index}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6ea43f] text-white"
+                  >
+                    <Icon className="h-4 w-4" />
                   </span>
-                  <span className="shrink-0">{money(i.price * i.quantity)}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="border-t pt-3 flex justify-between font-semibold">
-              <span>Total</span>
-              <span>{money(subtotal)}</span>
+                ))}
+              </div>
             </div>
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Placing order…
-                </>
-              ) : (
-                "Place order"
-              )}
-            </Button>
-            <Button type="button" variant="outline" className="w-full" asChild>
-              <Link href="/cart">Back to cart</Link>
-            </Button>
-          </CardContent>
-        </Card>
+            {FOOTER_COLUMNS.map((column) => (
+              <div key={column.title}>
+                <h3 className="font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
+                  {column.title}
+                </h3>
+                <ul className="mt-4 space-y-2 text-sm text-[#2A4C6A]/75">
+                  {column.links.map((link) => (
+                    <li key={link}>{link}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2 px-5 py-4 text-center text-xs text-[#2A4C6A]/65 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <span>© {new Date().getFullYear()} Glowish. All rights reserved.</span>
+            <span>
+              Made with <span className="text-[#FF33CC]">♥</span> for your glow.
+            </span>
+          </div>
+        </footer>
       </div>
     </form>
   );

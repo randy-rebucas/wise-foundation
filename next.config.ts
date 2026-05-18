@@ -25,6 +25,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
   async redirects() {
     return [
       { source: "/marketplace", destination: "/", permanent: true },

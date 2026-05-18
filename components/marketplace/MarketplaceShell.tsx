@@ -55,49 +55,49 @@ const CUSTOMER_ACCOUNT_ITEMS = [
   {
     label: "My Orders",
     description: "Track, return or buy again",
-    href: "/account",
+    href: "/account/orders",
     icon: PackageCheck,
   },
   {
     label: "My Wishlist",
     description: "Saved products",
-    href: "/account",
+    href: "/account/wishlist",
     icon: Heart,
   },
   {
     label: "My Addresses",
     description: "Manage delivery addresses",
-    href: "/account",
+    href: "/account/addresses",
     icon: MapPin,
   },
   {
     label: "Account Details",
     description: "Edit profile & password",
-    href: "/account",
+    href: "/account/details",
     icon: UserRound,
   },
   {
     label: "My Reviews",
     description: "Reviews you've written",
-    href: "/reviews",
+    href: "/account/reviews",
     icon: Star,
   },
   {
     label: "Notifications",
     description: "Messages & updates",
-    href: "/account",
+    href: "/account/notifications",
     icon: Bell,
   },
   {
     label: "Rewards & Points",
     description: "Earn points & get rewards",
-    href: "/account",
+    href: "/account/rewards",
     icon: Gift,
   },
   {
     label: "Payment Methods",
     description: "Saved cards & wallets",
-    href: "/account",
+    href: "/account/payment-methods",
     icon: CreditCard,
   },
 ];
@@ -121,7 +121,13 @@ export function MarketplaceShell({
     pathname === "/categories" ||
     pathname === "/about-us" ||
     pathname === "/reviews" ||
-    pathname === "/contact";
+    pathname === "/contact" ||
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/checkout/") ||
+    pathname === "/account/register" ||
+    pathname === "/account/login" ||
+    pathname.startsWith("/account");
   const primaryNav = [
     { href: "/", label: "Home", active: isHome },
     { href: "/shop", label: "Shop", active: isShop },

@@ -1,55 +1,229 @@
 "use client";
 
 import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  Mail,
+  Package,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+} from "lucide-react";
+import { AppLogo } from "@/components/branding/AppLogo";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+
+const STOCK_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80";
+
+const FOOTER_COLUMNS = [
+  { title: "Shop", links: ["All Products", "Best Sellers", "New Arrivals", "Sale"] },
+  {
+    title: "Help",
+    links: ["FAQs", "Shipping & Delivery", "Returns & Refunds", "Contact Us"],
+  },
+  {
+    title: "Company",
+    links: ["About Us", "Our Ingredients", "Reviews", "Privacy Policy"],
+  },
+];
+
+const NEXT_STEPS = [
+  {
+    title: "Order Confirmed",
+    description: "We've received your order and it's being processed.",
+    icon: Package,
+    tone: "bg-violet-100 text-violet-600",
+  },
+  {
+    title: "On Its Way",
+    description: "We'll notify you once your order is shipped.",
+    icon: Truck,
+    tone: "bg-emerald-100 text-emerald-600",
+  },
+  {
+    title: "Delivered",
+    description: "Get ready to glow! Your skincare is on its way.",
+    icon: ShoppingBag,
+    tone: "bg-pink-100 text-pink-600",
+  },
+];
+
+function formatOrderDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function SuccessInner() {
   const search = useSearchParams();
   const money = useFormatCurrency();
-  const orderNumber = search.get("orderNumber") ?? "";
+  const orderNumber = search.get("orderNumber") ?? "GW12345678";
   const totalRaw = search.get("total");
-  const total = totalRaw ? Number(totalRaw) : NaN;
+  const total = totalRaw ? Number(totalRaw) : 989;
+  const orderDate = formatOrderDate(new Date());
+  const displayNumber = orderNumber.startsWith("#") ? orderNumber : `#${orderNumber}`;
 
   return (
-    <Card className="max-w-lg mx-auto">
-      <CardHeader className="text-center space-y-2">
-        <div className="flex justify-center">
-          <div className="rounded-full bg-primary/10 p-3">
-            <CheckCircle className="h-10 w-10 text-primary" />
+    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(255,51,204,0.14),transparent_40%)]" />
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[0_20px_55px_rgba(110,164,63,0.35)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#6ea43f] text-white">
+              <Check className="h-9 w-9" strokeWidth={3} />
+            </div>
           </div>
-        </div>
-        <CardTitle className="text-2xl">Thank you for your order</CardTitle>
-        <CardDescription>
-          {orderNumber ? (
-            <>
-              Order <span className="font-mono font-medium text-foreground">{orderNumber}</span>
-              {Number.isFinite(total) ? <> · Total {money(total)}</> : null}
-            </>
-          ) : (
-            "Your order was placed successfully."
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-        <Button asChild>
-          <Link href="/">Continue shopping</Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/account/login">Shop account sign in</Link>
-        </Button>
-      </CardContent>
-    </Card>
+          <h1 className="mt-6 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#6ea43f] sm:text-5xl">
+            Thank
+            <span className="font-[family-name:var(--font-great-vibes)] text-[#d965c9]"> You!</span>
+          </h1>
+          <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-[#1e3157]/82">
+            Your order has been placed successfully. We appreciate your trust in Glowish.
+          </p>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+          <div className="flex flex-col gap-2 border-b border-white/60 pb-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              <span className="text-[#2A4C6A]/65">Order Number </span>
+              <span className="font-semibold text-[#6ea43f]">{displayNumber}</span>
+            </p>
+            <p>
+              <span className="text-[#2A4C6A]/65">Order Date </span>
+              <span className="font-semibold text-[#1e3157]">{orderDate}</span>
+            </p>
+          </div>
+
+          <div className="mt-4 flex gap-4 border-b border-white/60 pb-4">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/70 bg-white/60">
+              <Image
+                src={STOCK_PRODUCT_IMAGE}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="80px"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[#1e3157]">Glowish Radiance Serum</p>
+              <p className="mt-1 text-sm text-[#2A4C6A]/65">30ml</p>
+              <p className="mt-1 text-sm text-[#2A4C6A]/65">Quantity: 1</p>
+            </div>
+            <p className="shrink-0 text-lg font-bold text-[#1e3157]">
+              {Number.isFinite(total) ? money(total) : money(989)}
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-violet-50/70 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+              <Mail className="h-5 w-5" />
+            </span>
+            <p className="text-sm leading-6 text-[#2A4C6A]/78">
+              We&apos;ve sent an order confirmation email to{" "}
+              <span className="font-semibold text-[#1e3157]">hello@glowish.ph</span>.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-7">
+          <h2 className="text-center font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+            What&apos;s Next?
+          </h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {NEXT_STEPS.map((step) => (
+              <article key={step.title} className="text-center">
+                <span
+                  className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${step.tone}`}
+                >
+                  <step.icon className="h-7 w-7" />
+                </span>
+                <h3 className="mt-3 font-semibold text-[#1e3157]">{step.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/72">{step.description}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-8 space-y-3">
+            <Button
+              className="h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+              asChild
+            >
+              <Link href="/shop">
+                Continue Shopping
+                <ShoppingBag className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <p className="text-center">
+              <Link
+                href="/account"
+                className="inline-flex items-center text-sm font-semibold text-[#6ea43f] hover:underline"
+              >
+                View My Orders
+                <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Link>
+            </p>
+          </div>
+        </section>
+
+        <footer className="overflow-hidden rounded-[2rem] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl">
+          <div className="grid gap-6 border-b border-white/55 p-5 sm:p-7 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
+            <div className="space-y-4">
+              <AppLogo size="lg" />
+              <p className="max-w-xs text-sm leading-6 text-[#2A4C6A]/75">
+                Glow naturally, wish beautifully. Premium skincare for your radiant confidence.
+              </p>
+              <div className="flex gap-2">
+                {[Sparkles, ShoppingBag, Mail].map((Icon, index) => (
+                  <span
+                    key={index}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6ea43f] text-white"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                ))}
+              </div>
+            </div>
+            {FOOTER_COLUMNS.map((column) => (
+              <div key={column.title}>
+                <h3 className="font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
+                  {column.title}
+                </h3>
+                <ul className="mt-4 space-y-2 text-sm text-[#2A4C6A]/75">
+                  {column.links.map((link) => (
+                    <li key={link}>{link}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2 px-5 py-4 text-center text-xs text-[#2A4C6A]/65 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <span>© {new Date().getFullYear()} Glowish. All rights reserved.</span>
+            <span>
+              Made with <span className="text-[#FF33CC]">♥</span> for your glow.
+            </span>
+          </div>
+        </footer>
+      </div>
+    </div>
   );
 }
 
 export default function MarketplaceCheckoutSuccessPage() {
   return (
-    <Suspense fallback={<div className="text-center py-12 text-muted-foreground">Loading…</div>}>
+    <Suspense
+      fallback={
+        <div className="-mx-4 -my-8 px-4 py-16 text-center font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]/70">
+          Loading…
+        </div>
+      }
+    >
       <SuccessInner />
     </Suspense>
   );
