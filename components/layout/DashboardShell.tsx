@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Globe2, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { Sidebar, SIDEBAR_COLLAPSED_KEY } from "@/components/layout/Sidebar";
 import type { SidebarUser } from "@/components/layout/Sidebar";
 import { TenantProvider } from "@/components/providers/TenantProvider";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
@@ -19,6 +19,28 @@ interface DashboardShellProps {
 
 export function DashboardShell({ initialUser, tenantSettings, children }: DashboardShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored === "true") setSidebarCollapsed(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   return (
     <TenantProvider value={tenantSettings}>
@@ -59,9 +81,11 @@ export function DashboardShell({ initialUser, tenantSettings, children }: Dashbo
 
       <Sidebar
         initialUser={initialUser}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebarCollapsed}
         className={cn(
           "fixed z-[40] md:relative md:z-0 h-[100dvh] md:h-auto md:min-h-screen shrink-0",
-          "transition-transform duration-200 ease-out md:translate-x-0",
+          "transition-[transform,width] duration-200 ease-out md:translate-x-0",
           mobileNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
         onNavigate={() => setMobileNavOpen(false)}

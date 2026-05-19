@@ -24,6 +24,7 @@ import {
   type ProductVariantOption,
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
+import { computePurchaseOrderTotals } from "@/lib/utils/purchaseOrderTotals";
 
 function toDateInputValue(iso?: string | null): string {
   if (!iso) return "";
@@ -59,7 +60,15 @@ export function PurchaseOrderForm({
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [poNotes, setPONotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [discountPercent, setDiscountPercent] = useState(0);
   const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
+
+  function paymentTermsPayload(): 3 | 6 | null {
+    if (paymentTerms === "3") return 3;
+    if (paymentTerms === "6") return 6;
+    return null;
+  }
 
   const {
     data: products = [],
@@ -102,6 +111,8 @@ export function PurchaseOrderForm({
         status: string;
         organizationId?: { _id: string } | string;
         expectedDeliveryDate?: string;
+        paymentTermsMonths?: 3 | 6 | null;
+        discountPercent?: number;
         notes?: string;
         items: {
           productId?: { _id: string } | string;
@@ -125,6 +136,9 @@ export function PurchaseOrderForm({
           : po.organizationId;
       setSelectedOrgId(orgId ? String(orgId) : "");
       setExpectedDate(toDateInputValue(po.expectedDeliveryDate));
+      const terms = po.paymentTermsMonths;
+      setPaymentTerms(terms === 3 ? "3" : terms === 6 ? "6" : "");
+      setDiscountPercent(Number(po.discountPercent ?? 0));
       setPONotes(po.notes ?? "");
 
       const loadedItems: POItem[] = [];
@@ -209,8 +223,11 @@ export function PurchaseOrderForm({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            organizationId: selectedOrgId,
             title: poTitle.trim() || undefined,
             items,
+            paymentTermsMonths: paymentTermsPayload(),
+            discountPercent,
             expectedDeliveryDate: expectedDate || undefined,
             notes: poNotes || undefined,
           }),
@@ -226,6 +243,8 @@ export function PurchaseOrderForm({
           organizationId: selectedOrgId,
           title: poTitle.trim() || undefined,
           items,
+          paymentTermsMonths: paymentTermsPayload(),
+          discountPercent,
           expectedDeliveryDate: expectedDate || undefined,
           notes: poNotes || undefined,
         }),
@@ -337,7 +356,8 @@ export function PurchaseOrderForm({
     setPOItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const itemsTotal = poItems.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+  const lineSubtotal = poItems.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+  const pricing = computePurchaseOrderTotals(lineSubtotal, discountPercent);
 
   if (initialLoading) {
     return (
@@ -378,11 +398,7 @@ export function PurchaseOrderForm({
         </div>
         <div className="space-y-1">
           <Label>Organization</Label>
-          <Select
-            value={selectedOrgId}
-            onValueChange={setSelectedOrgId}
-            disabled={isEdit}
-          >
+          <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
             <SelectTrigger>
               <SelectValue placeholder="Select organization" />
             </SelectTrigger>
@@ -403,6 +419,39 @@ export function PurchaseOrderForm({
             value={expectedDate}
             onChange={(e) => setExpectedDate(e.target.value)}
           />
+        </div>
+        <div className="space-y-1">
+          <Label>Payment terms</Label>
+          <Select
+            value={paymentTerms || "none"}
+            onValueChange={(v) => setPaymentTerms(v === "none" ? "" : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select payment terms" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="3">3 months</SelectItem>
+              <SelectItem value="6">6 months</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="po-discount">Discount (%)</Label>
+          <Input
+            id="po-discount"
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={discountPercent}
+            onChange={(e) => {
+              const n = parseFloat(e.target.value);
+              setDiscountPercent(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+            }}
+            placeholder="e.g. 20"
+          />
+          <p className="text-xs text-muted-foreground">Applied to line subtotal (e.g. 20% off)</p>
         </div>
       </div>
 
@@ -512,8 +561,21 @@ export function PurchaseOrderForm({
             </div>
           ))}
         </div>
-        <div className="flex justify-end text-sm font-semibold">
-          Total: {money(itemsTotal)}
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <div className="flex justify-between gap-8 w-full max-w-xs">
+            <span className="text-muted-foreground">Subtotal</span>
+            <span>{money(pricing.subtotal)}</span>
+          </div>
+          {pricing.discountAmount > 0 ? (
+            <div className="flex justify-between gap-8 w-full max-w-xs text-green-600">
+              <span>Discount ({pricing.discountPercent}%)</span>
+              <span>−{money(pricing.discountAmount)}</span>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-8 w-full max-w-xs font-semibold border-t pt-1">
+            <span>Total</span>
+            <span>{money(pricing.total)}</span>
+          </div>
         </div>
       </div>
 
@@ -549,7 +611,7 @@ export function PurchaseOrderForm({
         onClick={() => saveMutation.mutate()}
         disabled={
           saveMutation.isPending ||
-          (!isEdit && !selectedOrgId) ||
+          !selectedOrgId ||
           poItems.every((i) => !i.productId) ||
           !poItemsReady
         }

@@ -15,10 +15,12 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Copy,
   ClipboardCheck,
   Clock,
   CheckCircle,
   PackageCheck,
+  Loader2,
 } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -119,6 +121,25 @@ export default function PurchaseOrdersPage() {
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Delete failed", description: err.message }),
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/purchase-orders/${id}/duplicate`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Duplicate failed (${res.status})`);
+      return data.data as { _id: string; poNumber?: string };
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({
+        title: "Purchase order duplicated",
+        description: created.poNumber ? `Draft ${created.poNumber} created` : undefined,
+      });
+      router.push(`/purchase-orders/${created._id}/edit`);
+    },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Duplicate failed", description: err.message }),
   });
 
   function confirmDeletePurchaseOrder(po: PurchaseOrder) {
@@ -241,6 +262,20 @@ export default function PurchaseOrdersPage() {
               </Button>
             </>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Duplicate purchase order"
+            aria-label="Duplicate purchase order"
+            disabled={duplicateMutation.isPending}
+            onClick={() => duplicateMutation.mutate(o._id)}
+          >
+            {duplicateMutation.isPending && duplicateMutation.variables === o._id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
           <Link href={`/purchase-orders/${o._id}`}>
             <Button
               variant="ghost"
@@ -307,24 +342,36 @@ export default function PurchaseOrdersPage() {
           />
         </div>
 
-        <Tabs
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
-            setPage(1);
-          }}
-        >
-          <div className="w-full min-w-0 overflow-x-auto pb-1">
-            <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap gap-1 p-1 sm:h-10 sm:w-auto">
-            <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
-            <TabsTrigger value="draft" className="text-xs sm:text-sm">Draft</TabsTrigger>
-            <TabsTrigger value="submitted" className="text-xs sm:text-sm">Submitted</TabsTrigger>
-            <TabsTrigger value="approved" className="text-xs sm:text-sm">Approved</TabsTrigger>
-            <TabsTrigger value="received" className="text-xs sm:text-sm">Received</TabsTrigger>
-            <TabsTrigger value="cancelled" className="text-xs sm:text-sm">Cancelled</TabsTrigger>
-          </TabsList>
-          </div>
-        </Tabs>
+        <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <Tabs
+            value={statusFilter}
+            onValueChange={(v) => {
+              setStatusFilter(v);
+              setPage(1);
+            }}
+          >
+            <TabsList className="inline-flex h-auto w-max min-w-full flex-wrap justify-start gap-1 p-1 sm:h-10 sm:w-auto sm:flex-nowrap">
+              <TabsTrigger value="all" className="text-xs sm:text-sm">
+                All
+              </TabsTrigger>
+              <TabsTrigger value="draft" className="text-xs sm:text-sm">
+                Draft
+              </TabsTrigger>
+              <TabsTrigger value="submitted" className="text-xs sm:text-sm">
+                Submitted
+              </TabsTrigger>
+              <TabsTrigger value="approved" className="text-xs sm:text-sm">
+                Approved
+              </TabsTrigger>
+              <TabsTrigger value="received" className="text-xs sm:text-sm">
+                Received
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="text-xs sm:text-sm">
+                Cancelled
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
         <DataTable
           columns={columns}

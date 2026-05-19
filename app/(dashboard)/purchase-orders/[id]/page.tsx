@@ -26,6 +26,7 @@ import {
   Trash2,
   FileDown,
   PenLine,
+  Copy,
 } from "lucide-react";
 import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
 import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
@@ -33,6 +34,7 @@ import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -60,7 +62,10 @@ interface PurchaseOrderDetail {
     phone?: string;
   } | null;
   subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
   total: number;
+  paymentTermsMonths?: 3 | 6 | null;
   expectedDeliveryDate?: string;
   notes?: string;
   createdBy: { name: string };
@@ -176,6 +181,25 @@ export default function PurchaseOrderDetailPage() {
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Delete failed", description: err.message }),
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/purchase-orders/${id}/duplicate`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Duplicate failed (${res.status})`);
+      return data.data as { _id: string; poNumber?: string };
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({
+        title: "Purchase order duplicated",
+        description: created.poNumber ? `Draft ${created.poNumber} created` : undefined,
+      });
+      router.push(`/purchase-orders/${created._id}/edit`);
+    },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Duplicate failed", description: err.message }),
   });
 
   const receiveMutation = useMutation({
@@ -304,6 +328,19 @@ export default function PurchaseOrderDetailPage() {
               )}
               Download PDF
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => duplicateMutation.mutate()}
+              disabled={duplicateMutation.isPending}
+            >
+              {duplicateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Copy className="h-4 w-4 mr-2" />
+              )}
+              Duplicate
+            </Button>
             <Badge variant={STATUS_BADGE[po.status] ?? "secondary"} className="text-sm px-3 py-1">
               {po.status.toUpperCase()}
             </Badge>
@@ -429,6 +466,20 @@ export default function PurchaseOrderDetailPage() {
               <p className="text-sm font-medium">{dateTime(po.expectedDeliveryDate)}</p>
             </div>
           )}
+          {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths) && (
+            <div>
+              <p className="text-xs text-muted-foreground">Payment Terms</p>
+              <p className="text-sm font-medium">
+                {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths)}
+              </p>
+            </div>
+          )}
+          {(po.discountPercent ?? 0) > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground">Discount</p>
+              <p className="text-sm font-medium text-green-600">{po.discountPercent}% off</p>
+            </div>
+          )}
           {po.approvedBy && (
             <div>
               <p className="text-xs text-muted-foreground">Approved By</p>
@@ -482,6 +533,22 @@ export default function PurchaseOrderDetailPage() {
               ))}
             </tbody>
             <tfoot className="border-t bg-muted/50">
+              <tr>
+                <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">
+                  Subtotal
+                </td>
+                <td className="px-4 py-2 text-right">{money(po.subtotal)}</td>
+              </tr>
+              {(po.discountAmount ?? 0) > 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-2 text-right text-green-600">
+                    Discount ({po.discountPercent}%)
+                  </td>
+                  <td className="px-4 py-2 text-right text-green-600 font-medium">
+                    −{money(po.discountAmount)}
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={4} className="px-4 py-2 text-right font-semibold">Total</td>
                 <td className="px-4 py-2 text-right font-bold text-base">{money(po.total)}</td>

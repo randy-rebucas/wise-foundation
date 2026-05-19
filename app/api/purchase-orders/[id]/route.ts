@@ -10,6 +10,7 @@ import { updatePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schem
 import {
   successResponse,
   errorResponse,
+  forbiddenResponse,
   notFoundResponse,
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
@@ -39,6 +40,16 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!parsed.success) {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
+
+    if (
+      parsed.data.organizationId &&
+      req.user.role === "ORG_ADMIN" &&
+      req.user.organizationId &&
+      parsed.data.organizationId !== String(req.user.organizationId)
+    ) {
+      return forbiddenResponse("You can only assign purchase orders to your organization.");
+    }
+
     const po = await updatePurchaseOrder(id, parsed.data);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order updated");

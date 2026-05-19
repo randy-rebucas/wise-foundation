@@ -12,13 +12,17 @@ import {
   sanitizePdfText,
 } from "@/lib/utils";
 import { signatureDataUrlToBuffer } from "@/lib/utils/signatureDataUrl";
+import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
 
 type PoPdfRow = {
   poNumber: string;
   title?: string;
   status: string;
   subtotal: number;
+  discountPercent?: number;
+  discountAmount?: number;
   total: number;
+  paymentTermsMonths?: 3 | 6 | null;
   notes?: string;
   expectedDeliveryDate?: Date | string | null;
   createdAt: Date | string;
@@ -165,6 +169,11 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
     doc.text(`Expected delivery: ${when(po.expectedDeliveryDate)}`);
   }
 
+  const paymentTermsLabel = formatPurchaseOrderPaymentTerms(po.paymentTermsMonths);
+  if (paymentTermsLabel) {
+    doc.text(`Payment terms: ${txt(paymentTermsLabel)}`);
+  }
+
   doc.moveDown(0.75);
 
   const org = po.organizationId;
@@ -224,6 +233,20 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
     .strokeColor("#dddddd")
     .stroke();
   rowY += 10;
+  doc.fontSize(9).fillColor("#666666");
+  doc.text("Subtotal", colUnit, rowY, { width: 55, align: "right" });
+  doc.text(money(po.subtotal ?? 0), colTotal, rowY, { width: 55, align: "right" });
+  rowY += 14;
+
+  const discountAmount = po.discountAmount ?? 0;
+  const discountPercent = po.discountPercent ?? 0;
+  if (discountAmount > 0) {
+    doc.fillColor("#2d6a4f");
+    doc.text(`Discount (${discountPercent}%)`, colUnit, rowY, { width: 55, align: "right" });
+    doc.text(`-${money(discountAmount)}`, colTotal, rowY, { width: 55, align: "right" });
+    rowY += 14;
+  }
+
   doc.fontSize(10).fillColor("#1e3157");
   doc.text("Total", colUnit, rowY, { width: 55, align: "right" });
   doc.text(money(po.total), colTotal, rowY, { width: 55, align: "right" });

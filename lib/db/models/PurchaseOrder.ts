@@ -1,5 +1,6 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
 import type { PurchaseOrderStatus } from "@/types";
+import type { PurchaseOrderPaymentTermsMonths } from "@/lib/utils/purchaseOrderTotals";
 
 export interface IPurchaseOrderSignatureEmbed {
   name: string;
@@ -15,7 +16,10 @@ export interface IPurchaseOrder extends Document {
   title?: string;
   status: PurchaseOrderStatus;
   subtotal: number;
+  discountPercent: number;
+  discountAmount: number;
   total: number;
+  paymentTermsMonths?: PurchaseOrderPaymentTermsMonths | null;
   expectedDeliveryDate?: Date | null;
   notes?: string;
   createdBy: Types.ObjectId;
@@ -53,7 +57,14 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
       default: "draft",
     },
     subtotal: { type: Number, required: true, min: 0 },
+    discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    discountAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
+    paymentTermsMonths: {
+      type: Number,
+      enum: [3, 6],
+      default: null,
+    },
     expectedDeliveryDate: { type: Date, default: null },
     notes: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

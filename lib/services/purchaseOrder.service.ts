@@ -13,6 +13,10 @@ import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { hasPermission } from "@/lib/permissions";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
+import {
+  computePurchaseOrderTotals,
+  type PurchaseOrderPaymentTermsMonths,
+} from "@/lib/utils/purchaseOrderTotals";
 import type { PurchaseOrderStatus, SessionUser } from "@/types";
 import type {
   CreatePurchaseOrderInput,
@@ -24,6 +28,9 @@ import type {
 const _purchaseOrderRefModels = [Branch, Organization, User] as const;
 
 type PurchaseOrderItemInput = CreatePurchaseOrderInput["items"][number];
+type PurchaseOrderLineItem = NonNullable<
+  Awaited<ReturnType<typeof getPurchaseOrderById>>
+>["items"][number];
 
 async function generatePONumber(): Promise<string> {
   const latest = await PurchaseOrder.findOne({ deletedAt: null })
@@ -253,6 +260,31 @@ function assertValidObjectId(id: string, label = "ID"): void {
   }
 }
 
+function normalizePaymentTermsMonths(
+  value: PurchaseOrderPaymentTermsMonths | null | undefined
+): PurchaseOrderPaymentTermsMonths | null {
+  if (value === 3 || value === 6) return value;
+  return null;
+}
+
+function lineItemsSubtotal(
+  items: { quantity: number; unitCost: number }[]
+): number {
+  return items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+}
+
+function applyPricingToUpdates(
+  updates: Record<string, unknown>,
+  lineSubtotal: number,
+  discountPercent: number
+) {
+  const pricing = computePurchaseOrderTotals(lineSubtotal, discountPercent);
+  updates.subtotal = pricing.subtotal;
+  updates.discountPercent = pricing.discountPercent;
+  updates.discountAmount = pricing.discountAmount;
+  updates.total = pricing.total;
+}
+
 export async function getPurchaseOrderById(poId: string) {
   await connectDB();
   assertValidObjectId(poId, "purchase order id");
@@ -293,15 +325,21 @@ export async function createPurchaseOrder(
   const branchId = user ? resolveBranchIdForCreate(user, input.branchId) : (input.branchId ?? null);
 
   const poNumber = await generatePONumber();
-  const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
+  const pricing = computePurchaseOrderTotals(
+    lineItemsSubtotal(items),
+    input.discountPercent ?? 0
+  );
 
   const po = await PurchaseOrder.create({
     organizationId: input.organizationId,
     branchId,
     poNumber,
     status: "draft",
-    subtotal,
-    total: subtotal,
+    subtotal: pricing.subtotal,
+    discountPercent: pricing.discountPercent,
+    discountAmount: pricing.discountAmount,
+    total: pricing.total,
+    paymentTermsMonths: normalizePaymentTermsMonths(input.paymentTermsMonths),
     title: input.title?.trim() || undefined,
     expectedDeliveryDate: input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null,
     notes: input.notes,
@@ -339,15 +377,29 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
   if (input.notes !== undefined) updates.notes = input.notes;
   if (input.title !== undefined) updates.title = input.title.trim() || undefined;
 
-  if (input.items) {
-    const items = await normalizePurchaseOrderItems(input.items);
-    const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
-    updates.subtotal = subtotal;
-    updates.total = subtotal;
+  if (input.organizationId !== undefined) {
+    assertValidObjectId(input.organizationId, "organization id");
+    const nextOrgId = String(input.organizationId);
+    const currentOrgId = refEntityId(po.organizationId);
+    if (currentOrgId !== nextOrgId) {
+      const org = await Organization.findOne({ _id: nextOrgId, deletedAt: null }).lean();
+      if (!org) throw new Error("Organization not found");
+      updates.organizationId = nextOrgId;
+      updates.branchId = null;
+    }
+  }
 
+  if (input.paymentTermsMonths !== undefined) {
+    updates.paymentTermsMonths = normalizePaymentTermsMonths(input.paymentTermsMonths);
+  }
+
+  let normalizedItems: Awaited<ReturnType<typeof normalizePurchaseOrderItems>> | undefined;
+
+  if (input.items) {
+    normalizedItems = await normalizePurchaseOrderItems(input.items);
     await PurchaseOrderItem.deleteMany({ purchaseOrderId: poId });
     await PurchaseOrderItem.insertMany(
-      items.map((item) => ({
+      normalizedItems.map((item) => ({
         purchaseOrderId: poId,
         productId: item.productId,
         variantId: item.variantId ?? null,
@@ -359,6 +411,17 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
         total: item.quantity * item.unitCost,
       }))
     );
+  }
+
+  if (normalizedItems !== undefined || input.discountPercent !== undefined) {
+    const discountPercent =
+      input.discountPercent !== undefined
+        ? input.discountPercent
+        : Number(po.discountPercent ?? 0);
+    const lineSubtotal = normalizedItems
+      ? lineItemsSubtotal(normalizedItems)
+      : Number(po.subtotal ?? 0);
+    applyPricingToUpdates(updates, lineSubtotal, discountPercent);
   }
 
   return PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
@@ -382,6 +445,66 @@ export async function deletePurchaseOrderForUser(poId: string, user: SessionUser
   if (!canUserAccessPurchaseOrder(po, user)) return false;
   await deletePurchaseOrder(poId);
   return true;
+}
+
+export async function duplicatePurchaseOrderForUser(
+  poId: string,
+  userId: string,
+  user: SessionUser
+) {
+  const source = await getPurchaseOrderByIdForUser(poId, user);
+  if (!source) return null;
+
+  const organizationId = refEntityId(source.organizationId);
+  if (!organizationId) throw new Error("Purchase order has no organization");
+
+  const lineItems = (source.items ?? []) as PurchaseOrderLineItem[];
+  if (lineItems.length === 0) {
+    throw new Error("Cannot duplicate a purchase order with no line items");
+  }
+
+  const items: CreatePurchaseOrderInput["items"] = lineItems.map((item: PurchaseOrderLineItem) => {
+    const productId = refEntityId(item.productId);
+    if (!productId) throw new Error("A line item is missing product data");
+    const variantId = refEntityId(item.variantId);
+    return {
+      productId,
+      variantId: variantId ?? undefined,
+      productName: item.productName,
+      sku: item.sku,
+      quantity: item.quantity,
+      unitCost: item.unitCost,
+    };
+  });
+
+  const titleRaw = typeof source.title === "string" ? source.title.trim() : "";
+  const title = titleRaw
+    ? `${titleRaw.replace(/\s+\(copy\)$/i, "")} (copy)`
+    : `Copy of ${source.poNumber}`;
+
+  const expectedDeliveryDate =
+    source.expectedDeliveryDate != null
+      ? new Date(source.expectedDeliveryDate).toISOString().slice(0, 10)
+      : undefined;
+
+  const sourceTerms = source.paymentTermsMonths;
+  const paymentTermsMonths =
+    sourceTerms === 3 || sourceTerms === 6 ? sourceTerms : null;
+
+  const input: CreatePurchaseOrderInput = {
+    organizationId,
+    branchId: refEntityId(source.branchId) ?? undefined,
+    title,
+    items,
+    paymentTermsMonths,
+    discountPercent: Number(source.discountPercent ?? 0),
+    expectedDeliveryDate,
+    notes: source.notes ?? undefined,
+  };
+
+  const created = await createPurchaseOrder(userId, input, user);
+  if (!created?._id) throw new Error("Failed to create duplicate purchase order");
+  return getPurchaseOrderById(String(created._id));
 }
 
 export async function updatePurchaseOrderStatus(

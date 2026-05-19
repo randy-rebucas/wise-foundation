@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { PURCHASE_ORDER_PAYMENT_TERMS_MONTHS } from "@/lib/utils/purchaseOrderTotals";
+
+const paymentTermsMonthsSchema = z
+  .union([z.literal(3), z.literal(6)])
+  .nullable()
+  .optional();
 
 export const purchaseOrderItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -9,21 +15,33 @@ export const purchaseOrderItemSchema = z.object({
   unitCost: z.number().min(0, "Unit cost must be non-negative"),
 });
 
+export const purchaseOrderDiscountPercentSchema = z
+  .number()
+  .min(0, "Discount cannot be negative")
+  .max(100, "Discount cannot exceed 100%");
+
 export const createPurchaseOrderSchema = z.object({
   organizationId: z.string().min(1, "Organization is required"),
   branchId: z.string().optional(),
   title: z.string().trim().max(200, "Title must be 200 characters or less").optional(),
   items: z.array(purchaseOrderItemSchema).min(1, "At least one item is required"),
+  paymentTermsMonths: paymentTermsMonthsSchema,
+  discountPercent: purchaseOrderDiscountPercentSchema.optional(),
   expectedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const updatePurchaseOrderSchema = z.object({
+  organizationId: z.string().min(1, "Organization is required").optional(),
   title: z.string().trim().max(200, "Title must be 200 characters or less").optional(),
   items: z.array(purchaseOrderItemSchema).min(1).optional(),
+  paymentTermsMonths: paymentTermsMonthsSchema,
+  discountPercent: purchaseOrderDiscountPercentSchema.optional(),
   expectedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),
 });
+
+export { PURCHASE_ORDER_PAYMENT_TERMS_MONTHS };
 
 export const receivePurchaseOrderSchema = z.object({
   items: z.array(

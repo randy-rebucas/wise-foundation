@@ -17,6 +17,8 @@ import {
   LogOut,
   Settings,
   ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
   Truck,
   Building2,
   Store,
@@ -78,13 +80,23 @@ export interface SidebarUser {
   permissions: string[];
 }
 
+const SIDEBAR_COLLAPSED_KEY = "dashboard-sidebar-collapsed";
+
 interface SidebarProps {
   initialUser: SidebarUser;
   className?: string;
   onNavigate?: () => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
-export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
+export function Sidebar({
+  initialUser,
+  className,
+  onNavigate,
+  collapsed = false,
+  onToggleCollapsed,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
@@ -128,18 +140,23 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
       pathname === item.path ||
       (item.path !== "/" && pathname.startsWith(item.path + "/"));
     return (
-      <Link href={item.path} onClick={() => onNavigate?.()}>
+      <Link
+        href={item.path}
+        onClick={() => onNavigate?.()}
+        title={collapsed ? item.label : undefined}
+      >
         <span
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            collapsed && "md:justify-center md:gap-0 md:px-2",
             isActive
               ? "bg-sidebar-primary text-sidebar-primary-foreground"
               : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
         >
-          <item.icon className="h-4 w-4 flex-shrink-0" />
-          {item.label}
-          {isActive && <ChevronRight className="h-3 w-3 ml-auto" />}
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className={cn("truncate", collapsed && "md:sr-only")}>{item.label}</span>
+          {isActive && !collapsed && <ChevronRight className="ml-auto h-3 w-3 shrink-0" />}
         </span>
       </Link>
     );
@@ -147,19 +164,47 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
 
   return (
     <aside
+      aria-expanded={!collapsed}
       className={cn(
-        "flex min-h-0 flex-col w-64 max-w-[85vw] bg-sidebar-background text-sidebar-foreground border-r border-sidebar-border",
+        "flex min-h-0 w-64 max-w-[85vw] flex-col border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground transition-[width] duration-200 ease-out",
+        collapsed && "md:w-[4.5rem] md:max-w-[4.5rem]",
         className
       )}
     >
-      <div className="border-b border-sidebar-border px-6 py-6">
-        <AppBrand theme="sidebar" priority />
+      <div
+        className={cn(
+          "flex items-center gap-2 border-b border-sidebar-border py-4",
+          collapsed ? "px-4 md:flex-col md:gap-3 md:px-2" : "px-4 sm:px-6"
+        )}
+      >
+        <AppBrand
+          theme="sidebar"
+          priority
+          className={cn("min-w-0 flex-1", collapsed && "md:flex-none md:justify-center")}
+        />
+        {onToggleCollapsed ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="hidden h-8 w-8 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent md:inline-flex"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+        ) : null}
       </div>
 
       <ScrollArea className="min-h-0 flex-1 px-3 py-4">
-        {/* Main Navigation */}
         <nav className="space-y-1">
-          <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
+          <p
+            className={cn(
+              "px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sidebar-accent-foreground opacity-50",
+              collapsed && "md:sr-only"
+            )}
+          >
             Main
           </p>
           {NAV_ITEMS.filter(canAccess).map((item) => (
@@ -167,10 +212,14 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Admin Navigation */}
         {ADMIN_ITEMS.some(canAccess) && (
-          <nav className="space-y-1 mt-6">
-            <p className="px-3 py-1 text-xs font-semibold text-sidebar-accent-foreground opacity-50 uppercase tracking-wider">
+          <nav className="mt-6 space-y-1">
+            <p
+              className={cn(
+                "px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sidebar-accent-foreground opacity-50",
+                collapsed && "md:sr-only"
+              )}
+            >
               Admin
             </p>
             {ADMIN_ITEMS.filter(canAccess).map((item) => (
@@ -180,30 +229,39 @@ export function Sidebar({ initialUser, className, onNavigate }: SidebarProps) {
         )}
       </ScrollArea>
 
-      {/* User Footer */}
-      <div className="p-3 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs bg-sidebar-primary text-sidebar-primary-foreground">
+      <div className="border-t border-sidebar-border p-3">
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2",
+            collapsed && "md:flex-col md:gap-2 md:px-1"
+          )}
+        >
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback className="bg-sidebar-primary text-xs text-sidebar-primary-foreground">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{displayUser?.name}</p>
-            <p className="text-xs opacity-60 truncate">{accessUser.role.replace(/_/g, " ")}</p>
+          <div className={cn("min-w-0 flex-1", collapsed && "md:sr-only")}>
+            <p className="truncate text-sm font-medium">{displayUser?.name}</p>
+            <p className="truncate text-xs opacity-60">{accessUser.role.replace(/_/g, " ")}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+            className={cn(
+              "h-8 w-8 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent",
+              collapsed && "md:w-full"
+            )}
             onClick={handleSignOut}
             disabled={signingOut}
             title="Sign out"
           >
-            <LogOut className={`h-4 w-4 ${signingOut ? "opacity-50" : ""}`} />
+            <LogOut className={cn("h-4 w-4", signingOut && "opacity-50")} />
           </Button>
         </div>
       </div>
     </aside>
   );
 }
+
+export { SIDEBAR_COLLAPSED_KEY };
