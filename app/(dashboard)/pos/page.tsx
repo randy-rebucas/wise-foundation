@@ -142,13 +142,13 @@ export default function POSPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] flex-col overflow-hidden lg:flex-row">
       {/* Products Panel */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* POS Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b bg-background">
           <h1 className="font-bold text-lg">Point of Sale</h1>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-3">
             <User className="h-4 w-4" />
             <span>{session?.user?.name}</span>
             {needsBranchSelect ? (
@@ -189,7 +189,7 @@ export default function POSPage() {
       </div>
 
       {/* Cart Panel */}
-      <div className="w-80 xl:w-96 flex-shrink-0">
+      <div className="w-full shrink-0 border-t lg:w-80 lg:border-t-0 lg:border-l xl:w-96">
         <CartPanel
           onCheckout={() => setCheckoutOpen(true)}
           onMemberSearch={() => setMemberSearchOpen(true)}

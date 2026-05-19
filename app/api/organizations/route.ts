@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getOrganizations, createOrganization } from "@/lib/services/organization.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -37,5 +37,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:organizations")(getHandler));
-export const POST = withAuth(withPermission("manage:organizations")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:organizations")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:organizations")(postHandler));

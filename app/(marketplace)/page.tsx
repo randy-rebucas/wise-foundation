@@ -306,7 +306,10 @@ export default function MarketplaceCatalogPage() {
               </div>
             </div>
 
-            <div className="relative min-h-[420px] lg:min-h-[560px]">
+            <div className="relative flex min-h-[12rem] items-center justify-center rounded-[2rem] border border-white/60 bg-white/35 md:hidden">
+              <Leaf className="h-16 w-16 text-[#6ea43f]/60" />
+            </div>
+            <div className="relative hidden min-h-[420px] md:block lg:min-h-[560px]">
               <div className="absolute inset-x-[7%] top-[16%] h-64 rounded-full border border-white/45 bg-[radial-gradient(circle,rgba(255,255,255,0.42),rgba(0,229,255,0.08)_48%,transparent_70%)] blur-[1px]" />
               <div className="absolute inset-x-[4%] bottom-[14%] h-20 rounded-[50%] bg-white/30 blur-2xl" />
               {HERO_PRODUCT_POSITIONS.map((position, index) => {

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import {
   getSalesSummary,
@@ -77,4 +77,4 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("view:reports")(getHandler));
+export const GET = withStaffAuth(withPermission("view:reports")(getHandler));

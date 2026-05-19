@@ -179,7 +179,7 @@ export default function CategoriesPage() {
           ))}
         </section>
 
-        <section className="grid gap-3 rounded-[2rem] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl md:grid-cols-5">
+        <section className="grid gap-3 rounded-[2rem] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
           {benefits.map((benefit) => (
             <article key={benefit.title} className="flex items-center gap-3 border-white/50 md:border-r md:last:border-r-0">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/65 text-[#6ea43f]">

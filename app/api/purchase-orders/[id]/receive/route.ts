@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getPurchaseOrderByIdForUser, receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { receivePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
@@ -25,4 +25,4 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:inventory")(postHandler));
+export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));

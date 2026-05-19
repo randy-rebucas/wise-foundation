@@ -12,10 +12,13 @@ import {
 } from "@/lib/server/uploadFolders";
 import { UPLOAD_URL_PREFIX } from "@/lib/constants/uploads";
 import { successResponse } from "@/lib/utils/apiResponse";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
+import { withPermission } from "@/lib/middleware/withPermission";
+import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+const getHandler = async (_req: AuthedRequest) => {
   const backend = getImageStorageBackend();
   const cloudinaryPing = cloudinaryConfigured() ? await pingCloudinary() : null;
 
@@ -31,4 +34,6 @@ export async function GET() {
     mediaLibraryFolder: getMediaLibraryFolder(),
     productCatalogFolder: getProductCatalogFolder(),
   });
-}
+};
+
+export const GET = withStaffAuth(withPermission("manage:products")(getHandler));

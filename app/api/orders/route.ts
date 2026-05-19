@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processCheckout } from "@/lib/services/pos.service";
 import { getOrders } from "@/lib/services/order.service";
@@ -84,5 +84,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const POST = withAuth(withPermission("use:pos")(postHandler));
+export const GET = withStaffAuth(getHandler);
+export const POST = withStaffAuth(withPermission("use:pos")(postHandler));

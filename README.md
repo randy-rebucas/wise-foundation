@@ -106,14 +106,23 @@ types/            # Shared TypeScript types
 
 ## API Overview
 
-All API routes live under `/api/` and are protected by `withAuth`. Routes that mutate data or access sensitive resources additionally require `withPermission("<permission-key>")`.
+| Namespace | Path prefix | Auth |
+|-----------|-------------|------|
+| Staff (dashboard/POS) | `/api/products`, `/api/orders`, … | `withStaffAuth` + `withPermission` on sensitive routes |
+| Customer account | `/api/account/*` | `requireCustomerSession` (register is public) |
+| Storefront | `/api/marketplace/*` | Public reads; checkout allows guest or customer session |
+| Setup / Auth | `/api/setup`, `/api/auth` | Public (rate-limited at the edge) |
 
-Key permission keys: `manage:users`, `manage:branches`, `manage:products`, `manage:inventory`, `manage:orders`, `manage:members`, `use:pos`, `view:reports`.
+Staff routes reject `CUSTOMER` and `MEMBER` roles at the proxy and in `withStaffAuth`. Key permission keys: `manage:users`, `manage:branches`, `manage:products`, `manage:inventory`, `manage:orders`, `manage:members`, `use:pos`, `view:reports`.
+
+Copy `.env.example` to `.env.local` and fill in values before running locally.
 
 ## Security Notes
 
 - Passwords are hashed with bcrypt (12 rounds)
 - JWT sessions — no server-side session storage
+- Staff vs customer API isolation in `proxy.ts` and `withStaffAuth`
+- Rate limits on login, registration, and setup (`lib/utils/rateLimit.ts`)
 - All list endpoints cap `limit` at 100 to prevent DoS
 - Security headers (CSP, HSTS, X-Frame-Options, etc.) set globally in `next.config.ts`
 - Setup endpoint is one-time and atomically guarded against concurrent runs

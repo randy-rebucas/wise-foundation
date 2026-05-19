@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getBranches, createBranch, type CreateBranchData } from "@/lib/services/branch.service";
 import { createBranchSchema } from "@/lib/validations/branch.schema";
@@ -47,5 +47,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const POST = withAuth(withPermission("manage:branches")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:branches")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:branches")(postHandler));

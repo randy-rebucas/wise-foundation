@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { createB2BOrder } from "@/lib/services/order.service";
 import { createB2BOrderSchema } from "@/lib/validations/order.schema";
@@ -27,4 +27,4 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:orders")(postHandler));
+export const POST = withStaffAuth(withPermission("manage:orders")(postHandler));

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { MAX_IMAGES_PER_UPLOAD_BATCH } from "@/lib/constants/gallery";
@@ -81,5 +81,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:products")(getHandler));
-export const POST = withAuth(withPermission("manage:products")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:products")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:products")(postHandler));

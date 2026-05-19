@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { deleteMediaAssetsByUrls } from "@/lib/services/media.service";
@@ -86,5 +86,5 @@ const deleteHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:products")(postHandler));
-export const DELETE = withAuth(withPermission("manage:products")(deleteHandler));
+export const POST = withStaffAuth(withPermission("manage:products")(postHandler));
+export const DELETE = withStaffAuth(withPermission("manage:products")(deleteHandler));

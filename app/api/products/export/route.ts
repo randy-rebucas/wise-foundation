@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { exportProductsToCsv } from "@/lib/services/product.service";
 import { serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -23,4 +23,4 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:products")(getHandler));
+export const GET = withStaffAuth(withPermission("manage:products")(getHandler));

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { updateSupplier, deleteSupplier } from "@/lib/services/supplier.service";
 import { successResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -27,5 +27,5 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const PUT = withAuth(withPermission("manage:inventory")(putHandler));
-export const DELETE = withAuth(withPermission("manage:inventory")(deleteHandler));
+export const PUT = withStaffAuth(withPermission("manage:inventory")(putHandler));
+export const DELETE = withStaffAuth(withPermission("manage:inventory")(deleteHandler));

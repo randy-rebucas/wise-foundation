@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getBranchById, updateBranch, deleteBranch, type UpdateBranchData } from "@/lib/services/branch.service";
 import { updateBranchSchema } from "@/lib/validations/branch.schema";
@@ -56,6 +56,6 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const PATCH = withAuth(withPermission("manage:branches")(patchHandler));
-export const DELETE = withAuth(withPermission("manage:branches")(deleteHandler));
+export const GET = withStaffAuth(withPermission("manage:branches")(getHandler));
+export const PATCH = withStaffAuth(withPermission("manage:branches")(patchHandler));
+export const DELETE = withStaffAuth(withPermission("manage:branches")(deleteHandler));

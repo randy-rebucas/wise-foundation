@@ -302,6 +302,7 @@ export async function createPurchaseOrder(
     status: "draft",
     subtotal,
     total: subtotal,
+    title: input.title?.trim() || undefined,
     expectedDeliveryDate: input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null,
     notes: input.notes,
     createdBy: userId,
@@ -336,6 +337,7 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
       ? new Date(input.expectedDeliveryDate)
       : null;
   if (input.notes !== undefined) updates.notes = input.notes;
+  if (input.title !== undefined) updates.title = input.title.trim() || undefined;
 
   if (input.items) {
     const items = await normalizePurchaseOrderItems(input.items);

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getProductVariants, createProductVariant } from "@/lib/services/product.service";
 import { createVariantSchema } from "@/lib/validations/product.schema";
@@ -30,5 +30,5 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const POST = withAuth(withPermission("manage:products")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:products")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:products")(postHandler));

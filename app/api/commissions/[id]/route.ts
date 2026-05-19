@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { markCommissionPaid, cancelCommission } from "@/lib/services/commission.service";
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -29,4 +29,4 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const PATCH = withAuth(withPermission("manage:organizations")(patchHandler));
+export const PATCH = withStaffAuth(withPermission("manage:organizations")(patchHandler));

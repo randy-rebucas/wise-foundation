@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getStockMovements, getStockMovementsByOrg, processStockMovement } from "@/lib/services/inventory.service";
 import { stockMovementSchema } from "@/lib/validations/inventory.schema";
@@ -58,5 +58,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const POST = withAuth(withPermission("manage:inventory")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));

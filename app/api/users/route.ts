@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getUsers, createUser } from "@/lib/services/user.service";
 import { createUserSchema } from "@/lib/validations/user.schema";
@@ -53,5 +53,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:users")(getHandler));
-export const POST = withAuth(withPermission("manage:users")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:users")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:users")(postHandler));

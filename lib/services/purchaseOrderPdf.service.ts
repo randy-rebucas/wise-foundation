@@ -15,6 +15,7 @@ import { signatureDataUrlToBuffer } from "@/lib/utils/signatureDataUrl";
 
 type PoPdfRow = {
   poNumber: string;
+  title?: string;
   status: string;
   subtotal: number;
   total: number;
@@ -150,6 +151,9 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
   doc.moveDown(0.25);
   doc.fontSize(14).fillColor("#333333").text("Purchase Order");
   doc.fontSize(11).fillColor("#666666").text(txt(po.poNumber));
+  if (po.title?.trim()) {
+    doc.fontSize(12).fillColor("#333333").text(txt(po.title.trim()));
+  }
   doc.moveDown(0.5);
 
   doc

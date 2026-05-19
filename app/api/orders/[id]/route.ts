@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { canUserAccessOrder, getOrderById, updateOrderStatus } from "@/lib/services/order.service";
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -69,5 +69,5 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:orders")(getHandler));
-export const PATCH = withAuth(withPermission("manage:orders")(patchHandler));
+export const GET = withStaffAuth(withPermission("manage:orders")(getHandler));
+export const PATCH = withStaffAuth(withPermission("manage:orders")(patchHandler));

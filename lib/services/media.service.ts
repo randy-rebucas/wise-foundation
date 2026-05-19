@@ -107,7 +107,7 @@ export async function uploadAndRegisterImages(
   uploadedBy?: string
 ) {
   const uploaded: UploadedImageResult[] = [];
-  const assets: any[] = [];
+  const assets: NonNullable<Awaited<ReturnType<typeof registerMediaAsset>>>[] = [];
 
   try {
     for (const file of files) {

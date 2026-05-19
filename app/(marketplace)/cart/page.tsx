@@ -89,7 +89,9 @@ export default function MarketplaceCartPage() {
   }, []);
 
   useEffect(() => {
-    void loadSuggestions();
+    queueMicrotask(() => {
+      void loadSuggestions();
+    });
   }, [loadSuggestions]);
 
   const scrollSuggestions = (direction: "prev" | "next") => {

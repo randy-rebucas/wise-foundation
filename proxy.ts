@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
+import { isCustomerOrPublicApi, isStaffBlockedRole } from "@/lib/utils/apiAccess";
+import { proxyRateLimit } from "@/lib/utils/rateLimit";
 
 /** Reachable without auth while maintenance is on (admins can still sign in). */
 const MAINTENANCE_PUBLIC = [
@@ -44,6 +46,10 @@ function matchesPrefixList(pathname: string, prefixes: string[]) {
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  const rateLimited = proxyRateLimit(req);
+  if (rateLimited) return rateLimited;
+
   const maintenanceActive = isMaintenanceMode();
 
   const isMaintenancePublic = matchesPrefixList(pathname, MAINTENANCE_PUBLIC);
@@ -103,11 +109,6 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // Public read-only upload config — no session required
-  if (pathname === "/api/products/images/status") {
-    return NextResponse.next();
-  }
-
   const session = await auth();
 
   if (!session && matchesPrefixList(pathname, UNAUTHENTICATED)) {
@@ -119,6 +120,14 @@ export async function proxy(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (
+    pathname.startsWith("/api/") &&
+    !isCustomerOrPublicApi(pathname) &&
+    isStaffBlockedRole(session.user.role)
+  ) {
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
   return NextResponse.next();

@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import type { ProductCategory } from "@/types";
@@ -96,6 +97,7 @@ export default function MarketplaceShopPage() {
   const [meta, setMeta] = useState<{ total: number; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search.trim()), 350);
@@ -196,7 +198,7 @@ export default function MarketplaceShopPage() {
               </Button>
             </div>
 
-            <div className="relative min-h-[260px]">
+            <div className="relative hidden min-h-[260px] sm:block">
               <div className="absolute inset-x-[12%] top-[24%] h-32 rounded-full border border-white/50 bg-white/25 blur-[1px]" />
               <div className="absolute inset-x-[5%] bottom-2 h-16 rounded-[50%] bg-white/35 blur-2xl" />
               {heroProducts.map((product, index) => {
@@ -244,6 +246,15 @@ export default function MarketplaceShopPage() {
             <span className="font-semibold text-[#3c2e60]">Shop</span>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] lg:hidden"
+              onClick={() => setFiltersOpen((o) => !o)}
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              {filtersOpen ? "Hide filters" : "Filters"}
+            </Button>
             <p className="text-center sm:text-right">
               Showing {showingStart}-{showingEnd} of {total} products
             </p>
@@ -274,7 +285,12 @@ export default function MarketplaceShopPage() {
         </div>
 
         <div id="shop-products" className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
-          <aside className="space-y-5 rounded-[1.5rem] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl">
+          <aside
+            className={cn(
+              "space-y-5 rounded-[1.5rem] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl",
+              filtersOpen ? "block" : "hidden lg:block"
+            )}
+          >
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-[#3c2e60]">Categories</h2>
               <SlidersHorizontal className="h-4 w-4 text-[#6ea43f]" />

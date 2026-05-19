@@ -25,15 +25,6 @@ import {
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(t);
-  }, [value, delayMs]);
-  return debounced;
-}
-
 function toDateInputValue(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -64,38 +55,24 @@ export function PurchaseOrderForm({
 
   const [initialLoading, setInitialLoading] = useState(isEdit);
   const [editingPoNumber, setEditingPoNumber] = useState("");
+  const [poTitle, setPoTitle] = useState("");
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [poNotes, setPONotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
-  const [poSuggestRow, setPoSuggestRow] = useState<number | null>(null);
-
-  const poSuggestQuery =
-    poSuggestRow !== null ? (poItems[poSuggestRow]?.productName ?? "").trim() : "";
-  const debouncedPOSuggestQuery = useDebouncedValue(poSuggestQuery, 280);
 
   const {
-    data: poProductHits = [],
-    isFetching: poProductsLoading,
-    isError: isProductSearchError,
-    error: productSearchError,
-  } = useQuery({
-    queryKey: ["purchase-order-product-search", debouncedPOSuggestQuery],
+    data: products = [],
+    isError: isProductsError,
+    error: productsError,
+  } = useQuery<ProductHit[]>({
+    queryKey: ["products-simple"],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: "1",
-        limit: "30",
-        search: debouncedPOSuggestQuery,
-        isActive: "true",
-        includeVariantSummary: "true",
-      });
-      const res = await fetch(`/api/products?${params}`);
-      const j = await res.json();
-      if (!j.success) throw new Error(j.error ?? `Product search failed (${res.status})`);
-      const raw = j.data;
-      return Array.isArray(raw) ? (raw as ProductHit[]) : [];
+      const res = await fetch("/api/products?limit=100&isActive=true&includeVariantSummary=true");
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
+      return (data.data ?? []) as ProductHit[];
     },
-    enabled: debouncedPOSuggestQuery.length >= 2,
   });
 
   const {
@@ -115,13 +92,13 @@ export function PurchaseOrderForm({
   const loadPurchaseOrder = useCallback(async () => {
     if (!poId) return;
     setInitialLoading(true);
-    setPoSuggestRow(null);
     try {
       const res = await fetch(`/api/purchase-orders/${poId}`);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
       const po = json.data as {
         poNumber: string;
+        title?: string;
         status: string;
         organizationId?: { _id: string } | string;
         expectedDeliveryDate?: string;
@@ -141,6 +118,7 @@ export function PurchaseOrderForm({
       }
 
       setEditingPoNumber(po.poNumber);
+      setPoTitle(po.title ?? "");
       const orgId =
         po.organizationId && typeof po.organizationId === "object"
           ? po.organizationId._id
@@ -204,9 +182,10 @@ export function PurchaseOrderForm({
   }, [poId, toast, onCancel]);
 
   useEffect(() => {
-    if (isEdit) {
+    if (!isEdit) return;
+    queueMicrotask(() => {
       void loadPurchaseOrder();
-    }
+    });
   }, [isEdit, loadPurchaseOrder]);
 
   function buildItemsPayload() {
@@ -230,6 +209,7 @@ export function PurchaseOrderForm({
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            title: poTitle.trim() || undefined,
             items,
             expectedDeliveryDate: expectedDate || undefined,
             notes: poNotes || undefined,
@@ -244,6 +224,7 @@ export function PurchaseOrderForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           organizationId: selectedOrgId,
+          title: poTitle.trim() || undefined,
           items,
           expectedDeliveryDate: expectedDate || undefined,
           notes: poNotes || undefined,
@@ -285,6 +266,12 @@ export function PurchaseOrderForm({
     );
   }
 
+  function selectPOProductById(index: number, productId: string) {
+    const p = products.find((x) => x._id === productId);
+    if (!p) return;
+    void selectPOProduct(index, p);
+  }
+
   async function selectPOProduct(index: number, p: ProductHit) {
     patchPOItem(index, {
       productId: p._id,
@@ -296,7 +283,6 @@ export function PurchaseOrderForm({
       variants: undefined,
       variantsLoading: true,
     });
-    setPoSuggestRow(null);
 
     try {
       const res = await fetch(`/api/products/${p._id}/variants`);
@@ -370,7 +356,26 @@ export function PurchaseOrderForm({
           </AlertDescription>
         </Alert>
       )}
+      {isProductsError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {productsError instanceof Error
+              ? productsError.message
+              : "Unable to load product list for line items."}
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1 sm:col-span-2">
+          <Label htmlFor="po-title">Title</Label>
+          <Input
+            id="po-title"
+            value={poTitle}
+            onChange={(e) => setPoTitle(e.target.value)}
+            placeholder="e.g. Q2 restock — Manila branch"
+            maxLength={200}
+          />
+        </div>
         <div className="space-y-1">
           <Label>Organization</Label>
           <Select
@@ -413,75 +418,26 @@ export function PurchaseOrderForm({
           {poItems.map((item, index) => (
             <div key={index} className="p-3 space-y-2">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="relative">
-                  <Label className="text-xs">Product</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    placeholder="Type to search catalog…"
-                    value={item.productName}
-                    autoComplete="off"
-                    onFocus={() => setPoSuggestRow(index)}
-                    onChange={(e) => {
-                      updateItem(index, "productName", e.target.value);
-                      setPoSuggestRow(index);
-                      if (e.target.value.trim() === "") {
-                        patchPOItem(index, {
-                          productId: "",
-                          variantId: undefined,
-                          variants: undefined,
-                          variantsLoading: false,
-                          sku: "",
-                          unitCost: 0,
-                        });
-                      }
-                    }}
-                    onBlur={() => {
-                      window.setTimeout(() => {
-                        setPoSuggestRow((cur) => (cur === index ? null : cur));
-                      }, 180);
-                    }}
-                  />
-                  {poSuggestRow === index && poSuggestQuery.length >= 2 && (
-                    <div
-                      className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md"
-                      role="listbox"
-                    >
-                      {poProductsLoading ? (
-                        <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Searching…
-                        </div>
-                      ) : isProductSearchError ? (
-                        <p className="px-3 py-3 text-sm text-destructive">
-                          {productSearchError instanceof Error
-                            ? productSearchError.message
-                            : "Product search failed."}
-                        </p>
-                      ) : poProductHits.length === 0 ? (
-                        <p className="px-3 py-3 text-sm text-muted-foreground">No matching products.</p>
-                      ) : (
-                        poProductHits.map((p) => (
-                          <button
-                            key={p._id}
-                            type="button"
-                            role="option"
-                            aria-selected={item.productId === p._id}
-                            className="flex w-full flex-col items-start gap-0.5 border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => selectPOProduct(index, p)}
-                          >
-                            <span className="font-medium">{p.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {p.sku} · {money(p.retailPrice)}
-                              {typeof p.variantCount === "number" && p.variantCount > 0 && (
-                                <> · {p.variantCount} variant{p.variantCount === 1 ? "" : "s"}</>
-                              )}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
+                <div className="space-y-1">
+                  <Label className="text-xs">Product *</Label>
+                  <Select
+                    value={item.productId || undefined}
+                    onValueChange={(v) => selectPOProductById(index, v)}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {products.map((p) => (
+                        <SelectItem key={p._id} value={p._id}>
+                          {p.name} ({p.sku})
+                          {typeof p.variantCount === "number" && p.variantCount > 0
+                            ? ` · ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`
+                            : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <div>
@@ -530,7 +486,7 @@ export function PurchaseOrderForm({
                     <SelectContent>
                       {item.variants.map((v) => (
                         <SelectItem key={v._id} value={v._id}>
-                          {v.name} ({v.sku}) · {money(v.retailPrice)}
+                          {v.name} ({v.sku})
                         </SelectItem>
                       ))}
                     </SelectContent>

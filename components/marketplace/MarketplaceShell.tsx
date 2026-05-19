@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
@@ -8,6 +9,8 @@ import { AppLogo } from "@/components/branding/AppLogo";
 import {
   Bell,
   ChevronRight,
+  Menu,
+  X,
   CreditCard,
   Gift,
   Heart,
@@ -110,6 +113,7 @@ export function MarketplaceShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: session } = useSession();
   const count = useMarketplaceCartStore((s) => s.getCount());
   const brand = { ...DEFAULT_PUBLIC_APP_SETTINGS, ...(tenant ?? {}) };
@@ -145,7 +149,7 @@ export function MarketplaceShell({
   return (
     <TenantProvider value={tenant}>
       <div
-        className="flex min-h-screen flex-col bg-[#f6ecff] bg-cover bg-fixed bg-center bg-no-repeat text-[#2A4C6A]"
+        className="flex min-h-screen flex-col bg-[#f6ecff] bg-cover bg-center bg-no-repeat text-[#2A4C6A] max-lg:bg-scroll lg:bg-fixed"
         style={{ backgroundImage: `url(${MARKETPLACE_BACKGROUND_IMAGE})` }}
       >
         <header
@@ -157,7 +161,7 @@ export function MarketplaceShell({
               theme="marketplace"
               appName={brand.appName}
               appTagline={brand.appTagline}
-              className="gap-2 font-semibold"
+              className="min-w-0 max-w-[calc(100%-7rem)] gap-2 font-semibold sm:max-w-none"
               priority
             />
             <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 lg:flex">
@@ -177,6 +181,16 @@ export function MarketplaceShell({
               ))}
             </nav>
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full border border-white/45 bg-white/25 lg:hidden"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open menu"
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
               <Button
                 variant={isShop ? "secondary" : "ghost"}
                 size="icon"
@@ -360,7 +374,52 @@ export function MarketplaceShell({
             </div>
           </div>
         </header>
-        <main className={cn("w-full flex-1", isHome ? "" : "mx-auto max-w-6xl px-4 py-8")}>
+
+        {mobileNavOpen && (
+          <button
+            type="button"
+            className="fixed inset-0 z-[60] bg-black/50 lg:hidden"
+            aria-label="Close menu"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
+        <nav
+          className={cn(
+            "fixed inset-y-0 left-0 z-[70] flex w-[min(100vw-2rem,18rem)] flex-col gap-1 border-r border-white/50 bg-white/95 p-4 shadow-xl backdrop-blur-xl transition-transform duration-200 lg:hidden",
+            mobileNavOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+          )}
+          aria-hidden={!mobileNavOpen}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-sm font-semibold text-[#3c2e60]">Menu</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {primaryNav.map((item) => (
+            <Button
+              key={item.href}
+              variant={item.active ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start text-[#1e3157]",
+                item.active && "bg-white/55 text-[#2B6B56]"
+              )}
+              asChild
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <Link href={item.href}>{item.label}</Link>
+            </Button>
+          ))}
+        </nav>
+
+        <main className={cn("w-full min-w-0 flex-1", isHome ? "" : "mx-auto max-w-6xl px-4 py-6 sm:py-8")}>
           {children}
         </main>
         {!isHome && !hasCustomFooter && (

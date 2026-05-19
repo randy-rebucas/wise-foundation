@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getOrganizationById, updateOrganization, deleteOrganization } from "@/lib/services/organization.service";
 import {
@@ -45,6 +45,6 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const PUT = withAuth(withPermission("manage:organizations")(putHandler));
-export const DELETE = withAuth(withPermission("manage:organizations")(deleteHandler));
+export const GET = withStaffAuth(withPermission("manage:organizations")(getHandler));
+export const PUT = withStaffAuth(withPermission("manage:organizations")(putHandler));
+export const DELETE = withStaffAuth(withPermission("manage:organizations")(deleteHandler));

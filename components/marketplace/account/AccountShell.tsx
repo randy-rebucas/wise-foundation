@@ -81,7 +81,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <nav className="mt-4 space-y-1">
+            <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
               {ACCOUNT_NAV.map((item) => {
                 const active = isAccountNavActive(pathname, item.href);
                 return (
@@ -89,7 +89,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                      "flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition lg:shrink",
                       active
                         ? "bg-violet-100/80 text-violet-700"
                         : "text-[#2A4C6A]/75 hover:bg-white/60 hover:text-[#1e3157]"

@@ -1,4 +1,5 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
+import { withPermission } from "@/lib/middleware/withPermission";
 import { getProductsForPOS } from "@/lib/services/product.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
@@ -22,4 +23,4 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
+export const GET = withStaffAuth(withPermission("use:pos")(getHandler));

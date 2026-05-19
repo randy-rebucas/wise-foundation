@@ -285,7 +285,7 @@ export default function AccountRegisterPage() {
                 <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-violet-100" />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {["Google", "Facebook", "Apple"].map((provider) => (
                   <Button
                     key={provider}

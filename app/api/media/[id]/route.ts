@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { deleteMediaAsset, getMediaAssetUsage } from "@/lib/services/media.service";
 import { errorResponse, notFoundResponse, serverErrorResponse, successResponse } from "@/lib/utils/apiResponse";
@@ -39,6 +39,6 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:products")(getHandler));
+export const GET = withStaffAuth(withPermission("manage:products")(getHandler));
 
-export const DELETE = withAuth(withPermission("manage:products")(deleteHandler));
+export const DELETE = withStaffAuth(withPermission("manage:products")(deleteHandler));

@@ -169,7 +169,7 @@ export default function AboutUsPage() {
             </h2>
             <Leaf className="h-5 w-5 text-[#6ea43f]" />
           </div>
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {promises.map((promise) => (
               <article key={promise.title} className="flex items-center gap-3 border-white/60 md:border-r md:last:border-r-0">
                 <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${promise.tone}`}>

@@ -28,6 +28,7 @@ import type { OrganizationType } from "@/components/purchase-orders/purchaseOrde
 interface PurchaseOrder {
   _id: string;
   poNumber: string;
+  title?: string;
   status: "draft" | "submitted" | "approved" | "received" | "cancelled";
   organizationId?: { name: string; type: OrganizationType } | null;
   subtotal: number;
@@ -145,6 +146,9 @@ export default function PurchaseOrdersPage() {
       render: (o: PurchaseOrder) => (
         <div>
           <p className="font-mono font-medium text-sm">{o.poNumber}</p>
+          {o.title ? (
+            <p className="text-sm font-medium truncate max-w-[14rem]">{o.title}</p>
+          ) : null}
           <p className="text-xs text-muted-foreground">{dateTime(o.createdAt)}</p>
         </div>
       ),
@@ -173,8 +177,10 @@ export default function PurchaseOrdersPage() {
       render: (o: PurchaseOrder) => {
         const next = STATUS_NEXT[o.status];
         return (
-          <div className="flex items-center gap-2">
-            <Badge variant={STATUS_BADGE[o.status] ?? "secondary"}>{o.status}</Badge>
+          <div className="flex min-w-[8.5rem] flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+            <Badge variant={STATUS_BADGE[o.status] ?? "secondary"} className="w-fit">
+              {o.status}
+            </Badge>
             {next &&
               (o.status === "draft" || o.status === "submitted" ? (
                 <Button variant="outline" size="sm" className="h-6 text-xs" asChild>
@@ -253,7 +259,7 @@ export default function PurchaseOrdersPage() {
   return (
     <div className="flex flex-col">
       <Header title="Purchase Orders" subtitle="Manage orders from distributors, franchises, and partners" />
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 space-y-6 p-4 sm:p-6">
         {isListError && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -270,7 +276,7 @@ export default function PurchaseOrdersPage() {
           </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             title="Draft"
             value={draftCount}
@@ -308,14 +314,16 @@ export default function PurchaseOrdersPage() {
             setPage(1);
           }}
         >
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="draft">Draft</TabsTrigger>
-            <TabsTrigger value="submitted">Submitted</TabsTrigger>
-            <TabsTrigger value="approved">Approved</TabsTrigger>
-            <TabsTrigger value="received">Received</TabsTrigger>
-            <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+          <div className="w-full min-w-0 overflow-x-auto pb-1">
+            <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap gap-1 p-1 sm:h-10 sm:w-auto">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+            <TabsTrigger value="draft" className="text-xs sm:text-sm">Draft</TabsTrigger>
+            <TabsTrigger value="submitted" className="text-xs sm:text-sm">Submitted</TabsTrigger>
+            <TabsTrigger value="approved" className="text-xs sm:text-sm">Approved</TabsTrigger>
+            <TabsTrigger value="received" className="text-xs sm:text-sm">Received</TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs sm:text-sm">Cancelled</TabsTrigger>
           </TabsList>
+          </div>
         </Tabs>
 
         <DataTable

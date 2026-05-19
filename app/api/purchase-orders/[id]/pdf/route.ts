@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getPurchaseOrderByIdForUser } from "@/lib/services/purchaseOrder.service";
 import { errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -37,4 +37,4 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:inventory")(getHandler));
+export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));

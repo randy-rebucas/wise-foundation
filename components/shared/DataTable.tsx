@@ -41,8 +41,8 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table className="min-w-[52rem]">
+      <div className="overflow-x-auto rounded-md border">
+        <Table className="min-w-[640px] lg:min-w-[52rem]">
           <TableHeader>
             <TableRow>
               {columns.map((col) => (

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { updateProductVariant, deleteProductVariant } from "@/lib/services/product.service";
 import { updateVariantSchema } from "@/lib/validations/product.schema";
@@ -38,5 +38,5 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const PATCH = withAuth(withPermission("manage:products")(patchHandler));
-export const DELETE = withAuth(withPermission("manage:products")(deleteHandler));
+export const PATCH = withStaffAuth(withPermission("manage:products")(patchHandler));
+export const DELETE = withStaffAuth(withPermission("manage:products")(deleteHandler));

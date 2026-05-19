@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { assertBranchAssignableForMemberCreate, getMembers, createMember } from "@/lib/services/member.service";
@@ -81,5 +81,5 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:members")(getHandler));
-export const POST = withAuth(withPermission("manage:members")(postHandler));
+export const GET = withStaffAuth(withPermission("manage:members")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:members")(postHandler));

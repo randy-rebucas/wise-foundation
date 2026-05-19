@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import {
   getPurchaseOrderByIdForUser,
@@ -79,7 +79,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:inventory")(getHandler));
-export const PUT = withAuth(withPermission("manage:inventory")(putHandler));
-export const PATCH = withAuth(withPermission("manage:inventory")(patchHandler));
-export const DELETE = withAuth(withPermission("manage:inventory")(deleteHandler));
+export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));
+export const PUT = withStaffAuth(withPermission("manage:inventory")(putHandler));
+export const PATCH = withStaffAuth(withPermission("manage:inventory")(patchHandler));
+export const DELETE = withStaffAuth(withPermission("manage:inventory")(deleteHandler));

@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { importProductsFromCsv } from "@/lib/services/product.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -19,4 +19,4 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:products")(postHandler));
+export const POST = withStaffAuth(withPermission("manage:products")(postHandler));

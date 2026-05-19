@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processResellerSale } from "@/lib/services/organizationInventory.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -37,4 +37,4 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:organizations", { allowRoles: ["ORG_ADMIN"] })(postHandler));
+export const POST = withStaffAuth(withPermission("manage:organizations", { allowRoles: ["ORG_ADMIN"] })(postHandler));

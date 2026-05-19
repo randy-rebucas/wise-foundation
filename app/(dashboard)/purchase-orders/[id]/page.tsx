@@ -50,6 +50,7 @@ interface POItemDetail {
 interface PurchaseOrderDetail {
   _id: string;
   poNumber: string;
+  title?: string;
   status: "draft" | "submitted" | "approved" | "received" | "cancelled";
   organizationId?: {
     name: string;
@@ -107,11 +108,12 @@ export default function PurchaseOrderDetailPage() {
 
   useEffect(() => {
     const sign = searchParams.get("sign");
-    if (sign === "submit" || sign === "approve") {
+    if (sign !== "submit" && sign !== "approve") return;
+    queueMicrotask(() => {
       setSignRole(sign);
       setSignOpen(true);
       router.replace(`/purchase-orders/${id}`);
-    }
+    });
   }, [searchParams, id, router]);
 
   function openSign(role: PurchaseOrderSignRole) {
@@ -271,17 +273,24 @@ export default function PurchaseOrderDetailPage() {
   return (
     <div className="flex flex-col">
       <Header
-        title={`PO: ${po.poNumber}`}
-        subtitle={po.organizationId ? `${po.organizationId.name} · ${po.organizationId.type}` : ""}
+        title={po.title?.trim() ? po.title.trim() : `PO: ${po.poNumber}`}
+        subtitle={
+          [
+            po.title?.trim() ? `PO: ${po.poNumber}` : null,
+            po.organizationId ? `${po.organizationId.name} · ${po.organizationId.type}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+        }
       />
-      <div className="flex-1 p-6 space-y-6 max-w-4xl">
+      <div className="flex-1 space-y-6 p-4 sm:p-6 max-w-4xl">
         {/* Back + Actions */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/purchase-orders")}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <Button variant="ghost" size="sm" className="w-fit shrink-0" onClick={() => router.push("/purchase-orders")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -441,8 +450,8 @@ export default function PurchaseOrderDetailPage() {
         </div>
 
         {/* Items Table */}
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[36rem] text-sm">
             <thead className="bg-muted">
               <tr>
                 <th className="text-left px-4 py-2 font-medium">Product</th>

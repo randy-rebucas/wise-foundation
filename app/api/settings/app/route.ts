@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { getPublicAppSettings, updateAppSettings } from "@/lib/services/appSettings.service";
 import { patchAppSettingsSchema } from "@/lib/validations/appSettings.schema";
 import {
@@ -40,5 +40,5 @@ const patchHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const PATCH = withAuth(patchHandler);
+export const GET = withStaffAuth(getHandler);
+export const PATCH = withStaffAuth(patchHandler);

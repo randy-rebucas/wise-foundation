@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { serializeMeUser } from "@/lib/utils/serializeMeUser";
@@ -55,5 +55,5 @@ const patchHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withAuth(getHandler);
-export const PATCH = withAuth(patchHandler);
+export const GET = withStaffAuth(getHandler);
+export const PATCH = withStaffAuth(patchHandler);

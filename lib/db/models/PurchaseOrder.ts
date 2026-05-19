@@ -12,6 +12,7 @@ export interface IPurchaseOrder extends Document {
   organizationId: Types.ObjectId;
   branchId?: Types.ObjectId | null;
   poNumber: string;
+  title?: string;
   status: PurchaseOrderStatus;
   subtotal: number;
   total: number;
@@ -44,6 +45,7 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     branchId: { type: Schema.Types.ObjectId, ref: "Branch", default: null },
     poNumber: { type: String, required: true, unique: true },
+    title: { type: String, trim: true, maxlength: 200 },
     status: {
       type: String,
       required: true,

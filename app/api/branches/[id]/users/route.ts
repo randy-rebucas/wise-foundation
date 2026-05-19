@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getBranchUsers, assignUserToBranch, removeUserFromBranch } from "@/lib/services/branch.service";
 import {
@@ -44,6 +44,6 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withAuth(withPermission("manage:branches")(getHandler));
-export const POST = withAuth(withPermission("manage:branches")(postHandler));
-export const DELETE = withAuth(withPermission("manage:branches")(deleteHandler));
+export const GET = withStaffAuth(withPermission("manage:branches")(getHandler));
+export const POST = withStaffAuth(withPermission("manage:branches")(postHandler));
+export const DELETE = withStaffAuth(withPermission("manage:branches")(deleteHandler));

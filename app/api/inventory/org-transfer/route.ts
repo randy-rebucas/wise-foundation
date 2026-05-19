@@ -1,4 +1,4 @@
-import { withAuth } from "@/lib/middleware/withAuth";
+import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processOrgTransfer } from "@/lib/services/inventory.service";
 import { orgTransferSchema } from "@/lib/validations/inventory.schema";
@@ -21,4 +21,4 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const POST = withAuth(withPermission("manage:inventory")(postHandler));
+export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));
