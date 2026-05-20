@@ -27,7 +27,23 @@ declare module "next-auth" {
 }
 
 
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+if (!authSecret && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "AUTH_SECRET (or NEXTAUTH_SECRET) is required. Generate one with: openssl rand -hex 32"
+  );
+}
+
+if (!authSecret && process.env.NODE_ENV === "development") {
+  console.warn(
+    "[auth] AUTH_SECRET / NEXTAUTH_SECRET is not set — session API may return errors. Add it to .env.local"
+  );
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: authSecret,
+  trustHost: true,
   providers: [
     Credentials({
       name: "credentials",

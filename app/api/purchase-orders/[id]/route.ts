@@ -1,5 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { withPermission } from "@/lib/middleware/withPermission";
+import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import {
   getPurchaseOrderByIdForUser,
   updatePurchaseOrder,
@@ -67,7 +67,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!existing) return notFoundResponse("Purchase order not found");
     const { status } = await req.json();
     if (!status) return errorResponse("Status is required");
-    const po = await updatePurchaseOrderStatus(id, status as PurchaseOrderStatus, req.user.id);
+    const po = await updatePurchaseOrderStatus(id, status as PurchaseOrderStatus, req.user);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, `Purchase order ${status}`);
   } catch (error) {
@@ -90,7 +90,9 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));
-export const PUT = withStaffAuth(withPermission("manage:inventory")(putHandler));
-export const PATCH = withStaffAuth(withPermission("manage:inventory")(patchHandler));
-export const DELETE = withStaffAuth(withPermission("manage:inventory")(deleteHandler));
+const poAccess = withAnyPermission("manage:inventory", "submit:org_orders");
+
+export const GET = withStaffAuth(poAccess(getHandler));
+export const PUT = withStaffAuth(poAccess(putHandler));
+export const PATCH = withStaffAuth(poAccess(patchHandler));
+export const DELETE = withStaffAuth(poAccess(deleteHandler));

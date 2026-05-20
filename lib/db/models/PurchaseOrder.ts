@@ -25,6 +25,9 @@ export interface IPurchaseOrder extends Document {
   createdBy: Types.ObjectId;
   approvedBy?: Types.ObjectId | null;
   approvedAt?: Date | null;
+  declinedBy?: Types.ObjectId | null;
+  declinedAt?: Date | null;
+  declineReason?: string;
   submittedSignature?: IPurchaseOrderSignatureEmbed | null;
   approvedSignature?: IPurchaseOrderSignatureEmbed | null;
   receivedBy?: Types.ObjectId | null;
@@ -53,7 +56,14 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     status: {
       type: String,
       required: true,
-      enum: ["draft", "submitted", "approved", "received", "cancelled"] as PurchaseOrderStatus[],
+      enum: [
+        "draft",
+        "submitted",
+        "approved",
+        "declined",
+        "received",
+        "cancelled",
+      ] as PurchaseOrderStatus[],
       default: "draft",
     },
     subtotal: { type: Number, required: true, min: 0 },
@@ -70,6 +80,9 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     approvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     approvedAt: { type: Date, default: null },
+    declinedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    declinedAt: { type: Date, default: null },
+    declineReason: { type: String, maxlength: 500 },
     submittedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     approvedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     receivedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },

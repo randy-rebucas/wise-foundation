@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -26,7 +27,6 @@ import {
   Trash2,
   FileDown,
   PenLine,
-  Copy,
 } from "lucide-react";
 import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
 import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
@@ -54,7 +54,7 @@ interface PurchaseOrderDetail {
   _id: string;
   poNumber: string;
   title?: string;
-  status: "draft" | "submitted" | "approved" | "received" | "cancelled";
+  status: "draft" | "submitted" | "approved" | "declined" | "received" | "cancelled";
   organizationId?: {
     name: string;
     type: OrganizationType;
@@ -71,8 +71,11 @@ interface PurchaseOrderDetail {
   notes?: string;
   createdBy: { name: string };
   approvedBy?: { name: string } | null;
+  declinedBy?: { name: string } | null;
   receivedBy?: { name: string } | null;
   approvedAt?: string;
+  declinedAt?: string;
+  declineReason?: string;
   receivedAt?: string;
   createdAt: string;
   submittedSignature?: {
@@ -92,9 +95,32 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   draft: "secondary",
   submitted: "warning",
   approved: "default",
+  declined: "destructive",
   received: "success",
   cancelled: "destructive",
 };
+
+const STATUS_LABEL: Record<PurchaseOrderDetail["status"], string> = {
+  draft: "Draft",
+  submitted: "Submitted",
+  approved: "Approved",
+  declined: "Declined",
+  received: "Fulfilled",
+  cancelled: "Cancelled",
+};
+
+function DetailField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="text-sm leading-snug">{children}</div>
+    </div>
+  );
+}
+
+function PageShell({ children }: { children: ReactNode }) {
+  return <div className="mx-auto w-full max-w-4xl px-4 pb-8 sm:px-6">{children}</div>;
+}
 
 export default function PurchaseOrderDetailPage() {
   const money = useFormatCurrency();
@@ -106,8 +132,15 @@ export default function PurchaseOrderDetailPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: session } = useSession();
+  const isPlatformAdmin = session?.user?.role === "ADMIN";
+  const isOrgSubmitter = session?.user?.role === "ORG_ADMIN";
+  const canFulfill =
+    isPlatformAdmin || (session?.user?.permissions?.includes("manage:inventory") ?? false);
 
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
   const [signOpen, setSignOpen] = useState(false);
   const [signRole, setSignRole] = useState<PurchaseOrderSignRole>("submit");
@@ -165,7 +198,10 @@ export default function PurchaseOrderDetailPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-order", id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+    },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Update failed", description: err.message }),
   });
@@ -185,23 +221,25 @@ export default function PurchaseOrderDetailPage() {
       toast({ variant: "destructive", title: "Delete failed", description: err.message }),
   });
 
-  const duplicateMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/purchase-orders/${id}/duplicate`, { method: "POST" });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? `Duplicate failed (${res.status})`);
-      return data.data as { _id: string; poNumber?: string };
-    },
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
-      toast({
-        title: "Purchase order duplicated",
-        description: created.poNumber ? `Draft ${created.poNumber} created` : undefined,
+  const declineMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const res = await fetch(`/api/purchase-orders/${id}/decline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason.trim() || undefined }),
       });
-      router.push(`/purchase-orders/${created._id}/edit`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Decline failed (${res.status})`);
+    },
+    onSuccess: () => {
+      setDeclineOpen(false);
+      setDeclineReason("");
+      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Purchase order declined" });
     },
     onError: (err: Error) =>
-      toast({ variant: "destructive", title: "Duplicate failed", description: err.message }),
+      toast({ variant: "destructive", title: "Decline failed", description: err.message }),
   });
 
   const receiveMutation = useMutation({
@@ -223,6 +261,7 @@ export default function PurchaseOrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
       setReceiveOpen(false);
+      toast({ title: "Purchase order fulfilled", description: "Inventory has been updated." });
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Fulfillment failed", description: err.message }),
@@ -240,13 +279,13 @@ export default function PurchaseOrderDetailPage() {
     return (
       <div className="flex flex-col">
         <Header title="Purchase Order" />
-        <div className="flex-1 p-6 space-y-4">
-          <p className="text-muted-foreground">Invalid purchase order link.</p>
-          <Button variant="outline" size="sm" onClick={() => router.push("/purchase-orders")}>
+        <PageShell>
+          <p className="mt-6 text-muted-foreground">Invalid purchase order link.</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push("/purchase-orders")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-        </div>
+        </PageShell>
       </div>
     );
   }
@@ -255,9 +294,11 @@ export default function PurchaseOrderDetailPage() {
     return (
       <div className="flex flex-col">
         <Header title="Purchase Order" />
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PageShell>
+          <div className="flex h-48 items-center justify-center sm:h-64">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </PageShell>
       </div>
     );
   }
@@ -266,17 +307,17 @@ export default function PurchaseOrderDetailPage() {
     return (
       <div className="flex flex-col">
         <Header title="Purchase Order" />
-        <div className="flex-1 p-6 space-y-4 max-w-4xl">
-          <Alert variant="destructive">
+        <PageShell>
+          <Alert variant="destructive" className="mt-6">
             <AlertDescription>
               {error instanceof Error ? error.message : "Unable to load this purchase order."}
             </AlertDescription>
           </Alert>
-          <Button variant="outline" size="sm" onClick={() => router.push("/purchase-orders")}>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push("/purchase-orders")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-        </div>
+        </PageShell>
       </div>
     );
   }
@@ -285,295 +326,382 @@ export default function PurchaseOrderDetailPage() {
     return (
       <div className="flex flex-col">
         <Header title="Purchase Order" />
-        <div className="flex-1 p-6">
-          <p className="text-muted-foreground">Purchase order not found.</p>
+        <PageShell>
+          <p className="mt-6 text-muted-foreground">Purchase order not found.</p>
           <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push("/purchase-orders")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-        </div>
+        </PageShell>
       </div>
     );
   }
 
+  const itemCount = po.items.length;
+  const showFulfilledColumn = po.status === "received";
+
   return (
     <div className="flex flex-col">
       <Header
-        title={po.title?.trim() ? po.title.trim() : `PO: ${po.poNumber}`}
+        title={po.title?.trim() ? po.title.trim() : po.poNumber}
         subtitle={
           [
-            po.title?.trim() ? `PO: ${po.poNumber}` : null,
-            po.organizationId ? `${po.organizationId.name} · ${po.organizationId.type}` : null,
+            po.title?.trim() ? po.poNumber : null,
+            po.organizationId?.name,
+            po.organizationId?.type
+              ? po.organizationId.type.charAt(0).toUpperCase() + po.organizationId.type.slice(1)
+              : null,
           ]
             .filter(Boolean)
             .join(" · ") || undefined
         }
       />
-      <div className="flex-1 space-y-6 p-4 sm:p-6 max-w-4xl">
-        {/* Back + Actions */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <Button variant="ghost" size="sm" className="w-fit shrink-0" onClick={() => router.push("/purchase-orders")}>
+
+      <div className="border-b bg-muted/30 px-4 sm:px-6">
+        <div className="flex flex-col gap-4 py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 w-fit"
+            onClick={() => router.push("/purchase-orders")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Purchase Orders
           </Button>
-          <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleDownloadPdf()}
-              disabled={pdfLoading}
-            >
-              {pdfLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <FileDown className="h-4 w-4 mr-2" />
-              )}
-              Download PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => duplicateMutation.mutate()}
-              disabled={duplicateMutation.isPending}
-            >
-              {duplicateMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Copy className="h-4 w-4 mr-2" />
-              )}
-              Duplicate
-            </Button>
-            <Badge variant={STATUS_BADGE[po.status] ?? "secondary"} className="text-sm px-3 py-1">
-              {po.status.toUpperCase()}
-            </Badge>
-            {po.status === "draft" && (
-              <>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/purchase-orders/${id}/edit`}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </Link>
-                </Button>
-                <Button size="sm" onClick={() => openSign("submit")}>
-                  <PenLine className="h-4 w-4 mr-2" />
-                  Sign & Submit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    if (
-                      !window.confirm(
-                        `Delete purchase order ${po.poNumber}? This cannot be undone.`
-                      )
-                    ) {
-                      return;
-                    }
-                    deleteMutation.mutate();
-                  }}
-                  disabled={deleteMutation.isPending || statusMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            {po.status === "submitted" && (
-              <>
-                <Button size="sm" onClick={() => openSign("approve")}>
-                  <PenLine className="h-4 w-4 mr-2" />
-                  Sign & Approve
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => statusMutation.mutate("cancelled")} disabled={statusMutation.isPending}>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </>
-            )}
-            {po.status === "approved" && (
-              <Button size="sm" onClick={openReceive}>
-                <PackageCheck className="h-4 w-4 mr-2" />
-                Mark Fulfilled
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <Badge variant={STATUS_BADGE[po.status] ?? "secondary"} className="text-sm">
+                {STATUS_LABEL[po.status]}
+              </Badge>
+              <span className="font-mono text-sm text-muted-foreground">{po.poNumber}</span>
+              <span className="text-sm text-muted-foreground">
+                {itemCount} {itemCount === 1 ? "item" : "items"} · {money(po.total)}
+              </span>
+            </div>
+
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:max-w-[70%] lg:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleDownloadPdf()}
+                disabled={pdfLoading}
+              >
+                {pdfLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileDown className="h-4 w-4 mr-2" />
+                )}
+                PDF
               </Button>
-            )}
+
+              {po.status === "draft" && (
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/purchase-orders/${id}/edit`}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Link>
+                  </Button>
+                  {(isOrgSubmitter || isPlatformAdmin) && (
+                    <Button size="sm" onClick={() => openSign("submit")}>
+                      <PenLine className="h-4 w-4 mr-2" />
+                      Sign & Submit
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => statusMutation.mutate("cancelled")}
+                    disabled={statusMutation.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          `Delete purchase order ${po.poNumber}? This cannot be undone.`
+                        )
+                      ) {
+                        return;
+                      }
+                      deleteMutation.mutate();
+                    }}
+                    disabled={deleteMutation.isPending || statusMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </>
+              )}
+              {po.status === "submitted" && isPlatformAdmin && (
+                <>
+                  <Button size="sm" onClick={() => openSign("approve")}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setDeclineOpen(true)}
+                    disabled={declineMutation.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Decline
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => statusMutation.mutate("cancelled")}
+                    disabled={statusMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
+              {po.status === "approved" && canFulfill && (
+                <Button size="sm" onClick={openReceive}>
+                  <PackageCheck className="h-4 w-4 mr-2" />
+                  Mark Fulfilled
+                </Button>
+              )}
+              {po.status === "declined" && (isOrgSubmitter || isPlatformAdmin) && (
+                <Button size="sm" asChild>
+                  <Link href="/purchase-orders/new">New PO</Link>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-
-        {(po.submittedSignature || po.approvedSignature) && (
-          <div className="grid gap-4 sm:grid-cols-2 border rounded-lg p-4">
-            {po.submittedSignature ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Submitted signature
-                </p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={po.submittedSignature.imageDataUrl}
-                  alt={`Signature of ${po.submittedSignature.name}`}
-                  className="h-16 max-w-full object-contain rounded border bg-white"
-                />
-                <p className="text-sm font-medium">{po.submittedSignature.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {dateTime(po.submittedSignature.signedAt)}
-                </p>
-              </div>
-            ) : null}
-            {po.approvedSignature ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Approved signature
-                </p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={po.approvedSignature.imageDataUrl}
-                  alt={`Signature of ${po.approvedSignature.name}`}
-                  className="h-16 max-w-full object-contain rounded border bg-white"
-                />
-                <p className="text-sm font-medium">{po.approvedSignature.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {dateTime(po.approvedSignature.signedAt)}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* Info Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border rounded-lg p-4">
-          {po.organizationId && (
-            <div>
-              <p className="text-xs text-muted-foreground">Organization</p>
-              <p className="text-sm font-medium">{po.organizationId.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">{po.organizationId.type}</p>
-              {po.organizationId.contactPerson && (
-                <p className="text-xs text-muted-foreground">{po.organizationId.contactPerson}</p>
-              )}
-              {po.organizationId.email && (
-                <p className="text-xs text-muted-foreground">{po.organizationId.email}</p>
-              )}
-            </div>
-          )}
-          <div>
-            <p className="text-xs text-muted-foreground">Created By</p>
-            <p className="text-sm font-medium">{po.createdBy?.name}</p>
-            <p className="text-xs text-muted-foreground">{dateTime(po.createdAt)}</p>
-          </div>
-          {po.expectedDeliveryDate && (
-            <div>
-              <p className="text-xs text-muted-foreground">Expected Delivery</p>
-              <p className="text-sm font-medium">{dateTime(po.expectedDeliveryDate)}</p>
-            </div>
-          )}
-          {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths) && (
-            <div>
-              <p className="text-xs text-muted-foreground">Payment Terms</p>
-              <p className="text-sm font-medium">
-                {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths)}
-              </p>
-            </div>
-          )}
-          {(po.discountPercent ?? 0) > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground">Discount</p>
-              <p className="text-sm font-medium text-green-600">{po.discountPercent}% off</p>
-            </div>
-          )}
-          {po.approvedBy && (
-            <div>
-              <p className="text-xs text-muted-foreground">Approved By</p>
-              <p className="text-sm font-medium">{po.approvedBy.name}</p>
-              {po.approvedAt && (
-                <p className="text-xs text-muted-foreground">{dateTime(po.approvedAt)}</p>
-              )}
-            </div>
-          )}
-          {po.receivedBy && (
-            <div>
-              <p className="text-xs text-muted-foreground">Fulfilled By</p>
-              <p className="text-sm font-medium">{po.receivedBy.name}</p>
-              {po.receivedAt && (
-                <p className="text-xs text-muted-foreground">{dateTime(po.receivedAt)}</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Items Table */}
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[36rem] text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium">Product</th>
-                <th className="text-right px-4 py-2 font-medium">Qty Ordered</th>
-                <th className="text-right px-4 py-2 font-medium">Fulfilled</th>
-                <th className="text-right px-4 py-2 font-medium">Unit Price</th>
-                <th className="text-right px-4 py-2 font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {po.items.map((item) => (
-                <tr key={item._id} className="hover:bg-muted/50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{item.productName}</p>
-                    <p className="text-xs text-muted-foreground">{item.sku}</p>
-                  </td>
-                  <td className="px-4 py-3 text-right">{item.quantity}</td>
-                  <td className="px-4 py-3 text-right">
-                    {po.status === "received" ? (
-                      <span className="text-green-600 font-medium">{item.receivedQuantity}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right">{money(item.unitCost)}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{money(item.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t bg-muted/50">
-              <tr>
-                <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">
-                  Subtotal
-                </td>
-                <td className="px-4 py-2 text-right">{money(po.subtotal)}</td>
-              </tr>
-              {(po.discountAmount ?? 0) > 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-2 text-right text-green-600">
-                    Discount ({po.discountPercent}%)
-                  </td>
-                  <td className="px-4 py-2 text-right text-green-600 font-medium">
-                    −{money(po.discountAmount)}
-                  </td>
-                </tr>
-              )}
-              <tr>
-                <td colSpan={4} className="px-4 py-2 text-right font-semibold">Total</td>
-                <td className="px-4 py-2 text-right font-bold text-base">{money(po.total)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <PaymentTermsSchedulePanel
-          total={po.total}
-          paymentTermsMonths={po.paymentTermsMonths}
-          termsStartDate={po.createdAt}
-          formatMoney={money}
-          formatDate={formatDate}
-        />
-
-        {po.notes && (
-          <div className="border rounded-lg p-4">
-            <p className="text-xs text-muted-foreground mb-1">Notes</p>
-            <p className="text-sm">{po.notes}</p>
-          </div>
-        )}
       </div>
+
+      <PageShell>
+        <div className="mt-6 space-y-6">
+          {po.status === "declined" && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                <span className="font-medium">This order was declined.</span>
+                {po.declineReason ? (
+                  <span className="block mt-1">{po.declineReason}</span>
+                ) : (
+                  <span className="block mt-1 text-destructive/90">
+                    Contact your administrator for details.
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {po.status === "submitted" && isOrgSubmitter && (
+            <Alert>
+              <AlertDescription>
+                Waiting for platform admin approval. You will be notified when this order is
+                approved or declined.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(po.submittedSignature || po.approvedSignature) && (
+            <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
+              {po.submittedSignature ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Submitted signature
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={po.submittedSignature.imageDataUrl}
+                    alt={`Signature of ${po.submittedSignature.name}`}
+                    className="h-16 max-w-full object-contain rounded border bg-white"
+                  />
+                  <p className="text-sm font-medium">{po.submittedSignature.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dateTime(po.submittedSignature.signedAt)}
+                  </p>
+                </div>
+              ) : null}
+              {po.approvedSignature ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Approved signature
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={po.approvedSignature.imageDataUrl}
+                    alt={`Signature of ${po.approvedSignature.name}`}
+                    className="h-16 max-w-full object-contain rounded border bg-white"
+                  />
+                  <p className="text-sm font-medium">{po.approvedSignature.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dateTime(po.approvedSignature.signedAt)}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <section className="rounded-lg border bg-card p-4 sm:p-5">
+            <h2 className="mb-4 text-sm font-semibold">Order details</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {po.organizationId && (
+                <DetailField label="Organization">
+                  <p className="font-medium">{po.organizationId.name}</p>
+                  <p className="text-muted-foreground capitalize">{po.organizationId.type}</p>
+                  {po.organizationId.contactPerson ? (
+                    <p className="text-muted-foreground">{po.organizationId.contactPerson}</p>
+                  ) : null}
+                  {po.organizationId.email ? (
+                    <p className="text-muted-foreground">{po.organizationId.email}</p>
+                  ) : null}
+                </DetailField>
+              )}
+              <DetailField label="Created by">
+                <p className="font-medium">{po.createdBy?.name ?? "—"}</p>
+                <p className="text-muted-foreground">{dateTime(po.createdAt)}</p>
+              </DetailField>
+              {po.expectedDeliveryDate ? (
+                <DetailField label="Expected delivery">
+                  <p className="font-medium">{formatDate(po.expectedDeliveryDate)}</p>
+                </DetailField>
+              ) : null}
+              {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths) ? (
+                <DetailField label="Payment terms">
+                  <p className="font-medium">
+                    {formatPurchaseOrderPaymentTerms(po.paymentTermsMonths)}
+                  </p>
+                </DetailField>
+              ) : null}
+              {(po.discountPercent ?? 0) > 0 ? (
+                <DetailField label="Discount">
+                  <p className="font-medium text-green-600">{po.discountPercent}% off</p>
+                </DetailField>
+              ) : null}
+              {po.approvedBy ? (
+                <DetailField label="Approved by">
+                  <p className="font-medium">{po.approvedBy.name}</p>
+                  {po.approvedAt ? (
+                    <p className="text-muted-foreground">{dateTime(po.approvedAt)}</p>
+                  ) : null}
+                </DetailField>
+              ) : null}
+              {po.declinedBy ? (
+                <DetailField label="Declined by">
+                  <p className="font-medium">{po.declinedBy.name}</p>
+                  {po.declinedAt ? (
+                    <p className="text-muted-foreground">{dateTime(po.declinedAt)}</p>
+                  ) : null}
+                </DetailField>
+              ) : null}
+              {po.receivedBy ? (
+                <DetailField label="Fulfilled by">
+                  <p className="font-medium">{po.receivedBy.name}</p>
+                  {po.receivedAt ? (
+                    <p className="text-muted-foreground">{dateTime(po.receivedAt)}</p>
+                  ) : null}
+                </DetailField>
+              ) : null}
+            </div>
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                Line items
+                <span className="ml-2 font-normal text-muted-foreground">({itemCount})</span>
+              </h2>
+            </div>
+            <div className="overflow-x-auto rounded-lg border bg-card">
+              <table className="w-full min-w-[32rem] text-sm">
+                <thead className="border-b bg-muted/60">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-medium">Product</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                    {showFulfilledColumn ? (
+                      <th className="px-4 py-2.5 text-right font-medium">Fulfilled</th>
+                    ) : null}
+                    <th className="px-4 py-2.5 text-right font-medium">Unit cost</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {po.items.map((item) => (
+                    <tr key={item._id} className="hover:bg-muted/40">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">{item.sku}</p>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>
+                      {showFulfilledColumn ? (
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          <span className="font-medium text-green-600">{item.receivedQuantity}</span>
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        {money(item.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t bg-muted/40">
+                  <tr>
+                    <td
+                      colSpan={showFulfilledColumn ? 4 : 3}
+                      className="px-4 py-2 text-right text-muted-foreground"
+                    >
+                      Subtotal
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">{money(po.subtotal)}</td>
+                  </tr>
+                  {(po.discountAmount ?? 0) > 0 && (
+                    <tr>
+                      <td
+                        colSpan={showFulfilledColumn ? 4 : 3}
+                        className="px-4 py-2 text-right text-green-600"
+                      >
+                        Discount ({po.discountPercent}%)
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium text-green-600 tabular-nums">
+                        −{money(po.discountAmount)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td
+                      colSpan={showFulfilledColumn ? 4 : 3}
+                      className="px-4 py-2.5 text-right font-semibold"
+                    >
+                      Total
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-base font-bold tabular-nums">
+                      {money(po.total)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+
+          <PaymentTermsSchedulePanel
+            total={po.total}
+            paymentTermsMonths={po.paymentTermsMonths}
+            termsStartDate={po.createdAt}
+            formatMoney={money}
+            formatDate={formatDate}
+          />
+
+          {po.notes ? (
+            <section className="rounded-lg border bg-card p-4 sm:p-5">
+              <h2 className="mb-2 text-sm font-semibold">Notes</h2>
+              <p className="text-sm whitespace-pre-wrap text-muted-foreground">{po.notes}</p>
+            </section>
+          ) : null}
+        </div>
+      </PageShell>
 
       {/* Fulfill Dialog */}
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
@@ -626,6 +754,48 @@ export default function PurchaseOrderDetailPage() {
             </Button>
             <Button onClick={() => receiveMutation.mutate()} disabled={receiveMutation.isPending}>
               {receiveMutation.isPending ? "Processing..." : "Confirm Fulfillment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Decline — {po.poNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              The distributor will see this order as declined. You can add an optional reason.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="decline-reason">Reason (optional)</Label>
+              <textarea
+                id="decline-reason"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={declineReason}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setDeclineReason(e.target.value)
+                }
+                placeholder="e.g. Out of stock for requested quantities"
+                maxLength={500}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeclineOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => declineMutation.mutate(declineReason)}
+              disabled={declineMutation.isPending}
+            >
+              {declineMutation.isPending ? "Declining..." : "Decline order"}
             </Button>
           </DialogFooter>
         </DialogContent>

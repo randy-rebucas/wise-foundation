@@ -41,3 +41,21 @@ export const defaultPOItem: POItem = {
   quantity: 1,
   unitCost: 0,
 };
+
+/** Line shape from GET /api/purchase-orders/template */
+export interface PurchaseOrderCatalogTemplateLine {
+  productId: string;
+  productName: string;
+  baseProductName: string;
+  sku: string;
+  variantId?: string;
+  variants?: ProductVariantOption[];
+  quantity: number;
+  unitCost: number;
+}
+
+export interface PurchaseOrderCatalogTemplate {
+  title: string;
+  lineCount: number;
+  items: PurchaseOrderCatalogTemplateLine[];
+}

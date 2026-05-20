@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
@@ -15,12 +16,12 @@ import {
   Eye,
   Pencil,
   Trash2,
-  Copy,
   ClipboardCheck,
   Clock,
   CheckCircle,
   PackageCheck,
   Loader2,
+  ListChecks,
 } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,7 +32,7 @@ interface PurchaseOrder {
   _id: string;
   poNumber: string;
   title?: string;
-  status: "draft" | "submitted" | "approved" | "received" | "cancelled";
+  status: "draft" | "submitted" | "approved" | "declined" | "received" | "cancelled";
   organizationId?: { name: string; type: OrganizationType } | null;
   subtotal: number;
   total: number;
@@ -44,6 +45,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
   draft: "secondary",
   submitted: "warning",
   approved: "default",
+  declined: "destructive",
   received: "success",
   cancelled: "destructive",
 };
@@ -52,6 +54,7 @@ const STATUS_NEXT: Record<string, { label: string; value: string } | null> = {
   draft: { label: "Submit", value: "submitted" },
   submitted: { label: "Approve", value: "approved" },
   approved: null,
+  declined: null,
   received: null,
   cancelled: null,
 };
@@ -61,8 +64,12 @@ export default function PurchaseOrdersPage() {
   const dateTime = useFormatDateTime();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isPlatformAdmin = session?.user?.role === "ADMIN";
+  const isOrgSubmitter = session?.user?.role === "ORG_ADMIN";
+  const canFulfill = session?.user?.permissions?.includes("manage:inventory") ?? false;
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -123,25 +130,6 @@ export default function PurchaseOrdersPage() {
       toast({ variant: "destructive", title: "Delete failed", description: err.message }),
   });
 
-  const duplicateMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/purchase-orders/${id}/duplicate`, { method: "POST" });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? `Duplicate failed (${res.status})`);
-      return data.data as { _id: string; poNumber?: string };
-    },
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
-      toast({
-        title: "Purchase order duplicated",
-        description: created.poNumber ? `Draft ${created.poNumber} created` : undefined,
-      });
-      router.push(`/purchase-orders/${created._id}/edit`);
-    },
-    onError: (err: Error) =>
-      toast({ variant: "destructive", title: "Duplicate failed", description: err.message }),
-  });
-
   function confirmDeletePurchaseOrder(po: PurchaseOrder) {
     if (!window.confirm(`Delete purchase order ${po.poNumber}? This cannot be undone.`)) {
       return;
@@ -197,32 +185,36 @@ export default function PurchaseOrdersPage() {
       label: "Status",
       render: (o: PurchaseOrder) => {
         const next = STATUS_NEXT[o.status];
+        const showSubmit = o.status === "draft" && (isOrgSubmitter || isPlatformAdmin);
+        const showApprove = o.status === "submitted" && isPlatformAdmin;
+        const showCancelDraft = o.status === "draft";
+        const showCancelSubmitted = o.status === "submitted" && isPlatformAdmin;
         return (
           <div className="flex min-w-[8.5rem] flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
             <Badge variant={STATUS_BADGE[o.status] ?? "secondary"} className="w-fit">
               {o.status}
             </Badge>
-            {next &&
-              (o.status === "draft" || o.status === "submitted" ? (
-                <Button variant="outline" size="sm" className="h-6 text-xs" asChild>
-                  <Link
-                    href={`/purchase-orders/${o._id}?sign=${o.status === "draft" ? "submit" : "approve"}`}
-                  >
-                    {o.status === "draft" ? "Sign & Submit" : "Sign & Approve"}
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => statusMutation.mutate({ id: o._id, status: next.value })}
-                  disabled={statusMutation.isPending}
-                >
-                  {next.label}
-                </Button>
-              ))}
-            {(o.status === "draft" || o.status === "submitted") && (
+            {showSubmit && (
+              <Button variant="outline" size="sm" className="h-6 text-xs" asChild>
+                <Link href={`/purchase-orders/${o._id}?sign=submit`}>Sign & Submit</Link>
+              </Button>
+            )}
+            {showApprove && (
+              <Button variant="outline" size="sm" className="h-6 text-xs" asChild>
+                <Link href={`/purchase-orders/${o._id}?sign=approve`}>Sign & Approve</Link>
+              </Button>
+            )}
+            {next && !showSubmit && !showApprove && canFulfill && o.status === "approved" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs"
+                asChild
+              >
+                <Link href={`/purchase-orders/${o._id}`}>Fulfill</Link>
+              </Button>
+            )}
+            {(showCancelDraft || showCancelSubmitted) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -262,20 +254,6 @@ export default function PurchaseOrdersPage() {
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Duplicate purchase order"
-            aria-label="Duplicate purchase order"
-            disabled={duplicateMutation.isPending}
-            onClick={() => duplicateMutation.mutate(o._id)}
-          >
-            {duplicateMutation.isPending && duplicateMutation.variables === o._id ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </Button>
           <Link href={`/purchase-orders/${o._id}`}>
             <Button
               variant="ghost"
@@ -293,7 +271,14 @@ export default function PurchaseOrdersPage() {
 
   return (
     <div className="flex flex-col">
-      <Header title="Purchase Orders" subtitle="Manage orders from distributors, franchises, and partners" />
+      <Header
+        title={isOrgSubmitter ? "My Deliveries" : "Purchase Orders"}
+        subtitle={
+          isOrgSubmitter
+            ? "Create and submit purchase orders for admin approval"
+            : "Manage orders from distributors, franchises, and partners"
+        }
+      />
       <div className="flex-1 space-y-6 p-4 sm:p-6">
         {isListError && (
           <Alert variant="destructive">
@@ -302,7 +287,13 @@ export default function PurchaseOrdersPage() {
             </AlertDescription>
           </Alert>
         )}
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/purchase-orders/new?template=catalog">
+              <ListChecks className="h-4 w-4 mr-2" />
+              Catalog template
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/purchase-orders/new">
               <Plus className="h-4 w-4 mr-2" />
@@ -365,6 +356,9 @@ export default function PurchaseOrdersPage() {
               </TabsTrigger>
               <TabsTrigger value="received" className="text-xs sm:text-sm">
                 Received
+              </TabsTrigger>
+              <TabsTrigger value="declined" className="text-xs sm:text-sm">
+                Declined
               </TabsTrigger>
               <TabsTrigger value="cancelled" className="text-xs sm:text-sm">
                 Cancelled

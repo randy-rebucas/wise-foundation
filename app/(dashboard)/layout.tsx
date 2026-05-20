@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import type { PublicAppSettings } from "@/lib/types/appSettings";
 
 const BLOCKED_ROLES = ["MEMBER", "CUSTOMER"];
 
@@ -37,7 +38,22 @@ export default async function DashboardLayout({ children }: Props) {
     permissions: session.user.permissions,
   };
 
-  const tenantSettings = await getPublicAppSettings();
+  let tenantSettings: PublicAppSettings;
+  try {
+    tenantSettings = await getPublicAppSettings();
+  } catch (err) {
+    console.error("[dashboard layout] settings load failed", err);
+    tenantSettings = {
+      appName: "Glowish",
+      appTagline: "POS & online store",
+      currency: "PHP",
+      timezone: "Asia/Manila",
+      memberDefaultDiscountPercent: 10,
+      defaultLowStockThreshold: 10,
+      receiptFooter: "",
+      imageUploadEnabled: false,
+    };
+  }
 
   return (
     <DashboardShell initialUser={sidebarUser} tenantSettings={tenantSettings}>

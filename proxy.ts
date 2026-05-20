@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import type { Session } from "next-auth";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
 import { isCustomerOrPublicApi, isStaffBlockedRole } from "@/lib/utils/apiAccess";
@@ -44,11 +45,20 @@ function matchesPrefixList(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+function isAuthApiRoute(pathname: string) {
+  return pathname === "/api/auth" || pathname.startsWith("/api/auth/");
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const rateLimited = proxyRateLimit(req);
   if (rateLimited) return rateLimited;
+
+  // Auth.js client expects JSON from /api/auth/* — never run setup redirects or auth() here.
+  if (isAuthApiRoute(pathname)) {
+    return NextResponse.next();
+  }
 
   const maintenanceActive = isMaintenanceMode();
 
@@ -74,23 +84,27 @@ export async function proxy(req: NextRequest) {
   }
 
   // Normal operation: DB is source of truth (not app_setup cookie) so reset DB still sends users to setup.
-  // NextAuth client fetches JSON from /api/auth/* — never HTML-redirect those or SessionProvider throws ClientFetchError.
   const bypassSetupRedirect =
-    pathname === "/setup" ||
-    pathname.startsWith("/api/setup") ||
-    matchesPrefixList(pathname, ["/api/auth"]);
+    pathname === "/setup" || pathname.startsWith("/api/setup");
   if (!bypassSetupRedirect) {
     let setupRequired = true;
+    let setupCheckFailed = false;
     try {
-      setupRequired = await computeSetupRequired();
+      setupRequired = await Promise.race([
+        computeSetupRequired(),
+        new Promise<boolean>((_, reject) => {
+          setTimeout(() => reject(new Error("Setup check timed out")), 8_000);
+        }),
+      ]);
     } catch (err) {
+      setupCheckFailed = true;
       console.error("[proxy] setup check failed", err);
     }
+    if (setupCheckFailed && matchesPrefixList(pathname, UNAUTHENTICATED)) {
+      return NextResponse.next();
+    }
     if (setupRequired) {
-      // JSON for fetch() callers — never follow a redirect to HTML (breaks res.json()).
-      const setupApiOk =
-        pathname.startsWith("/api/auth") || pathname.startsWith("/api/setup");
-      if (pathname.startsWith("/api/") && !setupApiOk) {
+      if (pathname.startsWith("/api/") && !pathname.startsWith("/api/setup")) {
         return NextResponse.json(
           { success: false, error: "Application setup is not complete." },
           { status: 503 }
@@ -109,7 +123,22 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  const session = await auth();
+  let session: Session | null = null;
+  try {
+    session = await auth();
+  } catch (err) {
+    console.error("[proxy] auth() failed", err);
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { success: false, error: "Authentication service unavailable" },
+        { status: 503 }
+      );
+    }
+    if (matchesPrefixList(pathname, UNAUTHENTICATED)) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
 
   if (!session && matchesPrefixList(pathname, UNAUTHENTICATED)) {
     return NextResponse.next();

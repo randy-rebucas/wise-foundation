@@ -41,6 +41,8 @@ interface NavItem {
   path: string;
   icon: React.ElementType;
   permission?: string;
+  /** User needs any one of these permissions (platform admin always passes). */
+  anyPermission?: string[];
   roles?: string[];
   /** When true, any authenticated dashboard user may see this link (still requires dashboard access). */
   allAuthenticated?: boolean;
@@ -56,7 +58,12 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
-  { label: "Deliveries", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
+  {
+    label: "Purchase Orders",
+    path: "/purchase-orders",
+    icon: Package,
+    anyPermission: ["manage:inventory", "submit:org_orders", "manage:purchase-orders"],
+  },
   { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
@@ -123,6 +130,9 @@ export function Sidebar({
     if (item.allAuthenticated) return true;
     if (item.roles) {
       return item.roles.includes(accessUser.role);
+    }
+    if (item.anyPermission?.length) {
+      return item.anyPermission.some((p) => hasPermission(accessUser, p));
     }
     if (!item.permission) return accessUser.role !== "MEMBER";
     return hasPermission(accessUser, item.permission);

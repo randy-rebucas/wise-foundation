@@ -1,5 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { withPermission } from "@/lib/middleware/withPermission";
+import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import {
   getPurchaseOrderByIdForUser,
 } from "@/lib/services/purchaseOrder.service";
@@ -28,7 +28,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const po = await signPurchaseOrder(id, req.user.id, parsed.data);
+    const po = await signPurchaseOrder(id, req.user, parsed.data);
     if (!po) return notFoundResponse("Purchase order not found");
 
     const message =
@@ -44,4 +44,6 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));
+export const POST = withStaffAuth(
+  withAnyPermission("manage:inventory", "submit:org_orders")(postHandler)
+);

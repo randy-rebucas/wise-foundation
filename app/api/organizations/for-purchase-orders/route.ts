@@ -1,5 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { withPermission } from "@/lib/middleware/withPermission";
+import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import { getOrganizationsForOrderContext } from "@/lib/services/organization.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -15,4 +15,6 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));
+export const GET = withStaffAuth(
+  withAnyPermission("manage:inventory", "submit:org_orders")(getHandler)
+);

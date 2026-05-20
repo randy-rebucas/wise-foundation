@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ShoppingBag } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -11,13 +11,19 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+  const useCatalogTemplate = searchParams.get("template") === "catalog";
 
   return (
     <div>
       <Header
-        title="New Purchase Order"
-        subtitle="Create a draft order for a distributor, franchise, or partner"
+        title={useCatalogTemplate ? "New catalog purchase order" : "New Purchase Order"}
+        subtitle={
+          useCatalogTemplate
+            ? "All active products are loaded as line items — adjust quantities, then save as draft"
+            : "Create a draft order for a distributor, franchise, or partner"
+        }
       />
       <div className="p-4 pb-8 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
@@ -42,6 +48,7 @@ export default function NewPurchaseOrderPage() {
             <CardContent>
               <PurchaseOrderForm
                 mode="create"
+                applyCatalogTemplateOnMount={useCatalogTemplate}
                 onCancel={() => router.push("/purchase-orders")}
                 onSuccess={(result) => {
                   toast({

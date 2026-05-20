@@ -70,3 +70,9 @@ export const signPurchaseOrderSchema = z.object({
 });
 
 export type SignPurchaseOrderInput = z.infer<typeof signPurchaseOrderSchema>;
+
+export const declinePurchaseOrderSchema = z.object({
+  reason: z.string().trim().max(500, "Reason must be 500 characters or less").optional(),
+});
+
+export type DeclinePurchaseOrderInput = z.infer<typeof declinePurchaseOrderSchema>;

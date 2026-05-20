@@ -34,7 +34,13 @@ export const ORDER_PAID_STATUSES: readonly OrderStatus[] = ["paid", "delivered",
 
 export type MemberStatus = "active" | "inactive" | "suspended";
 
-export type PurchaseOrderStatus = "draft" | "submitted" | "approved" | "received" | "cancelled";
+export type PurchaseOrderStatus =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "declined"
+  | "received"
+  | "cancelled";
 
 export type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 

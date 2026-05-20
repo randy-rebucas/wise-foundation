@@ -12,6 +12,12 @@ import { Inventory } from "@/lib/db/models/Inventory";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { hasPermission } from "@/lib/permissions";
+import {
+  canApprovePurchaseOrders,
+  canManagePurchaseOrdersInventory,
+  canSubmitOrgPurchaseOrders,
+  isOrgPurchaseOrderSubmitter,
+} from "@/lib/permissions/purchaseOrders";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 import {
   computePurchaseOrderTotals,
@@ -28,9 +34,6 @@ import type {
 const _purchaseOrderRefModels = [Branch, Organization, User] as const;
 
 type PurchaseOrderItemInput = CreatePurchaseOrderInput["items"][number];
-type PurchaseOrderLineItem = NonNullable<
-  Awaited<ReturnType<typeof getPurchaseOrderById>>
->["items"][number];
 
 async function generatePONumber(): Promise<string> {
   const latest = await PurchaseOrder.findOne({ deletedAt: null })
@@ -100,8 +103,13 @@ function buildPurchaseOrderListQuery(
     return query;
   }
 
+  if (canSubmitOrgPurchaseOrders(user) && user.organizationId) {
+    query.organizationId = user.organizationId;
+    return query;
+  }
+
   const bids = (user.branchIds ?? []).map(String).filter(Boolean);
-  if (!hasPermission(user, "manage:inventory")) return null;
+  if (!canManagePurchaseOrdersInventory(user)) return null;
   if (bids.length === 0) {
     query.branchId = null;
     return query;
@@ -128,6 +136,7 @@ export async function getPurchaseOrderStatusCounts(
     draft: 0,
     submitted: 0,
     approved: 0,
+    declined: 0,
     received: 0,
     cancelled: 0,
   };
@@ -294,6 +303,7 @@ export async function getPurchaseOrderById(poId: string) {
     .populate("organizationId", "name type contactPerson email phone")
     .populate("createdBy", "name")
     .populate("approvedBy", "name")
+    .populate("declinedBy", "name")
     .populate("receivedBy", "name")
     .lean();
 
@@ -320,6 +330,12 @@ export async function createPurchaseOrder(
 ) {
   await connectDB();
   assertValidObjectId(input.organizationId, "organization id");
+
+  if (user && isOrgPurchaseOrderSubmitter(user) && user.organizationId) {
+    if (String(input.organizationId) !== String(user.organizationId)) {
+      throw new Error("You can only create purchase orders for your organization");
+    }
+  }
 
   const items = await normalizePurchaseOrderItems(input.items);
   const branchId = user ? resolveBranchIdForCreate(user, input.branchId) : (input.branchId ?? null);
@@ -443,89 +459,40 @@ export async function deletePurchaseOrderForUser(poId: string, user: SessionUser
   const po = await getPurchaseOrderById(poId);
   if (!po) return false;
   if (!canUserAccessPurchaseOrder(po, user)) return false;
+  if (
+    isOrgPurchaseOrderSubmitter(user) &&
+    !canManagePurchaseOrdersInventory(user) &&
+    refEntityId(po.createdBy) !== String(user.id)
+  ) {
+    throw new Error("You can only delete your own draft purchase orders");
+  }
   await deletePurchaseOrder(poId);
   return true;
-}
-
-export async function duplicatePurchaseOrderForUser(
-  poId: string,
-  userId: string,
-  user: SessionUser
-) {
-  const source = await getPurchaseOrderByIdForUser(poId, user);
-  if (!source) return null;
-
-  const organizationId = refEntityId(source.organizationId);
-  if (!organizationId) throw new Error("Purchase order has no organization");
-
-  const lineItems = (source.items ?? []) as PurchaseOrderLineItem[];
-  if (lineItems.length === 0) {
-    throw new Error("Cannot duplicate a purchase order with no line items");
-  }
-
-  const items: CreatePurchaseOrderInput["items"] = lineItems.map((item: PurchaseOrderLineItem) => {
-    const productId = refEntityId(item.productId);
-    if (!productId) throw new Error("A line item is missing product data");
-    const variantId = refEntityId(item.variantId);
-    return {
-      productId,
-      variantId: variantId ?? undefined,
-      productName: item.productName,
-      sku: item.sku,
-      quantity: item.quantity,
-      unitCost: item.unitCost,
-    };
-  });
-
-  const titleRaw = typeof source.title === "string" ? source.title.trim() : "";
-  const title = titleRaw
-    ? `${titleRaw.replace(/\s+\(copy\)$/i, "")} (copy)`
-    : `Copy of ${source.poNumber}`;
-
-  const expectedDeliveryDate =
-    source.expectedDeliveryDate != null
-      ? new Date(source.expectedDeliveryDate).toISOString().slice(0, 10)
-      : undefined;
-
-  const sourceTerms = source.paymentTermsMonths;
-  const paymentTermsMonths =
-    sourceTerms === 3 || sourceTerms === 6 ? sourceTerms : null;
-
-  const input: CreatePurchaseOrderInput = {
-    organizationId,
-    branchId: refEntityId(source.branchId) ?? undefined,
-    title,
-    items,
-    paymentTermsMonths,
-    discountPercent: Number(source.discountPercent ?? 0),
-    expectedDeliveryDate,
-    notes: source.notes ?? undefined,
-  };
-
-  const created = await createPurchaseOrder(userId, input, user);
-  if (!created?._id) throw new Error("Failed to create duplicate purchase order");
-  return getPurchaseOrderById(String(created._id));
 }
 
 export async function updatePurchaseOrderStatus(
   poId: string,
   status: PurchaseOrderStatus,
-  userId: string
+  user: SessionUser
 ) {
   await connectDB();
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
+  if (!canUserAccessPurchaseOrder(po, user)) {
+    throw new Error("Purchase order not found");
+  }
 
   const validTransitions: Record<string, PurchaseOrderStatus[]> = {
     draft: ["submitted", "cancelled"],
-    submitted: ["approved", "cancelled"],
+    submitted: ["approved", "declined", "cancelled"],
     approved: ["received", "cancelled"],
+    declined: [],
     received: [],
     cancelled: [],
   };
 
-  if (!validTransitions[po.status].includes(status)) {
+  if (!validTransitions[po.status]?.includes(status)) {
     throw new Error(`Cannot transition from ${po.status} to ${status}`);
   }
 
@@ -535,8 +502,76 @@ export async function updatePurchaseOrderStatus(
   if (status === "approved") {
     throw new Error("Approve this purchase order using Sign & Approve.");
   }
+  if (status === "declined") {
+    throw new Error("Decline this purchase order using Decline on the order detail page.");
+  }
 
-  return PurchaseOrder.findByIdAndUpdate(poId, { $set: { status } }, { new: true }).lean();
+  if (status === "cancelled") {
+    if (po.status === "draft") {
+      if (!isOrgPurchaseOrderSubmitter(user) && !canManagePurchaseOrdersInventory(user)) {
+        throw new Error("You cannot cancel this purchase order");
+      }
+      if (
+        isOrgPurchaseOrderSubmitter(user) &&
+        refEntityId(po.createdBy) !== String(user.id)
+      ) {
+        throw new Error("You can only cancel your own draft purchase orders");
+      }
+    } else if (po.status === "submitted") {
+      if (canApprovePurchaseOrders(user)) {
+        /* admin may cancel instead of decline */
+      } else if (isOrgPurchaseOrderSubmitter(user)) {
+        throw new Error("Submitted orders cannot be cancelled. Contact admin for changes.");
+      } else if (!canManagePurchaseOrdersInventory(user)) {
+        throw new Error("You cannot cancel this purchase order");
+      }
+    } else if (!canManagePurchaseOrdersInventory(user)) {
+      throw new Error("You cannot cancel this purchase order");
+    }
+  }
+
+  if (status === "received" && !canManagePurchaseOrdersInventory(user)) {
+    throw new Error("Only operations staff can mark purchase orders as fulfilled");
+  }
+
+  const updates: Record<string, unknown> = { status };
+  if (status === "received") {
+    updates.receivedBy = new mongoose.Types.ObjectId(user.id);
+    updates.receivedAt = new Date();
+  }
+
+  return PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+}
+
+export async function declinePurchaseOrder(
+  poId: string,
+  user: SessionUser,
+  reason?: string
+) {
+  if (!canApprovePurchaseOrders(user)) {
+    throw new Error("Only platform administrators can decline purchase orders");
+  }
+
+  await connectDB();
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  if (!po) throw new Error("Purchase order not found");
+  if (po.status !== "submitted") {
+    throw new Error("Only submitted purchase orders can be declined");
+  }
+
+  const trimmedReason = reason?.trim();
+  return PurchaseOrder.findByIdAndUpdate(
+    poId,
+    {
+      $set: {
+        status: "declined",
+        declinedBy: new mongoose.Types.ObjectId(user.id),
+        declinedAt: new Date(),
+        declineReason: trimmedReason || undefined,
+      },
+    },
+    { new: true }
+  ).lean();
 }
 
 export async function receivePurchaseOrder(

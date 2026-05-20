@@ -1,5 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { withPermission } from "@/lib/middleware/withPermission";
+import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import {
   getPurchaseOrders,
   createPurchaseOrder,
@@ -58,5 +58,7 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withStaffAuth(withPermission("manage:inventory")(getHandler));
-export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));
+const poAccess = withAnyPermission("manage:inventory", "submit:org_orders");
+
+export const GET = withStaffAuth(poAccess(getHandler));
+export const POST = withStaffAuth(poAccess(postHandler));

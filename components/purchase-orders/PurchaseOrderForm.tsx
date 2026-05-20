@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,12 +17,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
 import {
   defaultPOItem,
   type Organization,
   type POItem,
   type ProductHit,
+  type PurchaseOrderCatalogTemplate,
   type ProductVariantOption,
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
@@ -42,7 +44,22 @@ export type PurchaseOrderFormProps = {
   onCancel: () => void;
   /** Hide action footer (e.g. when parent supplies dialog footer). */
   showFooter?: boolean;
+  /** On create, load all active catalog products into line items on mount. */
+  applyCatalogTemplateOnMount?: boolean;
 };
+
+function catalogLineToPoItem(line: PurchaseOrderCatalogTemplate["items"][number]): POItem {
+  return {
+    productId: line.productId,
+    productName: line.productName,
+    baseProductName: line.baseProductName,
+    sku: line.sku,
+    variantId: line.variantId,
+    variants: line.variants,
+    quantity: line.quantity,
+    unitCost: line.unitCost,
+  };
+}
 
 export function PurchaseOrderForm({
   mode,
@@ -50,12 +67,18 @@ export function PurchaseOrderForm({
   onSuccess,
   onCancel,
   showFooter = true,
+  applyCatalogTemplateOnMount = false,
 }: PurchaseOrderFormProps) {
   const money = useFormatCurrency();
   const formatDate = useFormatDate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: session } = useSession();
   const isEdit = mode === "edit" && !!poId;
+  const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
+  const sessionOrgId = session?.user?.organizationId
+    ? String(session.user.organizationId)
+    : "";
 
   const [initialLoading, setInitialLoading] = useState(isEdit);
   const [editingPoNumber, setEditingPoNumber] = useState("");
@@ -67,6 +90,8 @@ export function PurchaseOrderForm({
   const [discountPercent, setDiscountPercent] = useState(0);
   const [poCreatedAt, setPoCreatedAt] = useState<string | undefined>();
   const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [catalogApplied, setCatalogApplied] = useState(false);
 
   function paymentTermsPayload(): 3 | 6 | null {
     if (paymentTerms === "3") return 3;
@@ -207,6 +232,81 @@ export function PurchaseOrderForm({
       void loadPurchaseOrder();
     });
   }, [isEdit, loadPurchaseOrder]);
+
+  useEffect(() => {
+    if (isEdit || !isOrgAdmin || !sessionOrgId) return;
+    setSelectedOrgId(sessionOrgId);
+  }, [isEdit, isOrgAdmin, sessionOrgId]);
+
+  const orgOptions =
+    isOrgAdmin && sessionOrgId
+      ? organizations.filter((org) => org._id === sessionOrgId)
+      : organizations;
+
+  const applyCatalogTemplate = useCallback(
+    async (opts?: { replace?: boolean; silent?: boolean }) => {
+      setTemplateLoading(true);
+      try {
+        const res = await fetch("/api/purchase-orders/template");
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error ?? `Failed to load catalog template (${res.status})`);
+        }
+        const template = json.data as PurchaseOrderCatalogTemplate;
+        if (template.lineCount === 0) {
+          if (!opts?.silent) {
+            toast({
+              variant: "destructive",
+              title: "No products in catalog",
+              description: "Add active products before using the full catalog template.",
+            });
+          }
+          return;
+        }
+
+        const existingCount = poItems.filter((i) => i.productId).length;
+        if (
+          existingCount > 0 &&
+          opts?.replace !== false &&
+          !window.confirm(
+            `Replace ${existingCount} line item${existingCount === 1 ? "" : "s"} with ${template.lineCount} catalog products?`
+          )
+        ) {
+          return;
+        }
+
+        setPOItems(template.items.map(catalogLineToPoItem));
+        if (!poTitle.trim()) {
+          setPoTitle(template.title);
+        }
+        setCatalogApplied(true);
+        if (!opts?.silent) {
+          toast({
+            title: "Catalog template loaded",
+            description: `${template.lineCount} products added. Adjust quantities before saving.`,
+          });
+        }
+      } catch (err) {
+        toast({
+          variant: "destructive",
+          title: "Could not load catalog template",
+          description: err instanceof Error ? err.message : "Unknown error",
+        });
+      } finally {
+        setTemplateLoading(false);
+      }
+    },
+    [poItems, poTitle, toast]
+  );
+
+  const catalogMountStarted = useRef(false);
+  useEffect(() => {
+    if (isEdit || !applyCatalogTemplateOnMount || catalogMountStarted.current) return;
+    catalogMountStarted.current = true;
+    queueMicrotask(() => {
+      void applyCatalogTemplate({ replace: true, silent: false });
+    });
+  }, [isEdit, applyCatalogTemplateOnMount, applyCatalogTemplate]);
 
   function buildItemsPayload() {
     return poItems
@@ -404,12 +504,16 @@ export function PurchaseOrderForm({
         </div>
         <div className="space-y-1">
           <Label>Organization</Label>
-          <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
+          <Select
+            value={selectedOrgId}
+            onValueChange={setSelectedOrgId}
+            disabled={isOrgAdmin && !!sessionOrgId}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select organization" />
             </SelectTrigger>
             <SelectContent>
-              {organizations.map((org) => (
+              {orgOptions.map((org) => (
                 <SelectItem key={org._id} value={org._id}>
                   {org.name}
                   <span className="text-muted-foreground capitalize ml-1">({org.type})</span>
@@ -417,6 +521,9 @@ export function PurchaseOrderForm({
               ))}
             </SelectContent>
           </Select>
+          {isOrgAdmin && sessionOrgId ? (
+            <p className="text-xs text-muted-foreground">Orders are created for your organization.</p>
+          ) : null}
         </div>
         <div className="space-y-1">
           <Label>Expected Delivery</Label>
@@ -469,13 +576,36 @@ export function PurchaseOrderForm({
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <Label>Items</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            <Plus className="h-3 w-3 mr-1" />
-            Add Item
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {!isEdit && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={templateLoading}
+                onClick={() => void applyCatalogTemplate({ replace: true })}
+              >
+                {templateLoading ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <ListChecks className="h-3 w-3 mr-1" />
+                )}
+                {catalogApplied ? "Reload full catalog" : "Load full catalog"}
+              </Button>
+            )}
+            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Plus className="h-3 w-3 mr-1" />
+              Add Item
+            </Button>
+          </div>
         </div>
+        {!isEdit && catalogApplied && (
+          <p className="text-xs text-muted-foreground">
+            Full catalog template applied — set quantities per line, then save as draft.
+          </p>
+        )}
         <div className="border rounded-lg divide-y">
           {poItems.map((item, index) => (
             <div key={index} className="p-3 space-y-2">
