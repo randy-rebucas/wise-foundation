@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
+import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import {
   defaultPOItem,
@@ -50,6 +51,7 @@ export function PurchaseOrderForm({
   showFooter = true,
 }: PurchaseOrderFormProps) {
   const money = useFormatCurrency();
+  const formatDate = useFormatDate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isEdit = mode === "edit" && !!poId;
@@ -62,6 +64,7 @@ export function PurchaseOrderForm({
   const [expectedDate, setExpectedDate] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [discountPercent, setDiscountPercent] = useState(0);
+  const [poCreatedAt, setPoCreatedAt] = useState<string | undefined>();
   const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
 
   function paymentTermsPayload(): 3 | 6 | null {
@@ -109,6 +112,7 @@ export function PurchaseOrderForm({
         poNumber: string;
         title?: string;
         status: string;
+        createdAt?: string;
         organizationId?: { _id: string } | string;
         expectedDeliveryDate?: string;
         paymentTermsMonths?: 3 | 6 | null;
@@ -129,6 +133,7 @@ export function PurchaseOrderForm({
       }
 
       setEditingPoNumber(po.poNumber);
+      setPoCreatedAt(po.createdAt);
       setPoTitle(po.title ?? "");
       const orgId =
         po.organizationId && typeof po.organizationId === "object"
@@ -453,6 +458,13 @@ export function PurchaseOrderForm({
           />
           <p className="text-xs text-muted-foreground">Applied to line subtotal (e.g. 20% off)</p>
         </div>
+        <PaymentTermsSchedulePanel
+          total={pricing.total}
+          paymentTermsMonths={paymentTermsPayload()}
+          termsStartDate={poCreatedAt ?? (expectedDate || undefined)}
+          formatMoney={money}
+          formatDate={formatDate}
+        />
       </div>
 
       <div className="space-y-2">

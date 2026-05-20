@@ -31,10 +31,11 @@ import {
 import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
 import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
 import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
-import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
+import { useFormatCurrency, useFormatDate, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
+import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -97,6 +98,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 
 export default function PurchaseOrderDetailPage() {
   const money = useFormatCurrency();
+  const formatDate = useFormatDate();
   const dateTime = useFormatDateTime();
   const params = useParams<{ id: string }>();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
@@ -556,6 +558,14 @@ export default function PurchaseOrderDetailPage() {
             </tfoot>
           </table>
         </div>
+
+        <PaymentTermsSchedulePanel
+          total={po.total}
+          paymentTermsMonths={po.paymentTermsMonths}
+          termsStartDate={po.createdAt}
+          formatMoney={money}
+          formatDate={formatDate}
+        />
 
         {po.notes && (
           <div className="border rounded-lg p-4">

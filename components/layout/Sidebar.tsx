@@ -56,7 +56,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
   { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
-  { label: "Purchase Orders", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
+  { label: "Deliveries", path: "/purchase-orders", icon: Truck, permission: "manage:inventory" },
   { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
