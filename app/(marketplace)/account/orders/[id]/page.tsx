@@ -145,6 +145,30 @@ export default function AccountOrderDetailPage() {
             </section>
           ) : null}
 
+          {order.paymentMethod === "cash" && order.codPayment ? (
+            <section className="rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-5 shadow-sm">
+              <h2 className="font-semibold text-[#1e3157]">Cash on delivery</h2>
+              <p className="mt-2 text-sm text-[#2A4C6A]/80">
+                Pay <span className="font-semibold text-[#6ea43f]">{money(order.codPayment.amountDue)}</span>{" "}
+                in cash when your order is delivered.
+              </p>
+              {order.status === "pending" ? (
+                <p className="mt-1 text-xs text-[#2A4C6A]/65">
+                  Payment will be collected on delivery.
+                </p>
+              ) : null}
+              {order.codPayment.prepareChangeFor ? (
+                <p className="mt-2 text-xs text-[#2A4C6A]/70">
+                  You indicated paying with {money(order.codPayment.prepareChangeFor)}
+                  {order.codPayment.changeToReturn
+                    ? ` (change: ${money(order.codPayment.changeToReturn)})`
+                    : ""}
+                  .
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
           <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
             <h2 className="font-semibold text-[#1e3157]">Summary</h2>
             <dl className="mt-4 space-y-2 text-sm">

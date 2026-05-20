@@ -18,9 +18,9 @@ export default function EditPurchaseOrderPage() {
 
   if (!id) {
     return (
-      <div className="flex flex-col">
+      <div>
         <Header title="Edit Purchase Order" />
-        <div className="flex-1 p-6 space-y-4">
+        <div className="p-4 pb-8 sm:p-6 space-y-4">
           <p className="text-muted-foreground">Invalid purchase order link.</p>
           <Button variant="outline" size="sm" asChild>
             <Link href="/purchase-orders">
@@ -34,12 +34,12 @@ export default function EditPurchaseOrderPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div>
       <Header
         title="Edit Purchase Order"
         subtitle="Update a draft order before submission"
       />
-      <div className="flex-1 p-6">
+      <div className="p-4 pb-8 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/purchase-orders/${id}`}>

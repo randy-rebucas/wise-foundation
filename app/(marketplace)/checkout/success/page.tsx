@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
+  Banknote,
+  Building2,
   Check,
   Mail,
   Package,
@@ -13,6 +15,7 @@ import {
   Sparkles,
   Truck,
 } from "lucide-react";
+import { MARKETPLACE_DEPOSIT_BANK_ACCOUNTS } from "@/lib/constants/marketplaceBankAccounts";
 import { Button } from "@/components/ui/button";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
@@ -55,6 +58,11 @@ function SuccessInner() {
   const orderNumber = search.get("orderNumber") ?? "GW12345678";
   const totalRaw = search.get("total");
   const total = totalRaw ? Number(totalRaw) : 989;
+  const paymentMethod = search.get("paymentMethod");
+  const orderStatus = search.get("status");
+  const isBankTransferPending =
+    paymentMethod === "bank_transfer" && orderStatus === "pending";
+  const isCodPending = paymentMethod === "cash" && orderStatus === "pending";
   const orderDate = formatOrderDate(new Date());
   const displayNumber = orderNumber.startsWith("#") ? orderNumber : `#${orderNumber}`;
 
@@ -73,9 +81,66 @@ function SuccessInner() {
             <span className="font-[family-name:var(--font-great-vibes)] text-[#d965c9]"> You!</span>
           </h1>
           <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-[#1e3157]/82">
-            Your order has been placed successfully. We appreciate your trust in Glowish.
+            {isBankTransferPending
+              ? "Your order is reserved. Complete your bank transfer to confirm payment."
+              : isCodPending
+                ? "Your order is confirmed. Please prepare cash for delivery."
+                : "Your order has been placed successfully. We appreciate your trust in Glowish."}
           </p>
         </section>
+
+        {isCodPending ? (
+          <section className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/50 p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+              <Banknote className="h-5 w-5" />
+              Cash on delivery
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/78">
+              Pay{" "}
+              <span className="font-semibold text-[#1e3157]">
+                {Number.isFinite(total) ? money(total) : money(989)}
+              </span>{" "}
+              in cash when your order arrives. Have the exact amount ready if possible. Order{" "}
+              <span className="font-mono font-semibold">{displayNumber}</span> is pending until
+              payment is collected on delivery.
+            </p>
+            <ul className="mt-3 space-y-2 text-xs leading-5 text-[#2A4C6A]/75">
+              <li>Ensure someone is available at your shipping address to receive and pay.</li>
+              <li>Our courier may have limited change — paying the exact amount speeds up delivery.</li>
+              <li>You can track status under My Orders after signing in.</li>
+            </ul>
+          </section>
+        ) : null}
+
+        {isBankTransferPending ? (
+          <section className="rounded-[2rem] border border-amber-200/80 bg-amber-50/50 p-5 shadow-sm sm:p-6">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+              <Building2 className="h-5 w-5" />
+              Bank transfer instructions
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/78">
+              Transfer <span className="font-semibold text-[#1e3157]">{Number.isFinite(total) ? money(total) : money(989)}</span> to
+              one of the accounts below. Include your order number{" "}
+              <span className="font-mono font-semibold">{displayNumber}</span> in the transfer
+              reference or notes. We will confirm within 1–2 business days.
+            </p>
+            <ul className="mt-4 space-y-3">
+              {MARKETPLACE_DEPOSIT_BANK_ACCOUNTS.map((account) => (
+                <li
+                  key={account.id}
+                  className="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm"
+                >
+                  <p className="font-semibold text-[#1e3157]">{account.bankName}</p>
+                  <p className="text-[#2A4C6A]/75">{account.accountName}</p>
+                  <p className="font-mono text-[#1e3157]">{account.accountNumber}</p>
+                  {account.branch ? (
+                    <p className="text-xs text-[#2A4C6A]/60">{account.branch}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
           <div className="flex flex-col gap-2 border-b border-white/60 pb-4 text-sm sm:flex-row sm:items-center sm:justify-between">

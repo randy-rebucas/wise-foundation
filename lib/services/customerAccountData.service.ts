@@ -312,6 +312,11 @@ export type CustomerOrderDetail = {
     total: number;
     thumbnailUrl: string | null;
   }[];
+  codPayment?: {
+    amountDue: number;
+    prepareChangeFor?: number;
+    changeToReturn?: number;
+  } | null;
 };
 
 export async function getMyMarketplaceOrderDetail(
@@ -371,5 +376,12 @@ export async function getMyMarketplaceOrderDetail(
       total: item.total,
       thumbnailUrl: imageByProductId.get(String(item.productId)) ?? null,
     })),
+    codPayment: order.marketplaceCodPayment
+      ? {
+          amountDue: order.marketplaceCodPayment.amountDue,
+          prepareChangeFor: order.marketplaceCodPayment.prepareChangeFor,
+          changeToReturn: order.marketplaceCodPayment.changeToReturn,
+        }
+      : null,
   };
 }

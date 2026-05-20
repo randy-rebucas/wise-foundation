@@ -100,7 +100,9 @@ export function DashboardShell({ initialUser, tenantSettings, children }: Dashbo
             </Link>
           </Button>
         </div>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+          {children}
+        </main>
       </div>
     </div>
     </TenantProvider>

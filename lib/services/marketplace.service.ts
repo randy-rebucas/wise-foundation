@@ -16,13 +16,189 @@ import { generateOrderNumber } from "@/lib/utils";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import type { ProductCategory } from "@/types";
 import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
-import { addCustomerSavedAddress } from "@/lib/services/customerAccountData.service";
+import {
+  addCustomerPaymentMethod,
+  addCustomerSavedAddress,
+  getCustomerPaymentMethods,
+} from "@/lib/services/customerAccountData.service";
+import {
+  cardBrandLabel,
+  isValidExpiry,
+  type CardBrand,
+  type ResolvedMarketplaceCardPayment,
+} from "@/lib/utils/cardPayment";
+import {
+  maskPhilippineMobile,
+  normalizePhilippineMobile,
+  type ResolvedMarketplaceGcashPayment,
+} from "@/lib/utils/gcashPayment";
+import {
+  validateBankTransferEntry,
+  type ResolvedMarketplaceBankTransferPayment,
+} from "@/lib/utils/bankTransferPayment";
+import { MARKETPLACE_COD_MIN_ORDER } from "@/lib/constants/marketplaceCod";
+import {
+  validateCodEntry,
+  type ResolvedMarketplaceCodPayment,
+} from "@/lib/utils/codPayment";
 import {
   computeCheckoutShippingCost,
   computeMarketplaceOrderTotal,
   isMarketplacePaymentCaptured,
   marketplaceOrderStatusForPayment,
 } from "@/lib/utils/marketplaceShipping";
+import { isPaymongoConfigured, phpAmountToCentavos } from "@/lib/paymongo/config";
+import { verifyMarketplacePaymongoPayment } from "@/lib/services/paymongoCheckout.service";
+import { quoteMarketplaceCheckout } from "@/lib/services/marketplaceCheckoutQuote.service";
+
+function inferBrandFromPaymentLabel(label: string): CardBrand {
+  const lower = label.toLowerCase();
+  if (lower.includes("visa")) return "visa";
+  if (lower.includes("master")) return "mastercard";
+  if (lower.includes("amex") || lower.includes("american express")) return "amex";
+  return "unknown";
+}
+
+export async function resolveMarketplaceCardPayment(
+  customerUserId: string | null,
+  input: MarketplaceCheckoutInput
+): Promise<ResolvedMarketplaceCardPayment> {
+  if (input.paymentMethod !== "card") {
+    throw new Error("Card payment required");
+  }
+
+  if (input.savedPaymentMethodId) {
+    if (!customerUserId) throw new Error("Sign in to use a saved card");
+    const methods = await getCustomerPaymentMethods(customerUserId);
+    const method = methods.find((m) => m.id === input.savedPaymentMethodId);
+    if (!method || method.type !== "card") throw new Error("Saved card not found");
+    if (!method.last4) throw new Error("Saved card is missing card details");
+    return {
+      cardBrand: inferBrandFromPaymentLabel(method.label),
+      cardLast4: method.last4,
+      cardholderName: method.label,
+      savedMethodId: method.id,
+    };
+  }
+
+  const cp = input.cardPayment;
+  if (!cp) throw new Error("Enter card details to pay by card");
+
+  if (!isValidExpiry(cp.expMonth, cp.expYear)) {
+    throw new Error("Card has expired or expiry date is invalid");
+  }
+
+  return {
+    cardBrand: cp.cardBrand,
+    cardLast4: cp.cardLast4,
+    cardholderName: cp.cardholderName,
+    expMonth: cp.expMonth,
+    expYear: cp.expYear,
+  };
+}
+
+export async function resolveMarketplaceGcashPayment(
+  customerUserId: string | null,
+  input: MarketplaceCheckoutInput
+): Promise<ResolvedMarketplaceGcashPayment> {
+  if (input.paymentMethod !== "gcash") {
+    throw new Error("GCash payment required");
+  }
+
+  if (input.savedPaymentMethodId) {
+    if (!customerUserId) throw new Error("Sign in to use a saved GCash account");
+    const methods = await getCustomerPaymentMethods(customerUserId);
+    const method = methods.find((m) => m.id === input.savedPaymentMethodId);
+    if (!method || method.type !== "gcash") throw new Error("Saved GCash account not found");
+    if (!method.last4) throw new Error("Saved GCash account is missing mobile details");
+    return {
+      accountName: method.label,
+      mobileLast4: method.last4,
+      mobileMasked: `GCash •••• ${method.last4}`,
+      savedMethodId: method.id,
+    };
+  }
+
+  const gp = input.gcashPayment;
+  if (!gp) throw new Error("Enter your GCash mobile number");
+
+  const normalized = normalizePhilippineMobile(gp.mobileNumber);
+  if (!normalized) throw new Error("Enter a valid Philippine mobile number (09XX XXX XXXX)");
+
+  return {
+    accountName: gp.accountName,
+    mobileLast4: normalized.slice(-4),
+    mobileMasked: maskPhilippineMobile(normalized),
+  };
+}
+
+export async function resolveMarketplaceBankTransferPayment(
+  customerUserId: string | null,
+  input: MarketplaceCheckoutInput
+): Promise<ResolvedMarketplaceBankTransferPayment> {
+  if (input.paymentMethod !== "bank_transfer") {
+    throw new Error("Bank transfer payment required");
+  }
+
+  const bt = input.bankTransferPayment;
+  if (!bt) throw new Error("Enter bank transfer details");
+
+  let depositorName = bt.depositorName?.trim() ?? "";
+  let depositorBank = bt.depositorBank?.trim() ?? "";
+  let accountLast4 = bt.accountLast4;
+
+  if (input.savedPaymentMethodId) {
+    if (!customerUserId) throw new Error("Sign in to use a saved bank account");
+    const methods = await getCustomerPaymentMethods(customerUserId);
+    const method = methods.find((m) => m.id === input.savedPaymentMethodId);
+    if (!method || method.type !== "bank_transfer") {
+      throw new Error("Saved bank account not found");
+    }
+    depositorName = depositorName || method.label;
+    if (!depositorBank) depositorBank = "Saved account";
+    accountLast4 = accountLast4 ?? method.last4;
+  }
+
+  const validated = validateBankTransferEntry({
+    depositorName,
+    depositorBank,
+    accountLast4: accountLast4 ?? "",
+    transferReference: bt.transferReference,
+    depositToBankId: bt.depositToBankId,
+  });
+
+  if (!validated.ok) throw new Error(validated.error);
+
+  if (input.savedPaymentMethodId) {
+    return { ...validated.resolved, savedMethodId: input.savedPaymentMethodId };
+  }
+
+  return validated.resolved;
+}
+
+export async function resolveMarketplaceCodPayment(
+  input: MarketplaceCheckoutInput,
+  amountDue: number
+): Promise<ResolvedMarketplaceCodPayment> {
+  if (input.paymentMethod !== "cash") {
+    throw new Error("Cash on delivery payment required");
+  }
+
+  const cp = input.codPayment;
+  if (!cp?.codAcknowledged) {
+    throw new Error("Confirm cash on delivery terms to continue");
+  }
+
+  const validated = validateCodEntry({
+    acknowledged: true,
+    amountDue,
+    prepareChangeFor: cp.prepareChangeFor,
+    minOrderAmount: MARKETPLACE_COD_MIN_ORDER,
+  });
+
+  if (!validated.ok) throw new Error(validated.error);
+  return validated.resolved;
+}
 
 const listedFilter: Record<string, unknown> = {
   deletedAt: null,
@@ -182,6 +358,45 @@ export async function placeMarketplaceOrder(
   opts?: { customerUserId?: string | null }
 ) {
   await connectDB();
+  const customerUserId = opts?.customerUserId ?? null;
+
+  let cardPaymentRecord: ResolvedMarketplaceCardPayment | undefined;
+  let gcashPaymentRecord: ResolvedMarketplaceGcashPayment | undefined;
+  let paymongoRecord:
+    | { paymentIntentId: string; paymentId?: string; status: string }
+    | undefined;
+
+  const paymongoEnabled = isPaymongoConfigured();
+  if (!paymongoEnabled && input.paymentMethod !== "cash") {
+    throw new Error(
+      "Only cash on delivery is available until PayMongo API keys are configured"
+    );
+  }
+  if (
+    paymongoEnabled &&
+    (input.paymentMethod === "card" || input.paymentMethod === "gcash") &&
+    !input.paymongoPaymentIntentId
+  ) {
+    throw new Error("Complete payment with PayMongo before placing your order");
+  }
+
+  if (!input.paymongoPaymentIntentId) {
+    if (input.paymentMethod === "card") {
+      cardPaymentRecord = await resolveMarketplaceCardPayment(customerUserId, input);
+    }
+    if (input.paymentMethod === "gcash") {
+      gcashPaymentRecord = await resolveMarketplaceGcashPayment(customerUserId, input);
+    }
+  }
+
+  let bankTransferPaymentRecord: ResolvedMarketplaceBankTransferPayment | undefined;
+  if (input.paymentMethod === "bank_transfer") {
+    bankTransferPaymentRecord = await resolveMarketplaceBankTransferPayment(
+      customerUserId,
+      input
+    );
+  }
+
   const { branchId, organizationId } = await getMarketplaceFulfillmentContext();
   const cashierId = await resolveMarketplaceCashierId();
 
@@ -266,8 +481,8 @@ export async function placeMarketplaceOrder(
     const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod);
 
     let discountPercent = 0;
-    if (opts?.customerUserId) {
-      const dashboard = await getCustomerDashboard(opts.customerUserId);
+    if (customerUserId) {
+      const dashboard = await getCustomerDashboard(customerUserId);
       if (dashboard) {
         discountPercent = dashboard.memberDiscountPercent;
       }
@@ -277,11 +492,75 @@ export async function placeMarketplaceOrder(
         ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
         : 0;
     const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
+
+    let codPaymentRecord: ResolvedMarketplaceCodPayment | undefined;
+    if (input.paymentMethod === "cash") {
+      codPaymentRecord = await resolveMarketplaceCodPayment(input, total);
+    }
+
+    if (input.paymongoPaymentIntentId) {
+      const quote = await quoteMarketplaceCheckout(
+        { items: input.items, shippingMethod: input.shippingMethod },
+        customerUserId
+      );
+      if (quote.total !== total) {
+        throw new Error("Order total changed. Refresh checkout and try again.");
+      }
+      const expectedMethod = input.paymentMethod === "gcash" ? "gcash" : "card";
+      const verified = await verifyMarketplacePaymongoPayment({
+        paymentIntentId: input.paymongoPaymentIntentId,
+        expectedAmountCentavos: phpAmountToCentavos(total),
+        expectedMethod,
+      });
+      paymongoRecord = {
+        paymentIntentId: verified.paymentIntentId,
+        paymentId: verified.paymentId,
+        status: verified.status,
+      };
+      if (input.paymentMethod === "card") {
+        cardPaymentRecord = {
+          cardBrand: verified.cardBrand,
+          cardLast4: verified.cardLast4,
+          cardholderName: verified.cardholderName,
+        };
+      }
+      if (input.paymentMethod === "gcash") {
+        gcashPaymentRecord = {
+          accountName: input.shipping.fullName,
+          mobileLast4: "0000",
+          mobileMasked: "GCash (PayMongo)",
+        };
+      }
+    }
+
     const orderNumber = generateOrderNumber();
-    const status = marketplaceOrderStatusForPayment(input.paymentMethod);
-    const paidNow = isMarketplacePaymentCaptured(input.paymentMethod);
+    const paidNow = input.paymongoPaymentIntentId
+      ? true
+      : isMarketplacePaymentCaptured(input.paymentMethod);
+    const status = paidNow ? "paid" : marketplaceOrderStatusForPayment(input.paymentMethod);
     const amountPaid = paidNow ? total : 0;
     const change = Math.max(0, amountPaid - total);
+
+    let orderNotes = input.notes?.trim() || `Marketplace web order — ${input.shipping.email}`;
+    if (bankTransferPaymentRecord) {
+      const refLine = `Bank transfer ref: ${bankTransferPaymentRecord.transferReference} → ${bankTransferPaymentRecord.depositToBankName}`;
+      orderNotes = orderNotes.includes("Bank transfer ref:")
+        ? orderNotes
+        : `${orderNotes}\n${refLine}`;
+    }
+    if (codPaymentRecord) {
+      let codLine = `COD — pay ₱${codPaymentRecord.amountDue.toFixed(2)} on delivery`;
+      if (codPaymentRecord.prepareChangeFor) {
+        codLine += ` (customer pays with ₱${codPaymentRecord.prepareChangeFor.toFixed(2)}`;
+        if (codPaymentRecord.changeToReturn) {
+          codLine += `, change ₱${codPaymentRecord.changeToReturn.toFixed(2)}`;
+        }
+        codLine += ")";
+      }
+      orderNotes = orderNotes.includes("COD —")
+        ? orderNotes
+        : `${orderNotes}\n${codLine}`;
+    }
 
     const customerOid =
       opts?.customerUserId && mongoose.isValidObjectId(opts.customerUserId)
@@ -307,7 +586,7 @@ export async function placeMarketplaceOrder(
           amountPaid,
           change,
           paymentMethod: input.paymentMethod,
-          notes: input.notes?.trim() || `Marketplace web order — ${input.shipping.email}`,
+          notes: orderNotes,
           paidAt: paidNow ? new Date() : null,
           marketplaceShipping: {
             fullName: input.shipping.fullName,
@@ -321,6 +600,46 @@ export async function placeMarketplaceOrder(
             shippingMethod: input.shippingMethod,
             shippingCost,
           },
+          marketplaceCardPayment: cardPaymentRecord
+            ? {
+                savedMethodId: cardPaymentRecord.savedMethodId,
+                cardBrand: cardPaymentRecord.cardBrand,
+                cardLast4: cardPaymentRecord.cardLast4,
+                cardholderName: cardPaymentRecord.cardholderName,
+                expMonth: cardPaymentRecord.expMonth,
+                expYear: cardPaymentRecord.expYear,
+              }
+            : undefined,
+          marketplaceGcashPayment: gcashPaymentRecord
+            ? {
+                savedMethodId: gcashPaymentRecord.savedMethodId,
+                accountName: gcashPaymentRecord.accountName,
+                mobileLast4: gcashPaymentRecord.mobileLast4,
+                mobileMasked: gcashPaymentRecord.mobileMasked,
+              }
+            : undefined,
+          marketplaceBankTransferPayment: bankTransferPaymentRecord
+            ? {
+                savedMethodId: bankTransferPaymentRecord.savedMethodId,
+                depositorName: bankTransferPaymentRecord.depositorName,
+                depositorBank: bankTransferPaymentRecord.depositorBank,
+                accountLast4: bankTransferPaymentRecord.accountLast4,
+                transferReference: bankTransferPaymentRecord.transferReference,
+                depositToBankId: bankTransferPaymentRecord.depositToBankId,
+                depositToBankName: bankTransferPaymentRecord.depositToBankName,
+                depositToAccountName: bankTransferPaymentRecord.depositToAccountName,
+                depositToAccountNumber: bankTransferPaymentRecord.depositToAccountNumber,
+              }
+            : undefined,
+          marketplaceCodPayment: codPaymentRecord
+            ? {
+                amountDue: codPaymentRecord.amountDue,
+                prepareChangeFor: codPaymentRecord.prepareChangeFor,
+                changeToReturn: codPaymentRecord.changeToReturn,
+                codAcknowledged: true,
+              }
+            : undefined,
+          marketplacePaymongo: paymongoRecord,
           marketplaceCustomerUserId: customerOid,
         },
       ],
@@ -398,9 +717,69 @@ export async function placeMarketplaceOrder(
 
     await session.commitTransaction();
 
-    if (opts?.customerUserId && input.saveAddress) {
+    if (
+      customerUserId &&
+      input.savePaymentMethod &&
+      input.paymentMethod === "card" &&
+      input.cardPayment &&
+      !input.savedPaymentMethodId &&
+      cardPaymentRecord
+    ) {
       try {
-        await addCustomerSavedAddress(opts.customerUserId, {
+        await addCustomerPaymentMethod(customerUserId, {
+          type: "card",
+          label: `${cardBrandLabel(cardPaymentRecord.cardBrand)} •••• ${cardPaymentRecord.cardLast4}`,
+          last4: cardPaymentRecord.cardLast4,
+          isDefault: false,
+        });
+      } catch {
+        /* ignore save failure */
+      }
+    }
+
+    if (
+      customerUserId &&
+      input.savePaymentMethod &&
+      input.paymentMethod === "gcash" &&
+      input.gcashPayment &&
+      !input.savedPaymentMethodId &&
+      gcashPaymentRecord
+    ) {
+      try {
+        await addCustomerPaymentMethod(customerUserId, {
+          type: "gcash",
+          label: `GCash •••• ${gcashPaymentRecord.mobileLast4} (${gcashPaymentRecord.accountName})`,
+          last4: gcashPaymentRecord.mobileLast4,
+          isDefault: false,
+        });
+      } catch {
+        /* ignore save failure */
+      }
+    }
+
+    if (
+      customerUserId &&
+      input.savePaymentMethod &&
+      input.paymentMethod === "bank_transfer" &&
+      input.bankTransferPayment &&
+      !input.savedPaymentMethodId &&
+      bankTransferPaymentRecord?.accountLast4
+    ) {
+      try {
+        await addCustomerPaymentMethod(customerUserId, {
+          type: "bank_transfer",
+          label: `${bankTransferPaymentRecord.depositorBank} •••• ${bankTransferPaymentRecord.accountLast4} (${bankTransferPaymentRecord.depositorName})`,
+          last4: bankTransferPaymentRecord.accountLast4,
+          isDefault: false,
+        });
+      } catch {
+        /* ignore save failure */
+      }
+    }
+
+    if (customerUserId && input.saveAddress) {
+      try {
+        await addCustomerSavedAddress(customerUserId, {
           label: "Checkout",
           fullName: input.shipping.fullName,
           phone: input.shipping.phone,

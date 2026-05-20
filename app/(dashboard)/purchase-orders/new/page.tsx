@@ -14,12 +14,12 @@ export default function NewPurchaseOrderPage() {
   const { toast } = useToast();
 
   return (
-    <div className="flex flex-col">
+    <div>
       <Header
         title="New Purchase Order"
         subtitle="Create a draft order for a distributor, franchise, or partner"
       />
-      <div className="flex-1 p-6">
+      <div className="p-4 pb-8 sm:p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/purchase-orders">

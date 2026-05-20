@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -33,7 +33,38 @@ import {
   MARKETPLACE_SHIPPING_METHODS,
   computeMarketplaceOrderTotal,
 } from "@/lib/utils/marketplaceShipping";
-import type { MarketplaceSavedAddress } from "@/lib/types/customerAccount";
+import {
+  CardPaymentSection,
+  type CardPaymentFields,
+} from "@/components/marketplace/CardPaymentSection";
+import {
+  GcashPaymentSection,
+  type GcashPaymentFields,
+} from "@/components/marketplace/GcashPaymentSection";
+import {
+  BankTransferPaymentSection,
+  type BankTransferPaymentFields,
+} from "@/components/marketplace/BankTransferPaymentSection";
+import { CodPaymentSection, type CodPaymentFields } from "@/components/marketplace/CodPaymentSection";
+import {
+  PaymongoCardPaymentForm,
+  type PaymongoCardPaymentHandle,
+  type PaymongoCheckoutPayload,
+} from "@/components/marketplace/PaymongoCardPayment";
+import {
+  PaymongoGcashPaymentForm,
+  type PaymongoGcashPaymentHandle,
+} from "@/components/marketplace/PaymongoGcashPayment";
+import { MARKETPLACE_DEPOSIT_BANK_ACCOUNTS } from "@/lib/constants/marketplaceBankAccounts";
+import type {
+  MarketplacePaymentMethod,
+  MarketplaceSavedAddress,
+} from "@/lib/types/customerAccount";
+import { validateNewCardEntry } from "@/lib/utils/cardPayment";
+import { validateGcashEntry } from "@/lib/utils/gcashPayment";
+import { validateBankTransferEntry } from "@/lib/utils/bankTransferPayment";
+import { validateCodEntry } from "@/lib/utils/codPayment";
+import { MARKETPLACE_COD_MIN_ORDER } from "@/lib/constants/marketplaceCod";
 
 const STOCK_IMAGES = {
   hero: [
@@ -57,11 +88,19 @@ const CHECKOUT_STEPS = [
 const SHIPPING_OPTIONS = MARKETPLACE_SHIPPING_METHODS;
 
 const PAYMENT_OPTIONS = [
+  { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
   { id: "card" as const, label: "Credit / Debit Card", badges: ["Visa", "Mastercard"] },
   { id: "gcash" as const, label: "GCash", badges: ["GCash"] },
   { id: "bank_transfer" as const, label: "Bank Transfer", badges: ["Bank"] },
-  { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
-];
+] as const;
+
+function isCheckoutPaymentOptionEnabled(
+  optionId: (typeof PAYMENT_OPTIONS)[number]["id"],
+  paymongoEnabled: boolean
+): boolean {
+  if (optionId === "cash") return true;
+  return paymongoEnabled;
+}
 
 const EMPTY_FORM = {
   fullName: "",
@@ -73,7 +112,7 @@ const EMPTY_FORM = {
   region: "",
   postalCode: "",
   country: "Philippines",
-  paymentMethod: "card" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
+  paymentMethod: "cash" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
   notes: "",
 };
 
@@ -95,6 +134,44 @@ export default function MarketplaceCheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<MarketplaceSavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [memberDiscountPercent, setMemberDiscountPercent] = useState(0);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<MarketplacePaymentMethod[]>([]);
+  const [cardPayment, setCardPayment] = useState<CardPaymentFields>({
+    mode: "new",
+    savedMethodId: "",
+    cardholderName: "",
+    cardNumber: "",
+    expMonth: "",
+    expYear: "",
+    cvv: "",
+    saveCard: true,
+  });
+  const [gcashPayment, setGcashPayment] = useState<GcashPaymentFields>({
+    mode: "new",
+    savedMethodId: "",
+    accountName: "",
+    mobileNumber: "",
+    saveWallet: true,
+  });
+  const [bankTransferPayment, setBankTransferPayment] = useState<BankTransferPaymentFields>({
+    mode: "new",
+    savedMethodId: "",
+    depositorName: "",
+    depositorBank: "",
+    accountLast4: "",
+    transferReference: "",
+    depositToBankId: MARKETPLACE_DEPOSIT_BANK_ACCOUNTS[0]?.id ?? "",
+    saveAccount: true,
+  });
+  const [codPayment, setCodPayment] = useState<CodPaymentFields>({
+    acknowledged: false,
+    prepareChangeFor: "",
+  });
+  const [paymongoEnabled, setPaymongoEnabled] = useState(false);
+  const [pmBillingName, setPmBillingName] = useState("");
+  const [pmBillingEmail, setPmBillingEmail] = useState("");
+  const [pmBillingPhone, setPmBillingPhone] = useState("");
+  const paymongoCardRef = useRef<PaymongoCardPaymentHandle>(null);
+  const paymongoGcashRef = useRef<PaymongoGcashPaymentHandle>(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
@@ -125,9 +202,10 @@ export default function MarketplaceCheckoutPage() {
     queueMicrotask(() => {
       void (async () => {
         try {
-          const [dashRes, addrRes] = await Promise.all([
+          const [dashRes, addrRes, payRes] = await Promise.all([
             fetch("/api/account/dashboard"),
             fetch("/api/account/saved-addresses"),
+            fetch("/api/account/payment-methods"),
           ]);
           const dashJson = await dashRes.json();
           if (dashRes.ok && dashJson.success) {
@@ -150,13 +228,102 @@ export default function MarketplaceCheckoutPage() {
               applyAddress(def);
             }
           }
+          const payJson = await payRes.json();
+          if (payRes.ok && payJson.success) {
+            const methods = payJson.data as MarketplacePaymentMethod[];
+            setSavedPaymentMethods(methods);
+            const defaultCard =
+              methods.find((m) => m.type === "card" && m.isDefault) ??
+              methods.find((m) => m.type === "card");
+            if (defaultCard) {
+              setCardPayment((c) => ({
+                ...c,
+                mode: "saved",
+                savedMethodId: defaultCard.id,
+              }));
+            }
+            const defaultGcash =
+              methods.find((m) => m.type === "gcash" && m.isDefault) ??
+              methods.find((m) => m.type === "gcash");
+            if (defaultGcash) {
+              setGcashPayment((g) => ({
+                ...g,
+                mode: "saved",
+                savedMethodId: defaultGcash.id,
+              }));
+            }
+            const defaultBank =
+              methods.find((m) => m.type === "bank_transfer" && m.isDefault) ??
+              methods.find((m) => m.type === "bank_transfer");
+            if (defaultBank) {
+              setBankTransferPayment((b) => ({
+                ...b,
+                mode: "saved",
+                savedMethodId: defaultBank.id,
+              }));
+            }
+          }
         } catch {
           /* optional prefill */
         }
       })();
     });
   }, [sessionStatus, session?.user?.role, applyAddress]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/marketplace/paymongo/config");
+        const json = await res.json();
+        const enabled = Boolean(res.ok && json.success && json.data.enabled);
+        setPaymongoEnabled(enabled);
+        if (!enabled) {
+          setForm((f) =>
+            f.paymentMethod === "cash" ? f : { ...f, paymentMethod: "cash" }
+          );
+        }
+      } catch {
+        setPaymongoEnabled(false);
+        setForm((f) =>
+          f.paymentMethod === "cash" ? f : { ...f, paymentMethod: "cash" }
+        );
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    setPmBillingName((n) => n || form.fullName);
+    setPmBillingEmail((e) => e || form.email);
+    setPmBillingPhone((p) => p || form.phone);
+  }, [form.fullName, form.email, form.phone]);
+
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
+
+  function buildPaymongoQuotePayload(): PaymongoCheckoutPayload {
+    return {
+      items: items.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId,
+        quantity: i.quantity,
+      })),
+      shipping: {
+        fullName: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        line1: form.line1.trim(),
+        line2: form.line2.trim() || undefined,
+        city: form.city.trim(),
+        region: form.region.trim(),
+        postalCode: form.postalCode.trim(),
+      },
+      shippingMethod,
+    };
+  }
+
+  function paymongoReturnUrl() {
+    if (typeof window === "undefined") return "/checkout/paymongo-return";
+    return `${window.location.origin}/checkout/paymongo-return`;
+  }
 
   function lineImage(url: string | undefined) {
     return url || STOCK_IMAGES.product;
@@ -168,12 +335,154 @@ export default function MarketplaceCheckoutPage() {
       toast({ title: "Cart is empty", variant: "destructive" });
       return;
     }
+    if (!paymongoEnabled && form.paymentMethod !== "cash") {
+      toast({
+        title: "Online payments unavailable",
+        description: "Use Cash on Delivery, or configure PayMongo API keys.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (form.paymentMethod === "card" && !paymongoEnabled) {
+      if (cardPayment.mode === "saved") {
+        if (!cardPayment.savedMethodId) {
+          toast({ title: "Select a saved card", variant: "destructive" });
+          return;
+        }
+        if (session?.user?.role !== "CUSTOMER") {
+          toast({
+            title: "Sign in to use a saved card",
+            description: "Or enter a new card below.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        const validated = validateNewCardEntry({
+          cardholderName: cardPayment.cardholderName,
+          cardNumber: cardPayment.cardNumber,
+          expMonth: cardPayment.expMonth,
+          expYear: cardPayment.expYear,
+          cvv: cardPayment.cvv,
+        });
+        if (!validated.ok) {
+          toast({ title: validated.error, variant: "destructive" });
+          return;
+        }
+      }
+    }
+
+    if (form.paymentMethod === "gcash" && !paymongoEnabled) {
+      if (gcashPayment.mode === "saved") {
+        if (!gcashPayment.savedMethodId) {
+          toast({ title: "Select a saved GCash account", variant: "destructive" });
+          return;
+        }
+        if (session?.user?.role !== "CUSTOMER") {
+          toast({
+            title: "Sign in to use a saved GCash account",
+            description: "Or enter your mobile number below.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        const validated = validateGcashEntry({
+          accountName: gcashPayment.accountName,
+          mobileNumber: gcashPayment.mobileNumber,
+        });
+        if (!validated.ok) {
+          toast({ title: validated.error, variant: "destructive" });
+          return;
+        }
+      }
+    }
+
+    if (form.paymentMethod === "bank_transfer") {
+      const depositId =
+        bankTransferPayment.depositToBankId || MARKETPLACE_DEPOSIT_BANK_ACCOUNTS[0]?.id || "";
+      if (!depositId) {
+        toast({ title: "Select a Glowish deposit account", variant: "destructive" });
+        return;
+      }
+      if (bankTransferPayment.transferReference.trim().length < 4) {
+        toast({ title: "Enter your transfer reference number", variant: "destructive" });
+        return;
+      }
+      if (bankTransferPayment.mode === "saved") {
+        if (!bankTransferPayment.savedMethodId) {
+          toast({ title: "Select a saved bank account", variant: "destructive" });
+          return;
+        }
+        if (session?.user?.role !== "CUSTOMER") {
+          toast({
+            title: "Sign in to use a saved bank account",
+            description: "Or enter your transfer details below.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        const validated = validateBankTransferEntry({
+          depositorName: bankTransferPayment.depositorName,
+          depositorBank: bankTransferPayment.depositorBank,
+          accountLast4: bankTransferPayment.accountLast4,
+          transferReference: bankTransferPayment.transferReference,
+          depositToBankId: depositId,
+        });
+        if (!validated.ok) {
+          toast({ title: validated.error, variant: "destructive" });
+          return;
+        }
+      }
+    }
+
+    if (form.paymentMethod === "cash") {
+      if (total < MARKETPLACE_COD_MIN_ORDER) {
+        toast({
+          title: `Minimum order for COD is ${money(MARKETPLACE_COD_MIN_ORDER)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      const prepareRaw = codPayment.prepareChangeFor.trim();
+      const prepareChangeFor = prepareRaw ? parseFloat(prepareRaw) : undefined;
+      const validated = validateCodEntry({
+        acknowledged: codPayment.acknowledged,
+        amountDue: total,
+        prepareChangeFor:
+          prepareChangeFor !== undefined && Number.isFinite(prepareChangeFor)
+            ? prepareChangeFor
+            : undefined,
+      });
+      if (!validated.ok) {
+        toast({ title: validated.error, variant: "destructive" });
+        return;
+      }
+    }
+
+    if (paymongoEnabled && form.paymentMethod === "card") {
+      if (!paymongoCardRef.current?.isReady) {
+        toast({ title: "Card form is still loading", variant: "destructive" });
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      const res = await fetch("/api/marketplace/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let paymongoPaymentIntentId: string | undefined;
+
+      if (paymongoEnabled && form.paymentMethod === "card") {
+        const paid = await paymongoCardRef.current!.pay(buildPaymongoQuotePayload());
+        if (paid.pendingRedirect) return;
+        paymongoPaymentIntentId = paid.paymentIntentId;
+      }
+
+      if (paymongoEnabled && form.paymentMethod === "gcash") {
+        if (!paymongoGcashRef.current?.isReady) {
+          throw new Error("GCash checkout is still loading");
+        }
+        await paymongoGcashRef.current.pay(buildPaymongoQuotePayload(), {
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -190,21 +499,161 @@ export default function MarketplaceCheckoutPage() {
             postalCode: form.postalCode.trim(),
           },
           shippingMethod,
-          paymentMethod: form.paymentMethod,
+          paymentMethod: "gcash",
           notes: form.notes.trim() || undefined,
           saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
-        }),
+        });
+        return;
+      }
+
+      const payload: Record<string, unknown> = {
+        items: items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId,
+          quantity: i.quantity,
+        })),
+        shipping: {
+          fullName: form.fullName.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          line1: form.line1.trim(),
+          line2: form.line2.trim() || undefined,
+          city: form.city.trim(),
+          region: form.region.trim(),
+          postalCode: form.postalCode.trim(),
+        },
+        shippingMethod,
+        paymentMethod: form.paymentMethod,
+        notes: form.notes.trim() || undefined,
+        saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
+      };
+
+      if (paymongoPaymentIntentId) {
+        payload.paymongoPaymentIntentId = paymongoPaymentIntentId;
+      }
+
+      if (form.paymentMethod === "card" && !paymongoEnabled) {
+        if (cardPayment.mode === "saved" && cardPayment.savedMethodId) {
+          payload.savedPaymentMethodId = cardPayment.savedMethodId;
+        } else {
+          const validated = validateNewCardEntry({
+            cardholderName: cardPayment.cardholderName,
+            cardNumber: cardPayment.cardNumber,
+            expMonth: cardPayment.expMonth,
+            expYear: cardPayment.expYear,
+            cvv: cardPayment.cvv,
+          });
+          if (validated.ok) {
+            payload.cardPayment = {
+              cardholderName: validated.resolved.cardholderName,
+              cardLast4: validated.resolved.cardLast4,
+              cardBrand: validated.resolved.cardBrand,
+              expMonth: validated.resolved.expMonth!,
+              expYear: validated.resolved.expYear!,
+            };
+            if (session?.user?.role === "CUSTOMER" && cardPayment.saveCard) {
+              payload.savePaymentMethod = true;
+            }
+          }
+        }
+      }
+
+      if (form.paymentMethod === "gcash" && !paymongoEnabled) {
+        if (gcashPayment.mode === "saved" && gcashPayment.savedMethodId) {
+          payload.savedPaymentMethodId = gcashPayment.savedMethodId;
+        } else {
+          const validated = validateGcashEntry({
+            accountName: gcashPayment.accountName,
+            mobileNumber: gcashPayment.mobileNumber,
+          });
+          if (validated.ok) {
+            payload.gcashPayment = {
+              accountName: validated.resolved.accountName,
+              mobileNumber: validated.resolved.mobileNumber,
+            };
+            if (session?.user?.role === "CUSTOMER" && gcashPayment.saveWallet) {
+              payload.savePaymentMethod = true;
+            }
+          }
+        }
+      }
+
+      if (form.paymentMethod === "bank_transfer") {
+        const depositId =
+          bankTransferPayment.depositToBankId || MARKETPLACE_DEPOSIT_BANK_ACCOUNTS[0]?.id || "";
+        const bankPayload: Record<string, string | undefined> = {
+          transferReference: bankTransferPayment.transferReference.trim(),
+          depositToBankId: depositId,
+        };
+        if (bankTransferPayment.mode === "saved" && bankTransferPayment.savedMethodId) {
+          payload.savedPaymentMethodId = bankTransferPayment.savedMethodId;
+        } else {
+          const validated = validateBankTransferEntry({
+            depositorName: bankTransferPayment.depositorName,
+            depositorBank: bankTransferPayment.depositorBank,
+            accountLast4: bankTransferPayment.accountLast4,
+            transferReference: bankTransferPayment.transferReference,
+            depositToBankId: depositId,
+          });
+          if (validated.ok) {
+            bankPayload.depositorName = validated.resolved.depositorName;
+            bankPayload.depositorBank = validated.resolved.depositorBank;
+            if (validated.resolved.accountLast4) {
+              bankPayload.accountLast4 = validated.resolved.accountLast4;
+            }
+            if (session?.user?.role === "CUSTOMER" && bankTransferPayment.saveAccount) {
+              payload.savePaymentMethod = true;
+            }
+          }
+        }
+        payload.bankTransferPayment = bankPayload;
+      }
+
+      if (form.paymentMethod === "cash") {
+        const prepareRaw = codPayment.prepareChangeFor.trim();
+        const prepareNum = prepareRaw ? parseFloat(prepareRaw) : undefined;
+        const validated = validateCodEntry({
+          acknowledged: codPayment.acknowledged,
+          amountDue: total,
+          prepareChangeFor:
+            prepareNum !== undefined && Number.isFinite(prepareNum) ? prepareNum : undefined,
+        });
+        if (validated.ok) {
+          payload.codPayment = {
+            codAcknowledged: true as const,
+            ...(validated.resolved.prepareChangeFor !== undefined
+              ? { prepareChangeFor: validated.resolved.prepareChangeFor }
+              : {}),
+          };
+        }
+      }
+
+      const res = await fetch("/api/marketplace/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? "Checkout failed");
-      const { orderNumber, total: orderTotal } = json.data as {
+      const { orderNumber, total: orderTotal, status } = json.data as {
         orderNumber: string;
         total: number;
+        status?: string;
       };
       clear();
-      router.push(
-        `/checkout/success?orderNumber=${encodeURIComponent(orderNumber)}&total=${encodeURIComponent(String(orderTotal))}`
-      );
+      const successParams = new URLSearchParams({
+        orderNumber,
+        total: String(orderTotal),
+      });
+      if (form.paymentMethod === "bank_transfer") {
+        successParams.set("paymentMethod", "bank_transfer");
+        if (status) successParams.set("status", status);
+      }
+      if (form.paymentMethod === "cash") {
+        successParams.set("paymentMethod", "cash");
+        if (status) successParams.set("status", status);
+      }
+      router.push(`/checkout/success?${successParams.toString()}`);
     } catch (err) {
       toast({
         title: "Could not place order",
@@ -572,17 +1021,26 @@ export default function MarketplaceCheckoutPage() {
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Payment Method
               </h2>
+              {!paymongoEnabled ? (
+                <p className="mt-2 text-xs leading-5 text-[#2A4C6A]/65">
+                  Card, GCash, and bank transfer unlock when PayMongo API keys are configured.
+                  Cash on delivery is available now.
+                </p>
+              ) : null}
               <div className="mt-4 space-y-3">
                 {PAYMENT_OPTIONS.map((option) => {
                   const selected = form.paymentMethod === option.id;
+                  const enabled = isCheckoutPaymentOptionEnabled(option.id, paymongoEnabled);
                   return (
                     <label
                       key={option.id}
                       className={cn(
-                        "flex cursor-pointer items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
-                        selected
+                        "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
+                        enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50",
+                        selected && enabled
                           ? "border-violet-300 bg-violet-50/80"
-                          : "border-white/70 bg-white/50 hover:bg-white/70"
+                          : "border-white/70 bg-white/50",
+                        enabled && !selected && "hover:bg-white/70"
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -590,10 +1048,11 @@ export default function MarketplaceCheckoutPage() {
                           type="radio"
                           name="paymentMethod"
                           checked={selected}
+                          disabled={!enabled}
                           onChange={() =>
                             setForm((f) => ({ ...f, paymentMethod: option.id }))
                           }
-                          className="h-4 w-4 accent-[#6ea43f]"
+                          className="h-4 w-4 accent-[#6ea43f] disabled:cursor-not-allowed"
                         />
                         <span className="text-sm font-semibold text-[#1e3157]">{option.label}</span>
                       </div>
@@ -612,10 +1071,74 @@ export default function MarketplaceCheckoutPage() {
                 })}
               </div>
 
+              {form.paymentMethod === "card" && paymongoEnabled ? (
+                <PaymongoCardPaymentForm
+                  ref={paymongoCardRef}
+                  billingName={pmBillingName}
+                  billingEmail={pmBillingEmail}
+                  billingPhone={pmBillingPhone}
+                  onBillingChange={(field, value) => {
+                    if (field === "billingName") setPmBillingName(value);
+                    if (field === "billingEmail") setPmBillingEmail(value);
+                    if (field === "billingPhone") setPmBillingPhone(value);
+                  }}
+                  returnUrl={paymongoReturnUrl()}
+                />
+              ) : null}
+
+              {form.paymentMethod === "card" && !paymongoEnabled ? (
+                <CardPaymentSection
+                  savedMethods={savedPaymentMethods}
+                  value={cardPayment}
+                  onChange={setCardPayment}
+                  showSaveOption={session?.user?.role === "CUSTOMER"}
+                />
+              ) : null}
+
+              {form.paymentMethod === "gcash" && paymongoEnabled ? (
+                <PaymongoGcashPaymentForm
+                  ref={paymongoGcashRef}
+                  billingName={pmBillingName}
+                  billingEmail={pmBillingEmail}
+                  billingPhone={pmBillingPhone}
+                  returnUrl={paymongoReturnUrl()}
+                />
+              ) : null}
+
+              {form.paymentMethod === "gcash" && !paymongoEnabled ? (
+                <GcashPaymentSection
+                  savedMethods={savedPaymentMethods}
+                  value={gcashPayment}
+                  onChange={setGcashPayment}
+                  showSaveOption={session?.user?.role === "CUSTOMER"}
+                />
+              ) : null}
+
+              {form.paymentMethod === "bank_transfer" && paymongoEnabled ? (
+                <BankTransferPaymentSection
+                  savedMethods={savedPaymentMethods}
+                  value={bankTransferPayment}
+                  onChange={setBankTransferPayment}
+                  showSaveOption={session?.user?.role === "CUSTOMER"}
+                />
+              ) : null}
+
+              {form.paymentMethod === "cash" ? (
+                <CodPaymentSection
+                  amountDue={total}
+                  value={codPayment}
+                  onChange={setCodPayment}
+                />
+              ) : null}
+
               <Button
                 type="submit"
                 className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
-                disabled={loading}
+                disabled={
+                  loading ||
+                  (form.paymentMethod === "cash" &&
+                    (total < MARKETPLACE_COD_MIN_ORDER || !codPayment.acknowledged))
+                }
               >
                 {loading ? (
                   <>
@@ -625,7 +1148,15 @@ export default function MarketplaceCheckoutPage() {
                 ) : (
                   <>
                     <Lock className="mr-2 h-4 w-4" />
-                    Proceed to Payment
+                    {form.paymentMethod === "card"
+                      ? "Pay with card"
+                      : form.paymentMethod === "gcash"
+                        ? "Pay with GCash"
+                        : form.paymentMethod === "bank_transfer"
+                          ? "Place order & get bank details"
+                          : form.paymentMethod === "cash"
+                            ? "Place COD order"
+                            : "Place order"}
                   </>
                 )}
               </Button>

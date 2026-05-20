@@ -26,6 +26,7 @@ import {
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 import { computePurchaseOrderTotals } from "@/lib/utils/purchaseOrderTotals";
+import { cn } from "@/lib/utils";
 
 function toDateInputValue(iso?: string | null): string {
   if (!iso) return "";
@@ -639,14 +640,21 @@ export function PurchaseOrderForm({
     </div>
   );
 
+  const formShellClass = cn(
+    "touch-pan-y overscroll-y-contain [-webkit-overflow-scrolling:touch]",
+    "max-h-[calc(100dvh-10rem)] overflow-y-auto lg:max-h-none lg:overflow-visible"
+  );
+
   if (!showFooter) {
-    return formBody;
+    return <div className={formShellClass}>{formBody}</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {formBody}
-      {footer}
+    <div className={formShellClass}>
+      <div className="space-y-6 pb-2">
+        {formBody}
+        {footer}
+      </div>
     </div>
   );
 }

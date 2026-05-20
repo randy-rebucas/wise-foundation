@@ -42,6 +42,42 @@ export interface IOrder extends Document {
     shippingCost?: number;
   };
   shippingAmount?: number;
+  marketplaceCardPayment?: {
+    savedMethodId?: string;
+    cardBrand?: string;
+    cardLast4?: string;
+    cardholderName?: string;
+    expMonth?: string;
+    expYear?: string;
+  };
+  marketplaceGcashPayment?: {
+    savedMethodId?: string;
+    accountName?: string;
+    mobileLast4?: string;
+    mobileMasked?: string;
+  };
+  marketplaceBankTransferPayment?: {
+    savedMethodId?: string;
+    depositorName?: string;
+    depositorBank?: string;
+    accountLast4?: string;
+    transferReference?: string;
+    depositToBankId?: string;
+    depositToBankName?: string;
+    depositToAccountName?: string;
+    depositToAccountNumber?: string;
+  };
+  marketplaceCodPayment?: {
+    amountDue: number;
+    prepareChangeFor?: number;
+    changeToReturn?: number;
+    codAcknowledged: boolean;
+  };
+  marketplacePaymongo?: {
+    paymentIntentId: string;
+    paymentId?: string;
+    status?: string;
+  };
   marketplaceCustomerUserId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
@@ -101,6 +137,42 @@ const OrderSchema = new Schema<IOrder>(
       postalCode: { type: String },
       shippingMethod: { type: String },
       shippingCost: { type: Number, min: 0 },
+    },
+    marketplaceCardPayment: {
+      savedMethodId: { type: String },
+      cardBrand: { type: String },
+      cardLast4: { type: String },
+      cardholderName: { type: String },
+      expMonth: { type: String },
+      expYear: { type: String },
+    },
+    marketplaceGcashPayment: {
+      savedMethodId: { type: String },
+      accountName: { type: String },
+      mobileLast4: { type: String },
+      mobileMasked: { type: String },
+    },
+    marketplaceBankTransferPayment: {
+      savedMethodId: { type: String },
+      depositorName: { type: String },
+      depositorBank: { type: String },
+      accountLast4: { type: String },
+      transferReference: { type: String },
+      depositToBankId: { type: String },
+      depositToBankName: { type: String },
+      depositToAccountName: { type: String },
+      depositToAccountNumber: { type: String },
+    },
+    marketplaceCodPayment: {
+      amountDue: { type: Number, min: 0 },
+      prepareChangeFor: { type: Number, min: 0 },
+      changeToReturn: { type: Number, min: 0 },
+      codAcknowledged: { type: Boolean, default: true },
+    },
+    marketplacePaymongo: {
+      paymentIntentId: { type: String },
+      paymentId: { type: String },
+      status: { type: String },
     },
     marketplaceCustomerUserId: {
       type: Schema.Types.ObjectId,

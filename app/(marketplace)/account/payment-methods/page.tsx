@@ -6,7 +6,26 @@ import { AccountPageHeader } from "@/components/marketplace/account/AccountPageH
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { MarketplacePaymentMethod, PaymentMethodType } from "@/lib/types/customerAccount";
+import {
+  cardBrandLabel,
+  detectCardBrand,
+  digitsOnly,
+  formatCardNumberDisplay,
+  isValidCardNumber,
+} from "@/lib/utils/cardPayment";
+import {
+  formatPhilippineMobileDisplay,
+  normalizePhilippineMobile,
+} from "@/lib/utils/gcashPayment";
+import { PH_DEPOSITOR_BANKS } from "@/lib/constants/marketplaceBankAccounts";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABELS: Record<PaymentMethodType, string> = {
@@ -26,9 +45,16 @@ export default function AccountPaymentMethodsPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [type, setType] = useState<PaymentMethodType>("gcash");
+  const [type, setType] = useState<PaymentMethodType>("card");
   const [label, setLabel] = useState("");
   const [last4, setLast4] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardholderName, setCardholderName] = useState("");
+  const [gcashAccountName, setGcashAccountName] = useState("");
+  const [gcashMobile, setGcashMobile] = useState("");
+  const [bankDepositorName, setBankDepositorName] = useState("");
+  const [bankDepositorBank, setBankDepositorBank] = useState("");
+  const [bankAccountLast4, setBankAccountLast4] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -59,14 +85,62 @@ export default function AccountPaymentMethodsPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
+
+    let resolvedLast4 = last4.trim();
+    let resolvedLabel = label.trim();
+
+    if (type === "card") {
+      const digits = digitsOnly(cardNumber);
+      if (!isValidCardNumber(digits)) {
+        setError("Enter a valid card number");
+        setSaving(false);
+        return;
+      }
+      const brand = detectCardBrand(digits);
+      resolvedLast4 = digits.slice(-4);
+      const name = cardholderName.trim() || "Card";
+      resolvedLabel =
+        resolvedLabel || `${cardBrandLabel(brand)} •••• ${resolvedLast4} (${name})`;
+    }
+
+    if (type === "gcash") {
+      const normalized = normalizePhilippineMobile(gcashMobile);
+      if (!normalized) {
+        setError("Enter a valid GCash mobile number (09XX XXX XXXX)");
+        setSaving(false);
+        return;
+      }
+      resolvedLast4 = normalized.slice(-4);
+      const name = gcashAccountName.trim() || "GCash";
+      resolvedLabel = resolvedLabel || `GCash •••• ${resolvedLast4} (${name})`;
+    }
+
+    if (type === "bank_transfer") {
+      const name = bankDepositorName.trim();
+      const bank = bankDepositorBank.trim();
+      const last4 = bankAccountLast4.replace(/\D/g, "").slice(-4);
+      if (name.length < 2 || !bank) {
+        setError("Enter account name and bank");
+        setSaving(false);
+        return;
+      }
+      if (last4.length !== 4) {
+        setError("Enter the last 4 digits of your account");
+        setSaving(false);
+        return;
+      }
+      resolvedLast4 = last4;
+      resolvedLabel = resolvedLabel || `${bank} •••• ${last4} (${name})`;
+    }
+
     try {
       const res = await fetch("/api/account/payment-methods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type,
-          label: label.trim() || TYPE_LABELS[type],
-          last4: last4.trim() || undefined,
+          label: resolvedLabel || TYPE_LABELS[type],
+          last4: resolvedLast4 || undefined,
         }),
       });
       const json = await res.json();
@@ -77,6 +151,13 @@ export default function AccountPaymentMethodsPage() {
       setItems(json.data as MarketplacePaymentMethod[]);
       setLabel("");
       setLast4("");
+      setCardNumber("");
+      setCardholderName("");
+      setGcashAccountName("");
+      setGcashMobile("");
+      setBankDepositorName("");
+      setBankDepositorBank("");
+      setBankAccountLast4("");
       setShowForm(false);
     } catch {
       setError("Could not save");
@@ -107,7 +188,7 @@ export default function AccountPaymentMethodsPage() {
     <>
       <AccountPageHeader
         title="Payment Methods"
-        description="Saved payment options for faster checkout. Only display labels are stored — never full card numbers."
+        description="Saved payment options for faster checkout. Only labels and last 4 digits are stored — never full card numbers or mobile numbers."
       />
 
       {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
@@ -146,27 +227,136 @@ export default function AccountPaymentMethodsPage() {
               ))}
             </div>
           </div>
+          {type === "gcash" ? (
+            <>
+              <div className="sm:col-span-2">
+                <Label htmlFor="gcashAccountName">Account name</Label>
+                <Input
+                  id="gcashAccountName"
+                  value={gcashAccountName}
+                  onChange={(e) => setGcashAccountName(e.target.value)}
+                  placeholder="Name on GCash"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="gcashMobile">GCash mobile number</Label>
+                <Input
+                  id="gcashMobile"
+                  value={gcashMobile}
+                  onChange={(e) => setGcashMobile(formatPhilippineMobileDisplay(e.target.value))}
+                  placeholder="0917 123 4567"
+                  inputMode="tel"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                />
+                <p className="mt-1 text-xs text-[#2A4C6A]/65">
+                  Only the last 4 digits of your mobile number are saved.
+                </p>
+              </div>
+            </>
+          ) : null}
+          {type === "card" ? (
+            <>
+              <div className="sm:col-span-2">
+                <Label htmlFor="cardholderName">Name on card</Label>
+                <Input
+                  id="cardholderName"
+                  value={cardholderName}
+                  onChange={(e) => setCardholderName(e.target.value)}
+                  placeholder="Jane Doe"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label htmlFor="cardNumber">Card number</Label>
+                <Input
+                  id="cardNumber"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(formatCardNumberDisplay(e.target.value))}
+                  placeholder="4111 1111 1111 1111"
+                  inputMode="numeric"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                />
+                <p className="mt-1 text-xs text-[#2A4C6A]/65">
+                  Only the last 4 digits are saved — never the full number.
+                </p>
+              </div>
+            </>
+          ) : null}
+          {type === "bank_transfer" ? (
+            <>
+              <div className="sm:col-span-2">
+                <Label htmlFor="bankDepositorName">Account name</Label>
+                <Input
+                  id="bankDepositorName"
+                  value={bankDepositorName}
+                  onChange={(e) => setBankDepositorName(e.target.value)}
+                  placeholder="Name on bank account"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Your bank</Label>
+                <Select value={bankDepositorBank || undefined} onValueChange={setBankDepositorBank}>
+                  <SelectTrigger className="rounded-xl border-white/70 bg-white/80">
+                    <SelectValue placeholder="Select bank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PH_DEPOSITOR_BANKS.map((bank) => (
+                      <SelectItem key={bank} value={bank}>
+                        {bank}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bankAccountLast4">Last 4 digits of account</Label>
+                <Input
+                  id="bankAccountLast4"
+                  value={bankAccountLast4}
+                  onChange={(e) =>
+                    setBankAccountLast4(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  placeholder="1234"
+                  maxLength={4}
+                  inputMode="numeric"
+                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                />
+              </div>
+            </>
+          ) : null}
           <div>
-            <Label htmlFor="label">Display name</Label>
+            <Label htmlFor="label">Display name (optional)</Label>
             <Input
               id="label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="My GCash"
+              placeholder={
+                type === "card"
+                  ? "Auto-filled from card"
+                  : type === "gcash"
+                    ? "Auto-filled from GCash"
+                    : type === "bank_transfer"
+                      ? "Auto-filled from bank"
+                      : "My account"
+              }
               className="mt-1 rounded-xl border-white/70 bg-white/80"
             />
           </div>
-          <div>
-            <Label htmlFor="last4">Last 4 digits (optional)</Label>
-            <Input
-              id="last4"
-              value={last4}
-              onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder="1234"
-              maxLength={4}
-              className="mt-1 rounded-xl border-white/70 bg-white/80"
-            />
-          </div>
+          {type !== "card" && type !== "gcash" ? (
+            <div>
+              <Label htmlFor="last4">Last 4 digits (optional)</Label>
+              <Input
+                id="last4"
+                value={last4}
+                onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="1234"
+                maxLength={4}
+                className="mt-1 rounded-xl border-white/70 bg-white/80"
+              />
+            </div>
+          ) : null}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={saving} className="rounded-xl bg-violet-600 text-white hover:bg-violet-700">
               {saving ? "Saving…" : "Save method"}
