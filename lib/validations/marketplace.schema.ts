@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { MARKETPLACE_SHIPPING_METHODS } from "@/lib/utils/marketplaceShipping";
+
+const shippingMethodIds = MARKETPLACE_SHIPPING_METHODS.map((m) => m.id) as [
+  string,
+  ...string[],
+];
 
 export const marketplaceShippingSchema = z.object({
   fullName: z.string().min(2).max(120),
@@ -23,8 +29,10 @@ export const marketplaceCheckoutSchema = z.object({
     .min(1)
     .max(50),
   shipping: marketplaceShippingSchema,
+  shippingMethod: z.enum(shippingMethodIds),
   paymentMethod: z.enum(["cash", "gcash", "card", "bank_transfer", "credit"]),
   notes: z.string().max(500).optional(),
+  saveAddress: z.boolean().optional(),
 });
 
 export type MarketplaceCheckoutInput = z.infer<typeof marketplaceCheckoutSchema>;

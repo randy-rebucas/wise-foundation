@@ -24,7 +24,14 @@ import {
   Globe2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { PublicAppSettings } from "@/lib/types/appSettings";
+import type { AdminAppSettings } from "@/lib/types/appSettings";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { APP_TIMEZONE_OPTIONS } from "@/lib/constants/timezones";
 import { isValidCurrencyCode, isValidIanaTimezone } from "@/lib/utils/intlValidation";
 import { cn } from "@/lib/utils";
@@ -87,7 +94,18 @@ export default function SettingsPage() {
       const res = await fetch("/api/settings/app");
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      return data.data as PublicAppSettings;
+      return data.data as AdminAppSettings;
+    },
+    enabled: !!isAdmin,
+  });
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ["branches-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/branches?limit=100");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return (json.data ?? []) as { _id: string; name: string; code?: string }[];
     },
     enabled: !!isAdmin,
   });
@@ -100,6 +118,7 @@ export default function SettingsPage() {
     memberDefaultDiscountPercent: 10,
     defaultLowStockThreshold: 10,
     receiptFooter: "",
+    marketplaceFulfillmentBranchId: "",
   });
 
   useEffect(() => {
@@ -113,6 +132,7 @@ export default function SettingsPage() {
         memberDefaultDiscountPercent: appSettings.memberDefaultDiscountPercent,
         defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
         receiptFooter: appSettings.receiptFooter,
+        marketplaceFulfillmentBranchId: appSettings.marketplaceFulfillmentBranchId ?? "",
       });
     });
   }, [appSettings]);
@@ -130,11 +150,12 @@ export default function SettingsPage() {
           memberDefaultDiscountPercent: Number(appForm.memberDefaultDiscountPercent),
           defaultLowStockThreshold: Number(appForm.defaultLowStockThreshold),
           receiptFooter: appForm.receiptFooter.trim(),
+          marketplaceFulfillmentBranchId: appForm.marketplaceFulfillmentBranchId || "",
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
-      return data.data as PublicAppSettings;
+      return data.data as AdminAppSettings;
     },
     onSuccess: () => {
       toast({ title: "Application settings saved" });
@@ -603,6 +624,34 @@ export default function SettingsPage() {
                         }
                       />
                       <p className="text-xs text-muted-foreground">Used when new branch inventory rows are created.</p>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Marketplace fulfillment branch</Label>
+                      <Select
+                        value={appForm.marketplaceFulfillmentBranchId || "__default__"}
+                        onValueChange={(v) =>
+                          setAppForm((f) => ({
+                            ...f,
+                            marketplaceFulfillmentBranchId: v === "__default__" ? "" : v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Head office (default)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__">Head office (default)</SelectItem>
+                          {branches.map((b) => (
+                            <SelectItem key={b._id} value={b._id}>
+                              {b.name}
+                              {b.code ? ` (${b.code})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Branch inventory used when customers place online orders. Leave as head office if unset.
+                      </p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="receiptFooter">Receipt footer</Label>

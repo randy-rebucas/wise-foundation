@@ -1,5 +1,9 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { getPublicAppSettings, updateAppSettings } from "@/lib/services/appSettings.service";
+import {
+  getAdminAppSettingsExtras,
+  getPublicAppSettings,
+  updateAppSettings,
+} from "@/lib/services/appSettings.service";
 import { patchAppSettingsSchema } from "@/lib/validations/appSettings.schema";
 import {
   successResponse,
@@ -13,6 +17,10 @@ const getHandler = async (req: AuthedRequest) => {
   void req;
   try {
     const settings = await getPublicAppSettings();
+    if (req.user.role === "ADMIN") {
+      const extras = await getAdminAppSettingsExtras();
+      return successResponse({ ...settings, ...extras });
+    }
     return successResponse(settings);
   } catch {
     return serverErrorResponse();

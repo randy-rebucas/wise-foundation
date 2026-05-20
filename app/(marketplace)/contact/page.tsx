@@ -7,13 +7,13 @@ import {
   MapPin,
   MessageCircle,
   Phone,
-  Send,
   ShieldCheck,
   Sparkles,
   Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ContactForm } from "@/components/marketplace/ContactForm";
 
 const stockImages = {
   cleanser:
@@ -147,24 +147,7 @@ export default function ContactPage() {
             <p className="text-sm text-[#2A4C6A]/72">
               Fill out the form below and we&apos;ll get back to you as soon as possible.
             </p>
-            <form className="mt-6 space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input className="rounded-xl border-white/70 bg-white/65" placeholder="Your Name" />
-                <Input className="rounded-xl border-white/70 bg-white/65" placeholder="Your Email" />
-              </div>
-              <Input className="rounded-xl border-white/70 bg-white/65" placeholder="Subject" />
-              <textarea
-                className="min-h-32 w-full rounded-xl border border-white/70 bg-white/65 px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[#6ea43f]/30"
-                placeholder="Your Message"
-              />
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <Button type="button" className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white">
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Message
-                </Button>
-                <p className="text-xs text-[#2A4C6A]/65">Your information is safe with us.</p>
-              </div>
-            </form>
+            <ContactForm />
           </div>
 
           <div className="border-white/60 lg:border-r lg:px-3">

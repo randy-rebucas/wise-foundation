@@ -59,6 +59,7 @@ interface Product {
   category: ProductCategory;
   retailPrice: number;
   isActive: boolean;
+  marketplaceListed?: boolean;
   images: string[];
   description?: string;
   barcode?: string;
@@ -101,6 +102,7 @@ interface ProductForm {
   barcode: string;
   retailPrice: number;
   isActive: boolean;
+  marketplaceListed: boolean;
   tags: string;
   images: string[];
 }
@@ -113,6 +115,7 @@ const defaultForm: ProductForm = {
   barcode: "",
   retailPrice: 0,
   isActive: true,
+  marketplaceListed: true,
   tags: "",
   images: [],
 };
@@ -532,6 +535,7 @@ export default function ProductsPage() {
       barcode: product.barcode ?? "",
       retailPrice: product.retailPrice,
       isActive: product.isActive,
+      marketplaceListed: product.marketplaceListed !== false,
       tags: "",
       images: product.images ?? [],
     });
@@ -594,9 +598,14 @@ export default function ProductsPage() {
       key: "status",
       label: "Status",
       render: (p: Product) => (
-        <Badge variant={p.isActive ? "success" : "secondary"}>
-          {p.isActive ? "Active" : "Inactive"}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={p.isActive ? "success" : "secondary"}>
+            {p.isActive ? "Active" : "Inactive"}
+          </Badge>
+          <Badge variant={p.marketplaceListed !== false ? "outline" : "secondary"} className="text-[10px]">
+            {p.marketplaceListed !== false ? "Online store" : "Hidden online"}
+          </Badge>
+        </div>
       ),
     },
     {
@@ -1168,6 +1177,27 @@ export default function ProductsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
                 placeholder="e.g. organic, bestseller, new"
               />
+            </div>
+
+            <div className="flex flex-wrap gap-6 pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">Active in POS and inventory</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.marketplaceListed}
+                  onChange={(e) => setForm((f) => ({ ...f, marketplaceListed: e.target.checked }))}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">List on online store</span>
+              </label>
             </div>
           </div>
           <DialogFooter>

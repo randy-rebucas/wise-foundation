@@ -24,7 +24,13 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 
-const FREE_SHIPPING_THRESHOLD = 2500;
+import {
+  MARKETPLACE_FREE_SHIPPING_THRESHOLD,
+  MARKETPLACE_FLAT_SHIPPING_FEE,
+  computeCartStyleShipping,
+} from "@/lib/utils/marketplaceShipping";
+
+const FREE_SHIPPING_THRESHOLD = MARKETPLACE_FREE_SHIPPING_THRESHOLD;
 
 const STOCK_IMAGES = {
   hero: [
@@ -68,14 +74,13 @@ export default function MarketplaceCartPage() {
   const getSubtotal = useMarketplaceCartStore((s) => s.getSubtotal);
   const subtotal = getSubtotal();
   const itemCount = items.reduce((sum, line) => sum + line.quantity, 0);
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : 99;
+  const shipping = computeCartStyleShipping(subtotal);
   const total = subtotal + shipping;
   const amountToFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
   const freeShippingUnlocked = subtotal >= FREE_SHIPPING_THRESHOLD;
   const shippingProgress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
 
   const [suggestions, setSuggestions] = useState<SuggestedProduct[]>([]);
-  const [promoOpen, setPromoOpen] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const loadSuggestions = useCallback(async () => {
@@ -440,28 +445,6 @@ export default function MarketplaceCartPage() {
                     {shipping === 0 ? "FREE" : money(shipping)}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="text-left text-xs font-semibold text-[#6ea43f] hover:underline"
-                  onClick={() => setPromoOpen((open) => !open)}
-                >
-                  Have a promo code?
-                </button>
-                {promoOpen && (
-                  <div className="flex gap-2">
-                    <Input
-                      className="rounded-xl border-white/70 bg-white/65"
-                      placeholder="Enter promo code"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="shrink-0 rounded-xl border-white/70 bg-white/65"
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                )}
                 <div className="flex justify-between border-t border-white/60 pt-3 text-base font-bold text-[#1e3157]">
                   <span>Total</span>
                   <span>{money(total)}</span>

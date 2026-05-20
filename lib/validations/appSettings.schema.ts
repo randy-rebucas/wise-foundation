@@ -8,6 +8,10 @@ export const patchAppSettingsSchema = z.object({
   memberDefaultDiscountPercent: z.number().min(0).max(100).optional(),
   defaultLowStockThreshold: z.number().int().min(1).max(999_999).optional(),
   receiptFooter: z.string().max(500).optional(),
+  marketplaceFulfillmentBranchId: z
+    .union([z.string().regex(/^[a-f\d]{24}$/i), z.literal(""), z.null()])
+    .optional()
+    .transform((v) => (v === "" || v === null ? null : v)),
 });
 
 export type PatchAppSettingsInput = z.infer<typeof patchAppSettingsSchema>;

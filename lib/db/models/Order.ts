@@ -38,7 +38,10 @@ export interface IOrder extends Document {
     city: string;
     region: string;
     postalCode: string;
+    shippingMethod?: string;
+    shippingCost?: number;
   };
+  shippingAmount?: number;
   marketplaceCustomerUserId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
@@ -86,6 +89,7 @@ const OrderSchema = new Schema<IOrder>(
     receivedByName: { type: String },
     deliveredAt: { type: Date, default: null },
     deliveredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    shippingAmount: { type: Number, default: 0, min: 0 },
     marketplaceShipping: {
       fullName: { type: String },
       email: { type: String },
@@ -95,6 +99,8 @@ const OrderSchema = new Schema<IOrder>(
       city: { type: String },
       region: { type: String },
       postalCode: { type: String },
+      shippingMethod: { type: String },
+      shippingCost: { type: Number, min: 0 },
     },
     marketplaceCustomerUserId: {
       type: Schema.Types.ObjectId,

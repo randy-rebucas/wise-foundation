@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
@@ -55,13 +56,32 @@ export async function getDefaultLowStockThreshold(): Promise<number> {
   return doc?.defaultLowStockThreshold ?? DEFAULTS.defaultLowStockThreshold;
 }
 
+export async function getAdminAppSettingsExtras() {
+  const doc = await getAppSettingsLean();
+  const branchId = doc?.marketplaceFulfillmentBranchId;
+  return {
+    marketplaceFulfillmentBranchId: branchId ? String(branchId) : "",
+  };
+}
+
 export async function updateAppSettings(updates: PatchAppSettingsInput) {
   await connectDB();
   const existing = await AppSettings.findOne().sort({ createdAt: 1 });
   if (!existing) throw new Error("Application settings not found");
+
+  const { marketplaceFulfillmentBranchId, ...rest } = updates;
+  const set: Record<string, unknown> = { ...rest };
+  if (marketplaceFulfillmentBranchId !== undefined) {
+    set.marketplaceFulfillmentBranchId =
+      marketplaceFulfillmentBranchId &&
+      mongoose.isValidObjectId(marketplaceFulfillmentBranchId)
+        ? new mongoose.Types.ObjectId(marketplaceFulfillmentBranchId)
+        : null;
+  }
+
   const doc = await AppSettings.findByIdAndUpdate(
     existing._id,
-    { $set: updates },
+    { $set: set },
     { new: true, runValidators: true }
   ).lean();
   if (!doc) throw new Error("Application settings not found");

@@ -19,6 +19,7 @@ export const createProductSchema = z.object({
   barcode: z.string().optional(),
   retailPrice: z.number().min(0, "Price must be positive"),
   isActive: z.boolean().default(true),
+  marketplaceListed: z.boolean().default(true),
   tags: z.array(z.string()).default([]),
   images: z.array(imageUrlSchema).max(MAX_GALLERY_IMAGES).default([]),
 });

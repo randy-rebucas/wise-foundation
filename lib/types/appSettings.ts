@@ -10,3 +10,8 @@ export interface PublicAppSettings {
   /** From server at request time; product image upload requires a writable upload directory when false. */
   imageUploadEnabled: boolean;
 }
+
+/** Admin-only fields from GET /api/settings/app */
+export interface AdminAppSettings extends PublicAppSettings {
+  marketplaceFulfillmentBranchId?: string;
+}

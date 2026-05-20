@@ -11,9 +11,18 @@ import { ProductVariant } from "@/lib/db/models/ProductVariant";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { User } from "@/lib/db/models/User";
+import { MarketplaceContactMessage } from "@/lib/db/models/MarketplaceContactMessage";
 import { generateOrderNumber } from "@/lib/utils";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import type { ProductCategory } from "@/types";
+import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
+import { addCustomerSavedAddress } from "@/lib/services/customerAccountData.service";
+import {
+  computeCheckoutShippingCost,
+  computeMarketplaceOrderTotal,
+  isMarketplacePaymentCaptured,
+  marketplaceOrderStatusForPayment,
+} from "@/lib/utils/marketplaceShipping";
 
 const listedFilter: Record<string, unknown> = {
   deletedAt: null,
@@ -251,12 +260,26 @@ export async function placeMarketplaceOrder(
       });
     }
 
-    const subtotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
-    const discountAmount = 0;
-    const discountPercent = 0;
-    const total = subtotal;
+    const subtotal = Math.round(
+      lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0) * 100
+    ) / 100;
+    const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod);
+
+    let discountPercent = 0;
+    if (opts?.customerUserId) {
+      const dashboard = await getCustomerDashboard(opts.customerUserId);
+      if (dashboard) {
+        discountPercent = dashboard.memberDiscountPercent;
+      }
+    }
+    const discountAmount =
+      discountPercent > 0
+        ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
+        : 0;
+    const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
     const orderNumber = generateOrderNumber();
-    const paidNow = true;
+    const status = marketplaceOrderStatusForPayment(input.paymentMethod);
+    const paidNow = isMarketplacePaymentCaptured(input.paymentMethod);
     const amountPaid = paidNow ? total : 0;
     const change = Math.max(0, amountPaid - total);
 
@@ -272,13 +295,14 @@ export async function placeMarketplaceOrder(
           organizationId,
           orderNumber,
           type: "MARKETPLACE",
-          status: paidNow ? "paid" : "pending",
+          status,
           memberId: null,
           memberName: input.shipping.fullName,
           cashierId,
           subtotal,
           discountAmount,
           discountPercent,
+          shippingAmount: shippingCost,
           total,
           amountPaid,
           change,
@@ -294,6 +318,8 @@ export async function placeMarketplaceOrder(
             city: input.shipping.city,
             region: input.shipping.region,
             postalCode: input.shipping.postalCode,
+            shippingMethod: input.shippingMethod,
+            shippingCost,
           },
           marketplaceCustomerUserId: customerOid,
         },
@@ -350,31 +376,54 @@ export async function placeMarketplaceOrder(
       );
     }
 
-    await Transaction.create(
-      [
-        {
-          branchId,
-          organizationId,
-          orderId: order._id,
-          memberId: null,
-          type: "SALE",
-          amount: total,
-          paymentMethod: input.paymentMethod,
-          reference: orderNumber,
-          notes: "Marketplace",
-          performedBy: cashierId,
-        },
-      ],
-      { session }
-    );
+    if (paidNow) {
+      await Transaction.create(
+        [
+          {
+            branchId,
+            organizationId,
+            orderId: order._id,
+            memberId: null,
+            type: "SALE",
+            amount: total,
+            paymentMethod: input.paymentMethod,
+            reference: orderNumber,
+            notes: "Marketplace",
+            performedBy: cashierId,
+          },
+        ],
+        { session }
+      );
+    }
 
     await session.commitTransaction();
+
+    if (opts?.customerUserId && input.saveAddress) {
+      try {
+        await addCustomerSavedAddress(opts.customerUserId, {
+          label: "Checkout",
+          fullName: input.shipping.fullName,
+          phone: input.shipping.phone,
+          line1: input.shipping.line1,
+          line2: input.shipping.line2,
+          city: input.shipping.city,
+          region: input.shipping.region,
+          postalCode: input.shipping.postalCode,
+          isDefault: false,
+        });
+      } catch {
+        /* ignore duplicate save */
+      }
+    }
 
     return {
       orderId: order._id.toString(),
       orderNumber,
       total,
-      status: paidNow ? "paid" : "pending",
+      status,
+      subtotal,
+      discountAmount,
+      shippingCost,
     };
   } catch (err) {
     await session.abortTransaction();
@@ -382,4 +431,63 @@ export async function placeMarketplaceOrder(
   } finally {
     session.endSession();
   }
+}
+
+export type PublicMarketplaceReview = {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug?: string;
+  rating: number;
+  text: string;
+  createdAt: string;
+  reviewerName: string;
+};
+
+export async function listPublicMarketplaceReviews(limit = 50) {
+  await connectDB();
+  const cap = Math.min(100, Math.max(1, limit));
+  const users = await User.find({
+    role: "CUSTOMER",
+    deletedAt: null,
+    "marketplace.reviews.0": { $exists: true },
+  })
+    .select("name marketplace.reviews")
+    .lean();
+
+  const flat: PublicMarketplaceReview[] = [];
+  for (const user of users) {
+    const reviews = user.marketplace?.reviews ?? [];
+    for (const r of reviews) {
+      flat.push({
+        id: r.id,
+        productId: r.productId,
+        productName: r.productName,
+        productSlug: r.productSlug,
+        rating: r.rating,
+        text: r.text,
+        createdAt: r.createdAt,
+        reviewerName: user.name?.split(" ")[0] ?? "Customer",
+      });
+    }
+  }
+
+  flat.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return flat.slice(0, cap);
+}
+
+export async function submitMarketplaceContactMessage(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  await connectDB();
+  await MarketplaceContactMessage.create({
+    name: input.name.trim(),
+    email: input.email.trim().toLowerCase(),
+    subject: input.subject.trim(),
+    message: input.message.trim(),
+  });
+  return { ok: true };
 }

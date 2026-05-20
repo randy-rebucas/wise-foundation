@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Check,
   CreditCard,
@@ -28,6 +29,11 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_SHIPPING_METHODS,
+  computeMarketplaceOrderTotal,
+} from "@/lib/utils/marketplaceShipping";
+import type { MarketplaceSavedAddress } from "@/lib/types/customerAccount";
 
 const STOCK_IMAGES = {
   hero: [
@@ -48,26 +54,7 @@ const CHECKOUT_STEPS = [
   { id: "review", label: "Review" },
 ] as const;
 
-const SHIPPING_OPTIONS = [
-  {
-    id: "standard",
-    title: "Standard Shipping",
-    detail: "3-5 business days",
-    price: 120,
-  },
-  {
-    id: "express",
-    title: "Express Shipping",
-    detail: "1-2 business days",
-    price: 250,
-  },
-  {
-    id: "same_day",
-    title: "Same Day Delivery (Metro Manila)",
-    detail: "Order before 12nn",
-    price: 350,
-  },
-] as const;
+const SHIPPING_OPTIONS = MARKETPLACE_SHIPPING_METHODS;
 
 const PAYMENT_OPTIONS = [
   { id: "card" as const, label: "Credit / Debit Card", badges: ["Visa", "Mastercard"] },
@@ -76,10 +63,25 @@ const PAYMENT_OPTIONS = [
   { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
 ];
 
+const EMPTY_FORM = {
+  fullName: "",
+  email: "",
+  phone: "",
+  line1: "",
+  line2: "",
+  city: "",
+  region: "",
+  postalCode: "",
+  country: "Philippines",
+  paymentMethod: "card" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
+  notes: "",
+};
+
 export default function MarketplaceCheckoutPage() {
   const router = useRouter();
   const money = useFormatCurrency();
   const { toast } = useToast();
+  const { data: session, status: sessionStatus } = useSession();
   const items = useMarketplaceCartStore((s) => s.items);
   const getSubtotal = useMarketplaceCartStore((s) => s.getSubtotal);
   const clear = useMarketplaceCartStore((s) => s.clear);
@@ -90,24 +92,70 @@ export default function MarketplaceCheckoutPage() {
     useState<(typeof SHIPPING_OPTIONS)[number]["id"]>("standard");
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [saveInfo, setSaveInfo] = useState(true);
+  const [savedAddresses, setSavedAddresses] = useState<MarketplaceSavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [memberDiscountPercent, setMemberDiscountPercent] = useState(0);
 
-  const [form, setForm] = useState({
-    fullName: "Maria Santos",
-    email: "hello@glowish.ph",
-    phone: "+63 912 345 6789",
-    line1: "123 Glowish Lane",
-    line2: "Unit 5B",
-    city: "Quezon City",
-    region: "Metro Manila",
-    postalCode: "1100",
-    country: "Philippines",
-    paymentMethod: "card" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
-    notes: "",
-  });
+  const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const shippingCost =
     SHIPPING_OPTIONS.find((option) => option.id === shippingMethod)?.price ?? 120;
-  const total = subtotal + shippingCost;
+  const discountAmount =
+    memberDiscountPercent > 0
+      ? Math.round((subtotal * Math.min(100, memberDiscountPercent)) / 100 * 100) / 100
+      : 0;
+  const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
+
+  const applyAddress = useCallback((addr: MarketplaceSavedAddress) => {
+    setForm((f) => ({
+      ...f,
+      fullName: addr.fullName,
+      phone: addr.phone,
+      line1: addr.line1,
+      line2: addr.line2 ?? "",
+      city: addr.city,
+      region: addr.region,
+      postalCode: addr.postalCode,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (sessionStatus !== "authenticated" || session?.user?.role !== "CUSTOMER") return;
+
+    queueMicrotask(() => {
+      void (async () => {
+        try {
+          const [dashRes, addrRes] = await Promise.all([
+            fetch("/api/account/dashboard"),
+            fetch("/api/account/saved-addresses"),
+          ]);
+          const dashJson = await dashRes.json();
+          if (dashRes.ok && dashJson.success) {
+            const profile = dashJson.data.profile as { name: string; email: string; phone?: string };
+            setMemberDiscountPercent(dashJson.data.memberDiscountPercent ?? 0);
+            setForm((f) => ({
+              ...f,
+              fullName: f.fullName || profile.name || "",
+              email: f.email || profile.email || "",
+              phone: f.phone || profile.phone || "",
+            }));
+          }
+          const addrJson = await addrRes.json();
+          if (addrRes.ok && addrJson.success) {
+            const list = addrJson.data as MarketplaceSavedAddress[];
+            setSavedAddresses(list);
+            const def = list.find((a) => a.isDefault) ?? list[0];
+            if (def) {
+              setSelectedAddressId(def.id);
+              applyAddress(def);
+            }
+          }
+        } catch {
+          /* optional prefill */
+        }
+      })();
+    });
+  }, [sessionStatus, session?.user?.role, applyAddress]);
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
 
   function lineImage(url: string | undefined) {
@@ -141,8 +189,10 @@ export default function MarketplaceCheckoutPage() {
             region: form.region.trim(),
             postalCode: form.postalCode.trim(),
           },
+          shippingMethod,
           paymentMethod: form.paymentMethod,
           notes: form.notes.trim() || undefined,
+          saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
         }),
       });
       const json = await res.json();
@@ -270,6 +320,32 @@ export default function MarketplaceCheckoutPage() {
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-5">
             <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              {savedAddresses.length > 0 ? (
+                <div className="mb-4 space-y-2">
+                  <Label>Saved address</Label>
+                  <Select
+                    value={selectedAddressId || "new"}
+                    onValueChange={(id) => {
+                      setSelectedAddressId(id);
+                      if (id === "new") return;
+                      const addr = savedAddresses.find((a) => a.id === id);
+                      if (addr) applyAddress(addr);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl border-white/70 bg-white/65">
+                      <SelectValue placeholder="Choose address" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">Enter a new address</SelectItem>
+                      {savedAddresses.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.label} — {a.line1}, {a.city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Contact Information
               </h2>
@@ -475,22 +551,15 @@ export default function MarketplaceCheckoutPage() {
                   <span>Subtotal</span>
                   <span className="font-semibold text-[#1e3157]">{money(subtotal)}</span>
                 </div>
+                {discountAmount > 0 ? (
+                  <div className="flex justify-between text-green-700">
+                    <span>Member discount ({memberDiscountPercent}%)</span>
+                    <span className="font-semibold">−{money(discountAmount)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-[#2A4C6A]/80">
                   <span>Shipping</span>
                   <span className="font-semibold text-[#1e3157]">{money(shippingCost)}</span>
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <Input
-                    className="rounded-xl border-white/70 bg-white/65"
-                    placeholder="Promo code"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0 rounded-xl border-white/70 bg-white/65"
-                  >
-                    Apply
-                  </Button>
                 </div>
                 <div className="flex justify-between pt-2 text-lg font-bold text-[#6ea43f]">
                   <span>Total</span>
