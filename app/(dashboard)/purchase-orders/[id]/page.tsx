@@ -36,6 +36,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
+import { JntDeliveryPanel } from "@/components/purchase-orders/JntDeliveryPanel";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -61,6 +62,22 @@ interface PurchaseOrderDetail {
     contactPerson?: string;
     email?: string;
     phone?: string;
+    address?: string;
+  } | null;
+  jntShipment?: {
+    trackingNumber: string;
+    billCode?: string;
+    sortingCode?: string;
+    status: string;
+    statusLabel?: string;
+    bookedAt?: string;
+    lastSyncedAt?: string;
+    recipientName?: string;
+    recipientPhone?: string;
+    recipientAddress?: string;
+    recipientCity?: string;
+    recipientRegion?: string;
+    weightKg?: number;
   } | null;
   subtotal: number;
   discountPercent: number;
@@ -565,6 +582,14 @@ export default function PurchaseOrderDetailPage() {
           termsStartDate={po.createdAt}
           formatMoney={money}
           formatDate={formatDate}
+        />
+
+        <JntDeliveryPanel
+          poId={id}
+          poNumber={po.poNumber}
+          poStatus={po.status}
+          organization={po.organizationId}
+          shipment={po.jntShipment}
         />
 
         {po.notes && (

@@ -20,12 +20,16 @@ export function getImageStorageBackend(): ImageStorageBackend {
 }
 
 /** True when Cloudinary is configured or the local upload directory is writable. */
-export function imageUploadConfigured(): boolean {
+export async function imageUploadConfigured(): Promise<boolean> {
   return cloudinaryConfigured() || localImageStorageConfigured();
 }
 
-export function getStorageDescription(): string {
+export async function getStorageDescription(): Promise<string> {
   if (cloudinaryConfigured()) return "Cloudinary";
+  return getUploadRootDir();
+}
+
+export async function getLocalUploadRootDir(): Promise<string> {
   return getUploadRootDir();
 }
 

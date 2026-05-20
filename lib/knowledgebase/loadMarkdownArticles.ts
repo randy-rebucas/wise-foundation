@@ -4,7 +4,7 @@ import matter from "gray-matter";
 import { z } from "zod";
 import type { HelpArticle, HelpCategoryId, HelpJourney } from "./types";
 
-const KB_DIR = path.join(process.cwd(), "content", "knowledgebase");
+const KB_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), "content", "knowledgebase");
 
 const categoryIdSchema = z.enum([
   "get-started",

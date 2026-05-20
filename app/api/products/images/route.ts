@@ -27,7 +27,7 @@ const deleteBodySchema = z.object({
 
 const postHandler = async (req: AuthedRequest) => {
   try {
-    if (!imageUploadConfigured()) {
+    if (!(await imageUploadConfigured())) {
       return errorResponse(
         "Image upload is not available. Configure Cloudinary (CLOUDINARY_URL or CLOUDINARY_* env vars) or ensure the server can write to public/uploads.",
         503
@@ -70,7 +70,7 @@ const postHandler = async (req: AuthedRequest) => {
 
 const deleteHandler = async (req: AuthedRequest) => {
   try {
-    if (!imageUploadConfigured()) {
+    if (!(await imageUploadConfigured())) {
       return errorResponse("Image upload is not available.", 503);
     }
     const body = await req.json();

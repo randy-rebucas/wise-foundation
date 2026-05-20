@@ -25,9 +25,10 @@ export function toPublicAppSettings(
     memberDefaultDiscountPercent?: number;
     defaultLowStockThreshold?: number;
     receiptFooter?: string;
-  } | null
+  } | null,
+  imageUploadEnabled = false
 ): PublicAppSettings {
-  if (!doc) return { ...DEFAULTS, imageUploadEnabled: imageUploadConfigured() };
+  if (!doc) return { ...DEFAULTS, imageUploadEnabled };
   return {
     appName: doc.appName ?? DEFAULTS.appName,
     appTagline: doc.appTagline ?? DEFAULTS.appTagline,
@@ -37,7 +38,7 @@ export function toPublicAppSettings(
       doc.memberDefaultDiscountPercent ?? DEFAULTS.memberDefaultDiscountPercent,
     defaultLowStockThreshold: doc.defaultLowStockThreshold ?? DEFAULTS.defaultLowStockThreshold,
     receiptFooter: doc.receiptFooter ?? DEFAULTS.receiptFooter,
-    imageUploadEnabled: imageUploadConfigured(),
+    imageUploadEnabled,
   };
 }
 
@@ -48,7 +49,8 @@ export async function getAppSettingsLean() {
 
 export async function getPublicAppSettings(): Promise<PublicAppSettings> {
   const doc = await getAppSettingsLean();
-  return toPublicAppSettings(doc);
+  const imageUploadEnabled = await imageUploadConfigured();
+  return toPublicAppSettings(doc, imageUploadEnabled);
 }
 
 export async function getDefaultLowStockThreshold(): Promise<number> {
@@ -85,5 +87,6 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
     { new: true, runValidators: true }
   ).lean();
   if (!doc) throw new Error("Application settings not found");
-  return toPublicAppSettings(doc);
+  const imageUploadEnabled = await imageUploadConfigured();
+  return toPublicAppSettings(doc, imageUploadEnabled);
 }

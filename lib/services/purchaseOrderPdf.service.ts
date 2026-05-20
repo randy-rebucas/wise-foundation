@@ -69,14 +69,16 @@ function ensurePdfKitFonts(): void {
     const pdfkitEntry = nodeRequire.resolve("pdfkit");
     const pdfkitDir = path.dirname(pdfkitEntry);
     // Entry is often `.../pdfkit/js/pdfkit.js` — fonts live in `.../pdfkit/js/data`.
-    candidates.push(path.join(pdfkitDir, "data"));
-    candidates.push(path.join(pdfkitDir, "js", "data"));
-    candidates.push(path.join(pdfkitDir, "..", "js", "data"));
+    candidates.push(path.join(/*turbopackIgnore: true*/ pdfkitDir, "data"));
+    candidates.push(path.join(/*turbopackIgnore: true*/ pdfkitDir, "js", "data"));
+    candidates.push(path.join(/*turbopackIgnore: true*/ pdfkitDir, "..", "js", "data"));
   } catch {
     // pdfkit resolved via bundler path below
   }
 
-  candidates.push(path.join(process.cwd(), "node_modules", "pdfkit", "js", "data"));
+  candidates.push(
+    path.join(/*turbopackIgnore: true*/ process.cwd(), "node_modules", "pdfkit", "js", "data")
+  );
 
   for (const dataPath of candidates) {
     if (fs.existsSync(dataPath)) {

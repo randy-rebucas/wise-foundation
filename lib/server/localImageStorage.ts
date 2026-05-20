@@ -14,11 +14,15 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/gif": ".gif",
 };
 
-/** Absolute directory where files are written (`public/uploads` by default). */
+/** Absolute directory where files are written (from `UPLOAD_DIR` / next.config `env`). */
 export function getUploadRootDir(): string {
-  const fromEnv = process.env.UPLOAD_DIR?.trim();
-  if (fromEnv) return path.resolve(fromEnv);
-  return path.join(process.cwd(), "public", "uploads");
+  const dir = process.env.UPLOAD_DIR?.trim();
+  if (!dir) {
+    throw new Error(
+      "UPLOAD_DIR is not set. Add UPLOAD_DIR to .env.local or rely on next.config.ts env defaults."
+    );
+  }
+  return dir;
 }
 
 export function localImageStorageConfigured(): boolean {
@@ -32,11 +36,6 @@ export function localImageStorageConfigured(): boolean {
   }
 }
 
-/** @deprecated Use `imageUploadConfigured` from `@/lib/server/imageStorage`. */
-export function imageUploadConfigured(): boolean {
-  return localImageStorageConfigured();
-}
-
 function extensionForMime(mime: string): string {
   return MIME_TO_EXT[mime] ?? ".bin";
 }
@@ -47,9 +46,9 @@ export function buildPublicUploadUrl(relativePath: string): string {
 }
 
 export function resolveAbsoluteUploadPath(relativePath: string): string {
-  const root = path.resolve(getUploadRootDir());
+  const root = getUploadRootDir();
   const safe = sanitizeUploadFolder(relativePath.replace(/^\/+/, ""));
-  const absolute = path.resolve(root, safe);
+  const absolute = path.join(root, ...safe.split("/"));
   const relative = path.relative(root, absolute);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error("Invalid upload path");

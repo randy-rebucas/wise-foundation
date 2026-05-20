@@ -1,10 +1,10 @@
 import { cloudinaryConfigured, pingCloudinary } from "@/lib/server/cloudinaryStorage";
 import {
   getImageStorageBackend,
+  getLocalUploadRootDir,
   getStorageDescription,
   imageUploadConfigured,
 } from "@/lib/server/imageStorage";
-import { getUploadRootDir } from "@/lib/server/localImageStorage";
 import {
   getUploadRootFolder,
   getMediaLibraryFolder,
@@ -22,14 +22,18 @@ const getHandler = async (_req: AuthedRequest) => {
   const backend = getImageStorageBackend();
   const cloudinaryPing = cloudinaryConfigured() ? await pingCloudinary() : null;
 
+  const configured = await imageUploadConfigured();
+  const storagePath =
+    backend === "local" ? await getLocalUploadRootDir() : await getStorageDescription();
+
   return successResponse({
-    configured: imageUploadConfigured(),
+    configured,
     backend,
     cloudinary: cloudinaryPing
       ? { configured: true, ok: cloudinaryPing.ok, error: cloudinaryPing.ok ? undefined : cloudinaryPing.error }
       : { configured: false, ok: false },
     uploadUrlPrefix: UPLOAD_URL_PREFIX,
-    storagePath: backend === "local" ? getUploadRootDir() : getStorageDescription(),
+    storagePath,
     rootFolder: getUploadRootFolder(),
     mediaLibraryFolder: getMediaLibraryFolder(),
     productCatalogFolder: getProductCatalogFolder(),

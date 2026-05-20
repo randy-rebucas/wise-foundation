@@ -9,6 +9,27 @@ export interface IPurchaseOrderSignatureEmbed {
   signedAt: Date;
 }
 
+export interface IPurchaseOrderJntShipment {
+  trackingNumber: string;
+  billCode?: string;
+  sortingCode?: string;
+  status: "booked" | "in_transit" | "delivered" | "failed";
+  statusLabel?: string;
+  rawStatus?: string;
+  bookedAt: Date;
+  bookedBy: Types.ObjectId;
+  lastSyncedAt?: Date | null;
+  recipientName: string;
+  recipientPhone: string;
+  recipientAddress: string;
+  recipientCity: string;
+  recipientRegion: string;
+  weightKg?: number;
+  parcelCount?: number;
+  remark?: string;
+  lastError?: string;
+}
+
 export interface IPurchaseOrder extends Document {
   organizationId: Types.ObjectId;
   branchId?: Types.ObjectId | null;
@@ -29,6 +50,7 @@ export interface IPurchaseOrder extends Document {
   approvedSignature?: IPurchaseOrderSignatureEmbed | null;
   receivedBy?: Types.ObjectId | null;
   receivedAt?: Date | null;
+  jntShipment?: IPurchaseOrderJntShipment | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -74,6 +96,29 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     approvedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     receivedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     receivedAt: { type: Date, default: null },
+    jntShipment: {
+      trackingNumber: { type: String },
+      billCode: { type: String },
+      sortingCode: { type: String },
+      status: {
+        type: String,
+        enum: ["booked", "in_transit", "delivered", "failed"],
+      },
+      statusLabel: { type: String },
+      rawStatus: { type: String },
+      bookedAt: { type: Date },
+      bookedBy: { type: Schema.Types.ObjectId, ref: "User" },
+      lastSyncedAt: { type: Date },
+      recipientName: { type: String },
+      recipientPhone: { type: String },
+      recipientAddress: { type: String },
+      recipientCity: { type: String },
+      recipientRegion: { type: String },
+      weightKg: { type: Number },
+      parcelCount: { type: Number },
+      remark: { type: String },
+      lastError: { type: String },
+    },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

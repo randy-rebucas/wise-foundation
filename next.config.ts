@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const isDev = process.env.NODE_ENV === "development";
+
+/** Resolved once at build/config load — keeps app code free of process.cwd() for Turbopack NFT. */
+const defaultUploadDir = path.join(
+  /*turbopackIgnore: true*/ process.cwd(),
+  "public",
+  "uploads"
+);
 
 /** React / Turbopack use eval() in dev only; omit unsafe-eval in production CSP. */
 const scriptSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])].join(" ");
@@ -12,10 +20,14 @@ function buildSecurityHeaders() {
     { key: "X-XSS-Protection", value: "1; mode=block" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-    {
-      key: "Strict-Transport-Security",
-      value: "max-age=63072000; includeSubDomains; preload",
-    },
+    ...(isDev
+      ? []
+      : [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ]),
     {
       key: "Content-Security-Policy",
       value: [
@@ -32,6 +44,9 @@ function buildSecurityHeaders() {
 }
 
 const nextConfig: NextConfig = {
+  env: {
+    UPLOAD_DIR: process.env.UPLOAD_DIR?.trim() || defaultUploadDir,
+  },
   serverExternalPackages: ["pdfkit"],
   images: {
     remotePatterns: [

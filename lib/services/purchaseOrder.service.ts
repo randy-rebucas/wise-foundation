@@ -291,7 +291,7 @@ export async function getPurchaseOrderById(poId: string) {
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
     .populate("branchId", "name code")
-    .populate("organizationId", "name type contactPerson email phone")
+    .populate("organizationId", "name type contactPerson email phone address")
     .populate("createdBy", "name")
     .populate("approvedBy", "name")
     .populate("receivedBy", "name")
