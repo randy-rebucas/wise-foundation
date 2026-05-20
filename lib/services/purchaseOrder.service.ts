@@ -18,6 +18,18 @@ import {
   canSubmitOrgPurchaseOrders,
   isOrgPurchaseOrderSubmitter,
 } from "@/lib/permissions/purchaseOrders";
+import { refEntityId } from "@/lib/purchaseOrders/entityId";
+import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
+import { assertCanEditDraftPurchaseOrder } from "@/lib/purchaseOrders/draftEdit";
+import {
+  dedicatedFlowMessageForStatus,
+  isValidPoStatusTransition,
+  validateReceiveQuantities,
+} from "@/lib/purchaseOrders/statusTransitions";
+import {
+  listPurchaseOrderAuditLogs,
+  recordPurchaseOrderAudit,
+} from "@/lib/services/purchaseOrderAudit.service";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 import {
   computePurchaseOrderTotals,
@@ -56,34 +68,7 @@ async function generatePONumber(): Promise<string> {
   return `PO-${String(Date.now()).slice(-8)}`;
 }
 
-function refEntityId(field: unknown): string | null {
-  if (field == null) return null;
-  if (typeof field === "object" && field !== null && "_id" in field) {
-    return String((field as { _id: unknown })._id);
-  }
-  if (typeof field === "object" && field !== null && "toString" in field) {
-    return (field as { toString(): string }).toString();
-  }
-  return String(field);
-}
-
-/** Whether the user may read or mutate this purchase order (org- or branch-scoped). */
-export function canUserAccessPurchaseOrder(
-  po: { organizationId?: unknown; branchId?: unknown },
-  user: SessionUser
-): boolean {
-  if (user.role === "ADMIN") return true;
-  if (user.role === "ORG_ADMIN") {
-    const oid = user.organizationId;
-    if (!oid) return false;
-    return refEntityId(po.organizationId) === String(oid);
-  }
-  const bid = refEntityId(po.branchId);
-  if (bid) {
-    return (user.branchIds ?? []).map(String).includes(bid);
-  }
-  return hasPermission(user, "manage:inventory");
-}
+export { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
 
 function buildPurchaseOrderListQuery(
   user: SessionUser,
@@ -313,7 +298,9 @@ export async function getPurchaseOrderById(poId: string) {
     .populate("productId", "name sku images")
     .lean();
 
-  return { ...po, items };
+  const auditLogs = await listPurchaseOrderAuditLogs(poId);
+
+  return { ...po, items, auditLogs };
 }
 
 export async function getPurchaseOrderByIdForUser(poId: string, user: SessionUser) {
@@ -375,15 +362,37 @@ export async function createPurchaseOrder(
   }));
 
   await PurchaseOrderItem.insertMany(itemDocs);
+
+  if (user) {
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: String(po._id),
+      action: "created",
+      user,
+      toStatus: "draft",
+      metadata: { poNumber },
+    });
+  }
+
   return PurchaseOrder.findById(po._id).lean();
 }
 
-export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrderInput) {
+export async function updatePurchaseOrder(
+  poId: string,
+  input: UpdatePurchaseOrderInput,
+  user?: SessionUser
+) {
   await connectDB();
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
-  if (po.status !== "draft") throw new Error("Only draft purchase orders can be edited");
+  if (user) {
+    if (!canUserAccessPurchaseOrder(po, user)) {
+      throw new Error("Purchase order not found");
+    }
+    assertCanEditDraftPurchaseOrder(po, user);
+  } else if (po.status !== "draft") {
+    throw new Error("Only draft purchase orders can be edited");
+  }
 
   const updates: Record<string, unknown> = {};
   if (input.expectedDeliveryDate !== undefined)
@@ -440,7 +449,19 @@ export async function updatePurchaseOrder(poId: string, input: UpdatePurchaseOrd
     applyPricingToUpdates(updates, lineSubtotal, discountPercent);
   }
 
-  return PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+  const updated = await PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+
+  if (user && updated) {
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "updated",
+      user,
+      fromStatus: po.status,
+      toStatus: po.status,
+    });
+  }
+
+  return updated;
 }
 
 export async function deletePurchaseOrder(poId: string) {
@@ -466,6 +487,13 @@ export async function deletePurchaseOrderForUser(poId: string, user: SessionUser
   ) {
     throw new Error("You can only delete your own draft purchase orders");
   }
+  await recordPurchaseOrderAudit({
+    purchaseOrderId: poId,
+    action: "deleted",
+    user,
+    fromStatus: po.status,
+    toStatus: po.status,
+  });
   await deletePurchaseOrder(poId);
   return true;
 }
@@ -483,27 +511,14 @@ export async function updatePurchaseOrderStatus(
     throw new Error("Purchase order not found");
   }
 
-  const validTransitions: Record<string, PurchaseOrderStatus[]> = {
-    draft: ["submitted", "cancelled"],
-    submitted: ["approved", "declined", "cancelled"],
-    approved: ["received", "cancelled"],
-    declined: [],
-    received: [],
-    cancelled: [],
-  };
-
-  if (!validTransitions[po.status]?.includes(status)) {
+  const fromStatus = po.status as PurchaseOrderStatus;
+  if (!isValidPoStatusTransition(fromStatus, status)) {
     throw new Error(`Cannot transition from ${po.status} to ${status}`);
   }
 
-  if (status === "submitted") {
-    throw new Error("Submit this purchase order using Sign & Submit.");
-  }
-  if (status === "approved") {
-    throw new Error("Approve this purchase order using Sign & Approve.");
-  }
-  if (status === "declined") {
-    throw new Error("Decline this purchase order using Decline on the order detail page.");
+  const dedicatedMessage = dedicatedFlowMessageForStatus(status);
+  if (dedicatedMessage) {
+    throw new Error(dedicatedMessage);
   }
 
   if (status === "cancelled") {
@@ -530,17 +545,23 @@ export async function updatePurchaseOrderStatus(
     }
   }
 
-  if (status === "received" && !canManagePurchaseOrdersInventory(user)) {
-    throw new Error("Only operations staff can mark purchase orders as fulfilled");
+  const updated = await PurchaseOrder.findByIdAndUpdate(
+    poId,
+    { $set: { status } },
+    { new: true }
+  ).lean();
+
+  if (updated) {
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: status === "cancelled" ? "cancelled" : "status_changed",
+      user,
+      fromStatus: po.status,
+      toStatus: status,
+    });
   }
 
-  const updates: Record<string, unknown> = { status };
-  if (status === "received") {
-    updates.receivedBy = new mongoose.Types.ObjectId(user.id);
-    updates.receivedAt = new Date();
-  }
-
-  return PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+  return updated;
 }
 
 export async function declinePurchaseOrder(
@@ -555,12 +576,15 @@ export async function declinePurchaseOrder(
   await connectDB();
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
+  if (!canUserAccessPurchaseOrder(po, user)) {
+    throw new Error("Purchase order not found");
+  }
   if (po.status !== "submitted") {
     throw new Error("Only submitted purchase orders can be declined");
   }
 
   const trimmedReason = reason?.trim();
-  return PurchaseOrder.findByIdAndUpdate(
+  const updated = await PurchaseOrder.findByIdAndUpdate(
     poId,
     {
       $set: {
@@ -572,16 +596,34 @@ export async function declinePurchaseOrder(
     },
     { new: true }
   ).lean();
+
+  if (updated) {
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "declined",
+      user,
+      fromStatus: po.status,
+      toStatus: "declined",
+      metadata: trimmedReason ? { reason: trimmedReason } : undefined,
+    });
+  }
+
+  return updated;
 }
 
 export async function receivePurchaseOrder(
   poId: string,
-  userId: string,
+  user: SessionUser,
   input: ReceivePurchaseOrderInput
 ) {
+  if (!canManagePurchaseOrdersInventory(user)) {
+    throw new Error("Only operations staff can fulfill purchase orders");
+  }
+
   await connectDB();
   const defaultLowStockThreshold = await getDefaultLowStockThreshold();
   const session = await mongoose.startSession();
+  const userId = user.id;
 
   try {
     session.startTransaction();
@@ -590,11 +632,29 @@ export async function receivePurchaseOrder(
       .populate("organizationId", "settings")
       .session(session);
     if (!po) throw new Error("Purchase order not found");
+    if (!canUserAccessPurchaseOrder(po, user)) {
+      throw new Error("Purchase order not found");
+    }
     if (po.status !== "approved") throw new Error("Only approved purchase orders can be received");
 
     const poItems = await PurchaseOrderItem.find({ purchaseOrderId: poId }).session(session);
 
+    validateReceiveQuantities(
+      poItems.map((item) => {
+        const receiveItem = input.items.find((r) => r.itemId === String(item._id));
+        return {
+          itemId: String(item._id),
+          productName: item.productName,
+          quantity: item.quantity,
+          receivedQuantity: receiveItem?.receivedQuantity ?? 0,
+        };
+      })
+    );
+
     for (const receiveItem of input.items) {
+      const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
+      if (!poItem) continue;
+
       if (!po.branchId) {
         // Org PO — update received quantities and upsert org inventory
         await PurchaseOrderItem.findByIdAndUpdate(
@@ -605,8 +665,7 @@ export async function receivePurchaseOrder(
         const orgSettings = (po.organizationId as unknown as { settings?: { hasInventory?: boolean } })?.settings;
         const orgHasInventory = orgSettings?.hasInventory !== false;
         if (po.organizationId && receiveItem.receivedQuantity > 0 && orgHasInventory) {
-          const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
-          if (poItem) {
+        if (poItem) {
             await OrganizationInventory.findOneAndUpdate(
               { organizationId: po.organizationId, productId: poItem.productId },
               {
@@ -621,8 +680,6 @@ export async function receivePurchaseOrder(
         }
         continue;
       }
-      const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
-      if (!poItem) continue;
       if (receiveItem.receivedQuantity === 0) continue;
 
       const inventoryFilter = {
@@ -679,6 +736,15 @@ export async function receivePurchaseOrder(
     );
 
     await session.commitTransaction();
+
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "received",
+      user,
+      fromStatus: "approved",
+      toStatus: "received",
+    });
+
     return getPurchaseOrderById(poId);
   } catch (err) {
     await session.abortTransaction();

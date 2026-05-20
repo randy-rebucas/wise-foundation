@@ -16,7 +16,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const po = await receivePurchaseOrder(id, req.user.id, parsed.data);
+    const po = await receivePurchaseOrder(id, req.user, parsed.data);
     return successResponse(po, "Purchase order received and stock updated");
   } catch (error) {
     console.error("[POST /api/purchase-orders/[id]/receive]", error);

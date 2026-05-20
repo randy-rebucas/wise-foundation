@@ -27,3 +27,12 @@ export function canApprovePurchaseOrders(user: SessionUser): boolean {
 export function isOrgPurchaseOrderSubmitter(user: SessionUser): boolean {
   return user.role === "ORG_ADMIN" && canSubmitOrgPurchaseOrders(user);
 }
+
+/** Approved / fulfilled POs (deliveries list). */
+export function canViewDeliveries(user: SessionUser): boolean {
+  return canViewPurchaseOrders(user);
+}
+
+export function canFulfillDeliveries(user: SessionUser): boolean {
+  return canManagePurchaseOrdersInventory(user);
+}

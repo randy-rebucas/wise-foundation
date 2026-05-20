@@ -89,7 +89,28 @@ interface PurchaseOrderDetail {
     imageDataUrl: string;
   } | null;
   items: POItemDetail[];
+  auditLogs?: {
+    _id: string;
+    action: string;
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    performedByName?: string | null;
+    metadata?: { reason?: string } | null;
+    createdAt: string;
+  }[];
 }
+
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  created: "Created",
+  updated: "Updated",
+  deleted: "Deleted",
+  submitted: "Submitted for approval",
+  approved: "Approved",
+  declined: "Declined",
+  cancelled: "Cancelled",
+  received: "Marked fulfilled",
+  status_changed: "Status changed",
+};
 
 const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destructive" | "warning"> = {
   draft: "secondary",
@@ -201,6 +222,7 @@ export default function PurchaseOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Update failed", description: err.message }),
@@ -236,6 +258,7 @@ export default function PurchaseOrderDetailPage() {
       setDeclineReason("");
       queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
       toast({ title: "Purchase order declined" });
     },
     onError: (err: Error) =>
@@ -260,6 +283,7 @@ export default function PurchaseOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
       setReceiveOpen(false);
       toast({ title: "Purchase order fulfilled", description: "Inventory has been updated." });
     },
@@ -544,6 +568,45 @@ export default function PurchaseOrderDetailPage() {
             </div>
           )}
 
+          {(po.auditLogs?.length ?? 0) > 0 && (
+            <section className="rounded-lg border bg-card p-4 sm:p-5">
+              <h2 className="mb-3 text-sm font-semibold">Activity</h2>
+              <ul className="space-y-3">
+                {[...(po.auditLogs ?? [])].reverse().map((entry) => (
+                  <li
+                    key={entry._id}
+                    className="flex flex-col gap-0.5 border-b border-border/60 pb-3 last:border-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {AUDIT_ACTION_LABEL[entry.action] ?? entry.action}
+                        {entry.fromStatus && entry.toStatus && entry.fromStatus !== entry.toStatus ? (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            ({STATUS_LABEL[entry.fromStatus as PurchaseOrderDetail["status"]] ??
+                              entry.fromStatus}{" "}
+                            →{" "}
+                            {STATUS_LABEL[entry.toStatus as PurchaseOrderDetail["status"]] ??
+                              entry.toStatus})
+                          </span>
+                        ) : null}
+                      </p>
+                      {entry.metadata?.reason ? (
+                        <p className="text-xs text-muted-foreground">{entry.metadata.reason}</p>
+                      ) : null}
+                      {entry.performedByName ? (
+                        <p className="text-xs text-muted-foreground">{entry.performedByName}</p>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground shrink-0">
+                      {dateTime(entry.createdAt)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="rounded-lg border bg-card p-4 sm:p-5">
             <h2 className="mb-4 text-sm font-semibold">Order details</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -810,6 +873,7 @@ export default function PurchaseOrderDetailPage() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
           queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+          queryClient.invalidateQueries({ queryKey: ["deliveries"] });
           toast({
             title: signRole === "submit" ? "Purchase order submitted" : "Purchase order approved",
           });

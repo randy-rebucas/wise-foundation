@@ -272,11 +272,11 @@ export default function PurchaseOrdersPage() {
   return (
     <div className="flex flex-col">
       <Header
-        title={isOrgSubmitter ? "My Deliveries" : "Purchase Orders"}
+        title={isOrgSubmitter ? "My Purchase Orders" : "Purchase Orders"}
         subtitle={
           isOrgSubmitter
             ? "Create and submit purchase orders for admin approval"
-            : "Manage orders from distributors, franchises, and partners"
+            : "Manage draft, submitted, and approved orders from distributors and partners"
         }
       />
       <div className="flex-1 space-y-6 p-4 sm:p-6">

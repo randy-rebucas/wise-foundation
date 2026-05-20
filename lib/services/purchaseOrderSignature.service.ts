@@ -3,10 +3,9 @@ import { connectDB } from "@/lib/db/connect";
 import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
 import { assertValidSignatureDataUrl } from "@/lib/utils/signatureDataUrl";
 import type { SignPurchaseOrderInput } from "@/lib/validations/purchaseOrder.schema";
-import {
-  canUserAccessPurchaseOrder,
-  getPurchaseOrderById,
-} from "@/lib/services/purchaseOrder.service";
+import { getPurchaseOrderById } from "@/lib/services/purchaseOrder.service";
+import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
+import { recordPurchaseOrderAudit } from "@/lib/services/purchaseOrderAudit.service";
 import {
   canApprovePurchaseOrders,
   isOrgPurchaseOrderSubmitter,
@@ -47,6 +46,14 @@ export async function signPurchaseOrder(
         submittedSignature: signature,
       },
     });
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "submitted",
+      user,
+      fromStatus: "draft",
+      toStatus: "submitted",
+      performedByName: input.signedByName,
+    });
   } else {
     if (!canApprovePurchaseOrders(user)) {
       throw new Error("Only platform administrators can approve purchase orders");
@@ -61,6 +68,14 @@ export async function signPurchaseOrder(
         approvedAt: new Date(),
         approvedSignature: signature,
       },
+    });
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "approved",
+      user,
+      fromStatus: "submitted",
+      toStatus: "approved",
+      performedByName: input.signedByName,
     });
   }
 

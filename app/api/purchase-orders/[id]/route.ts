@@ -50,7 +50,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
       return forbiddenResponse("You can only assign purchase orders to your organization.");
     }
 
-    const po = await updatePurchaseOrder(id, parsed.data);
+    const po = await updatePurchaseOrder(id, parsed.data, req.user);
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order updated");
   } catch (error) {
