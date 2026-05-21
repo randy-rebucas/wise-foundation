@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
-import { Copy, GripVertical, Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Loader2, ListChecks, Plus, RefreshCw, Trash2 } from "lucide-react";
 import {
   defaultPOItem,
   type Organization,
@@ -134,6 +134,7 @@ export function PurchaseOrderForm({
     error: productsError,
   } = useQuery<ProductHit[]>({
     queryKey: ["products-simple"],
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch("/api/products?limit=100&isActive=true&includeVariantSummary=true");
       const data = await res.json();
@@ -459,16 +460,24 @@ export function PurchaseOrderForm({
   }
 
   function selectPOProductById(index: number, productId: string) {
-    const p = products.find((x) => String(x._id) === String(productId));
-    if (!p) return;
-    void selectPOProduct(index, p);
+    void refreshPOProductLine(index, productId);
   }
 
-  async function selectPOProduct(index: number, p: ProductHit) {
+  function refreshPOProductLine(
+    index: number,
+    productId: string,
+    opts?: { preserveQuantity?: boolean }
+  ) {
+    void applyPOProductFromCatalog(index, String(productId), opts);
+  }
+
+  async function applyPOProductFromCatalog(
+    index: number,
+    productId: string,
+    opts?: { preserveQuantity?: boolean }
+  ) {
+    const preserveQuantity = opts?.preserveQuantity ?? false;
     const seq = nextVariantLoadSeq(index);
-    const productId = String(p._id);
-    const retailPrice = Number(p.retailPrice) || 0;
-    const baseUnitCost = defaultProcurementUnitCost(retailPrice);
 
     setPOItems((prev) =>
       prev.map((item, i) =>
@@ -476,26 +485,30 @@ export function PurchaseOrderForm({
           ? {
               ...item,
               productId,
-              productName: p.name,
-              baseProductName: p.name,
-              sku: p.sku,
-              variantId: undefined,
-              variants: undefined,
               variantsLoading: true,
-              quantity: 1,
-              unitCost: baseUnitCost,
             }
           : item
       )
     );
 
     try {
-      const res = await fetch(`/api/products/${productId}/variants`);
+      const res = await fetch(`/api/products/${productId}`);
       const json = await res.json();
       if (isStaleVariantLoad(index, seq)) return;
-      if (!json.success) throw new Error(json.error ?? "Failed to load variants");
-      const all = (json.data ?? []) as ProductVariantOption[];
-      const active = all
+      if (!json.success) {
+        throw new Error(json.error ?? `Failed to load product (${res.status})`);
+      }
+
+      const product = json.data as {
+        _id: string;
+        name: string;
+        sku: string;
+        retailPrice: number;
+        variants?: ProductVariantOption[];
+      };
+
+      const retailPrice = Number(product.retailPrice) || 0;
+      const active = (product.variants ?? [])
         .filter((v) => v.isActive !== false)
         .map((v) => ({ ...v, _id: String(v._id) }));
 
@@ -506,10 +519,15 @@ export function PurchaseOrderForm({
           if (active.length === 0) {
             return {
               ...item,
+              productId: String(product._id),
+              productName: product.name,
+              baseProductName: product.name,
+              sku: product.sku,
+              variantId: undefined,
               variants: [],
               variantsLoading: false,
-              sku: p.sku,
-              quantity: 1,
+              quantity:
+                preserveQuantity && item.quantity > 0 ? item.quantity : 1,
               unitCost: defaultProcurementUnitCost(retailPrice),
             };
           }
@@ -518,43 +536,65 @@ export function PurchaseOrderForm({
             const variant = active[0]!;
             return {
               ...item,
+              productId: String(product._id),
+              baseProductName: product.name,
               variants: active,
               variantsLoading: false,
               variantId: variant._id,
-              productName: `${p.name} — ${variant.name}`,
+              productName: `${product.name} — ${variant.name}`,
               sku: variant.sku,
-              quantity: 1,
+              quantity:
+                preserveQuantity && item.quantity > 0 ? item.quantity : 1,
               unitCost: defaultProcurementUnitCost(Number(variant.retailPrice) || 0),
+            };
+          }
+
+          const keepVariant =
+            item.variantId && active.some((v) => String(v._id) === String(item.variantId));
+          const selected = keepVariant
+            ? active.find((v) => String(v._id) === String(item.variantId))!
+            : null;
+
+          if (selected) {
+            return {
+              ...item,
+              productId: String(product._id),
+              baseProductName: product.name,
+              variants: active,
+              variantsLoading: false,
+              variantId: String(selected._id),
+              productName: `${product.name} — ${selected.name}`,
+              sku: selected.sku,
+              quantity: item.quantity > 0 ? item.quantity : 1,
+              unitCost: defaultProcurementUnitCost(Number(selected.retailPrice) || 0),
             };
           }
 
           return {
             ...item,
+            productId: String(product._id),
+            productName: product.name,
+            baseProductName: product.name,
             variants: active,
             variantsLoading: false,
             variantId: undefined,
-            productName: p.name,
-            baseProductName: p.name,
             sku: "",
-            quantity: 1,
+            quantity:
+              preserveQuantity && item.quantity > 0 ? item.quantity : 1,
             unitCost: 0,
           };
         })
       );
-    } catch {
+    } catch (err) {
       if (isStaleVariantLoad(index, seq)) return;
+      toast({
+        variant: "destructive",
+        title: "Could not load product pricing",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
       setPOItems((prev) =>
         prev.map((item, i) =>
-          i === index
-            ? {
-                ...item,
-                variants: [],
-                variantsLoading: false,
-                sku: p.sku,
-                quantity: 1,
-                unitCost: defaultProcurementUnitCost(retailPrice),
-              }
-            : item
+          i === index ? { ...item, variantsLoading: false } : item
         )
       );
     }
@@ -849,7 +889,31 @@ export function PurchaseOrderForm({
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <div>
-                    <Label className="text-xs">Unit cost</Label>
+                    <div className="flex items-center justify-between gap-1">
+                      <Label className="text-xs">Unit cost</Label>
+                      {item.productId && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          title="Refresh unit cost from catalog (40% of retail)"
+                          aria-label="Refresh unit cost from catalog"
+                          disabled={item.variantsLoading}
+                          onClick={() =>
+                            refreshPOProductLine(index, item.productId, {
+                              preserveQuantity: true,
+                            })
+                          }
+                        >
+                          {item.variantsLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                     <Input
                       type="number"
                       min={0}
