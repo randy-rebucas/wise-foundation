@@ -3,6 +3,8 @@
 | Document | Audience | Description |
 |----------|----------|-------------|
 | [marketplace-seo.md](./marketplace-seo.md) | Developers / admins | Storefront SEO: metadata, sitemap, robots, settings, verification checklist, follow-ups |
+| [full-audit-help-seo.md](./full-audit-help-seo.md) | Developers | Full audit: Help KB, sidebar coverage, SEO implementation, verification |
+| [help-knowledgebase-sync.md](./help-knowledgebase-sync.md) | Developers | Help KB maintenance index (links to full audit) |
 | [roles-and-permissions-matrix.md](./roles-and-permissions-matrix.md) | Developers / admins | Role × permission matrix, sidebar rules, PO workflow, API gates |
 | [roles-and-permissions-matrix.png](./roles-and-permissions-matrix.png) | All | Visual matrix (PNG); regenerate via `node scripts/generate-permissions-matrix-image.mjs` |
 

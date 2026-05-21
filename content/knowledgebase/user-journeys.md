@@ -24,6 +24,12 @@ journeys:
       - title: Organizations
         description: Audit distributor, franchise, or partner records.
         href: /admin/organizations
+      - title: Storefront & SEO
+        description: Application name, logo, SEO defaults, and marketplace fulfillment branch.
+        href: /settings
+      - title: Verify online store
+        description: Confirm listed products and branding on the public shop.
+        href: /
       - title: Deep dive on issues
         description: Open Orders, Inventory, or Reports as needed.
         href: /orders

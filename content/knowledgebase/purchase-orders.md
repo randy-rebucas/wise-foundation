@@ -5,7 +5,7 @@ summary: Create and track inbound POs from draft through received—procurement 
 category: catalog-stock
 relatedPaths:
   - /purchase-orders
-permissionsNote: manage:inventory
+permissionsNote: manage:inventory and/or submit:org_orders (ORG_ADMIN). Platform ADMIN has full access.
 journeys:
   - id: replenish-branch
     title: Replenish a branch

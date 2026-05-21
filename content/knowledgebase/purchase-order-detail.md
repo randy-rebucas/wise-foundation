@@ -5,7 +5,7 @@ summary: Single-PO view—status, supplier, lines, received quantities, and acti
 category: catalog-stock
 relatedPaths:
   - /purchase-orders
-permissionsNote: manage:inventory
+permissionsNote: manage:inventory and/or submit:org_orders (ORG_ADMIN). Receiving/fulfillment may require HQ ADMIN for cross-org deliveries.
 ---
 
 ## Opening a PO
@@ -21,8 +21,9 @@ Each line shows **ordered quantity**, **received quantity** (where tracked), **u
 Buttons or dialogs depend on current **status** and your permissions. Typical progression:
 
 1. **Draft** — edit lines freely where allowed.
-2. **Submitted / approved** — procurement acceptance.
-3. **Received** — stock should reflect received totals.
+2. **Submitted** — sign and submit for approval.
+3. **Approved** — awaiting fulfillment (HQ may use [Deliveries](/help/deliveries)).
+4. **Received** — use **Mark Fulfilled** on the detail page (status `received` in the database); stock should reflect received totals.
 
 ## Reconciliation
 

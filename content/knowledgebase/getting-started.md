@@ -49,10 +49,12 @@ The **sidebar** lists only screens your permissions allow. Items you cannot use 
 
 ## Tenant context
 
-App name, tagline, and formatting (currency, dates) come from **tenant / organization settings** where configured. Some KPIs use server calendar boundaries; displayed timestamps may use your configured timezone.
+App name, tagline, logo, and formatting (currency, dates) come from **Settings → Application** (administrators). The same branding and **storefront SEO** defaults apply to the public **Online store**. Some KPIs use server calendar boundaries; displayed timestamps may use your configured timezone.
 
 ## Related guides
 
 - [Roles & permissions](/help/roles-permissions)
 - [User journeys by role](/help/user-journeys)
+- [Settings](/help/settings)
+- [Online store](/help/online-store)
 - [Sign in & account](/help/login)

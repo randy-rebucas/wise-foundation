@@ -29,3 +29,18 @@ All articles live as **Markdown files** under `content/knowledgebase/` in the re
 
 - Prefer **internal links** like `/help/roles-permissions` so they open inside the app.
 - Put long procedural content in the Markdown body; use **journeys** in frontmatter when steps should appear as cards with Open links.
+
+## Recently documented areas
+
+Keep these articles aligned when features change:
+
+| Topic | Article |
+|-------|---------|
+| Storefront SEO, sitemap, robots | [Storefront SEO](/help/storefront-seo) |
+| Settings tabs (Profile, Application, Roles) | [Settings](/help/settings) |
+| Media library | [Media library](/help/media) |
+| Public shop from sidebar | [Online store](/help/online-store) |
+| HQ B2B fulfillment queue | [Deliveries](/help/deliveries) |
+| Product marketplace + SEO fields | [Products](/help/products) |
+
+Developer technical reference: `docs/marketplace-seo.md`.

@@ -40,6 +40,19 @@ journeys:
 
 - Use **root-relative** links like `/help/roles-permissions` so navigation stays inside the app.
 
+## Article index (maintain when adding screens)
+
+| Slug | Topic |
+|------|--------|
+| `storefront-seo` | Public shop SEO, sitemap, admin checklist |
+| `settings` | Profile, Application tab, Roles |
+| `media` | Media library |
+| `online-store` | Sidebar link to public storefront |
+| `deliveries` | HQ B2B fulfillment queue |
+| `products` | Catalog, marketplace listing, per-product SEO |
+
+See `docs/help-knowledgebase-sync.md` for the full audit list.
+
 ## Validation
 
 Invalid frontmatter fails the build. Run:

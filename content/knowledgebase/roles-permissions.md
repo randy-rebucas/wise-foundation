@@ -51,7 +51,8 @@ ORG_ADMIN permissions focus on **their organization**—not HQ branches. Branch 
 |------|----------------|
 | Dashboard | ADMIN only |
 | Org Dashboard / My Panel | ORG_ADMIN |
-| POS, Products, Inventory, Orders, Members, Reports | Matching permission (see table above) |
+| POS, Products, **Media**, Inventory, Orders, Members, Reports | Matching permission (see table above) |
+| **Online store** | All authenticated dashboard users (opens public storefront) |
 | Purchase Orders | HQ inventory staff **or** org admins who submit orders |
 | **Deliveries** (fulfillment queue) | **HQ ADMIN only**—hidden for distributors and org-bound accounts |
 | Reseller Sales & Commissions | ADMIN and ORG_ADMIN |
@@ -59,8 +60,10 @@ ORG_ADMIN permissions focus on **their organization**—not HQ branches. Branch 
 | Admin → Users | ADMIN |
 | Admin → Team | ORG_ADMIN with user management |
 | Admin → Organizations | ADMIN |
+| **Settings** | All staff (profile/security); **Application** tab ADMIN only |
+| **Help & guides** | All authenticated dashboard users |
 
-Settings and Help are available to most staff roles.
+Help articles are for staff documentation only; they are not indexed as public storefront pages (see [Storefront SEO](/help/storefront-seo)).
 
 ## Purchase orders (distributors vs HQ)
 
@@ -69,10 +72,10 @@ Settings and Help are available to most staff roles.
 | Create & edit draft PO | ✓ | ✓ (own org; edit own drafts) | ✓ |
 | Sign & submit for approval | ✓ | ✓ | ✓ |
 | Approve or decline | ✓ | | |
-| Mark fulfilled (receive stock) | ✓ | ✓ (own org) | ✓ |
+| Mark fulfilled / receive stock (`received`) | ✓ | ✓ (own org) | ✓ |
 | Deliveries list (nav) | ✓ | Hidden | Hidden |
 
-Workflow: **Draft → Submitted → Approved → Fulfilled** (or **Declined**).
+Workflow: **draft → submitted → approved → received** (UI: **Mark Fulfilled**), or **declined** / **cancelled**. Approved POs for HQ appear on [Deliveries](/help/deliveries) before fulfillment.
 
 Distributors use **Purchase Orders** to request stock; HQ uses **Deliveries** to fulfill approved orders.
 
@@ -94,3 +97,4 @@ Separate from user roles, each organization can have flags such as retail sellin
 2. Missing link → you lack the role or permission for that screen.
 3. “Forbidden” on save → API denied the action; ask an ADMIN to adjust your user permissions or role.
 4. Distributor accounts never see **Deliveries**—that is intentional; use **Purchase Orders** instead.
+5. Public shop indexing (sitemap, meta tags) — administrators: [Storefront SEO](/help/storefront-seo).

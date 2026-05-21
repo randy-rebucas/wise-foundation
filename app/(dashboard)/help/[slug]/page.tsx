@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
@@ -5,18 +6,20 @@ import { Button } from "@/components/ui/button";
 import { HelpArticleBody } from "@/components/help/HelpArticleBody";
 import { HELP_CATEGORIES } from "@/lib/knowledgebase/categories";
 import { getHelpArticle, getHelpSlugs } from "@/lib/knowledgebase";
+import { ROBOTS_NOINDEX } from "@/lib/seo/site";
 import { ArrowLeft } from "lucide-react";
 
 export function generateStaticParams() {
   return getHelpSlugs().map((slug) => ({ slug }));
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const article = getHelpArticle(slug);
   return {
     title: article ? `${article.title} · Help` : "Help",
     description: article?.summary ?? "Help article",
+    robots: ROBOTS_NOINDEX,
   };
 }
 

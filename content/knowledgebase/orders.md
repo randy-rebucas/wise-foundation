@@ -22,9 +22,20 @@ journeys:
         href: /orders
 ---
 
+## Order channels (type)
+
+| Type | Source |
+|------|--------|
+| **POS** | In-store checkout |
+| **B2B** | Organization B2B sales (org panel / approvals) |
+| **DISTRIBUTOR** | Distributor-channel orders |
+| **MARKETPLACE** | Public **online store** checkout (shipping address on the order detail) |
+
+Configure listing and fulfillment for marketplace orders under [Online store](/help/online-store) and [Settings](/help/settings).
+
 ## List and filters
 
-Filter by **status**, **branch**, **type** (POS / DISTRIBUTOR / B2B), or **date** when the UI exposes them. **ORG_ADMIN** listings are scoped to orders involving their **organization** (buyer, seller, or legacy org field—per API rules).
+Filter by **status**, **branch**, **type**, or **date** when the UI exposes them. **ORG_ADMIN** listings are scoped to orders involving their **organization** (buyer, seller, or legacy org field—per API rules).
 
 ## Status model (reference)
 
@@ -47,4 +58,5 @@ Some transitions to **delivered** require **delivery receipt** fields—have pap
 ## Related
 
 - [POS](/help/pos) creates many branch orders.
+- [Online store](/help/online-store) — customer **MARKETPLACE** orders.
 - [Purchase order detail](/help/purchase-order-detail) for procurement, not customer orders.

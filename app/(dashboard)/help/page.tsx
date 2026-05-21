@@ -5,12 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { HelpHubClient } from "@/components/help/HelpHubClient";
 import { getAllHelpArticles } from "@/lib/knowledgebase";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { ArrowLeft, BookMarked, Route } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Help & guides",
-  description: "Knowledge base, feature guides, and role-based journeys for Glowish.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return {
+    title: "Help & guides",
+    description: `Knowledge base, feature guides, and role-based journeys for ${settings.appName}.`,
+    robots: { index: false, follow: false },
+  };
+}
 
 export default function HelpPage() {
   const articles = getAllHelpArticles();

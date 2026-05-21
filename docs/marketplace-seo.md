@@ -12,7 +12,7 @@ Documentation for the storefront SEO foundation: metadata, structured data, craw
 | Root + marketplace metadata | Done | Dynamic `appName` / description from DB |
 | Route layouts (shop, cart, checkout, account) | Done | Public titles; private routes `noindex` |
 | Static pages (about, contact, categories, reviews) | Done | `generateMetadata` per page |
-| Staff dashboard + auth `noindex` | Done | Dashboard and `/login` not indexed |
+| Staff dashboard + auth + help `noindex` | Done | Dashboard, `/login`, `/help` (metadata + robots disallow) |
 | `sitemap.xml` | Done | [`app/sitemap.ts`](../app/sitemap.ts) |
 | `robots.txt` | Done | [`app/robots.ts`](../app/robots.ts) |
 | Unit tests | Done | [`lib/seo/site.test.ts`](../lib/seo/site.test.ts), [`lib/products/seo.test.ts`](../lib/products/seo.test.ts) |
@@ -191,5 +191,8 @@ Use this list for the next SEO iteration:
 
 ## Related docs
 
+- **In-app help (staff):** [/help/storefront-seo](/help/storefront-seo), [/help/settings](/help/settings), [/help/products](/help/products)
+- Full audit (Help + SEO): [`full-audit-help-seo.md`](./full-audit-help-seo.md)
+- Help KB maintenance: [`help-knowledgebase-sync.md`](./help-knowledgebase-sync.md)
 - In-app product form: SEO section in [`components/products/ProductForm.tsx`](../components/products/ProductForm.tsx)
 - Environment template: [`.env.example`](../.env.example)
