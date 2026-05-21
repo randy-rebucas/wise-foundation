@@ -1,14 +1,8 @@
+import { stripMarkdownPlainText } from "@/lib/markdown/stripMarkdown";
 import type { HelpArticle } from "./types";
 
 export function stripMarkdownForSearch(md: string): string {
-  return md
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`[^`]+`/g, " ")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/#+\s*/g, " ")
-    .replace(/[*_|~>-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return stripMarkdownPlainText(md);
 }
 
 export function articleSearchBlob(a: HelpArticle): string {

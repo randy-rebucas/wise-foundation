@@ -266,7 +266,9 @@ export async function listMarketplaceProducts(params: {
 
   const [rows, total] = await Promise.all([
     Product.find(filter)
-      .select("name slug images retailPrice category sku description")
+      .select(
+        "name slug images retailPrice category sku shortDescription description seoTitle seoDescription"
+      )
       .sort(sort)
       .skip(skip)
       .limit(limit)
@@ -294,6 +296,7 @@ export async function listMarketplaceProducts(params: {
       retailPrice: p.retailPrice,
       category: p.category,
       sku: p.sku,
+      shortDescription: p.shortDescription,
       description: p.description,
       stock: stockByProduct.get(p._id.toString()) ?? 0,
     })),
@@ -342,7 +345,10 @@ export async function getMarketplaceProductBySlug(slug: string) {
     _id: product._id.toString(),
     name: product.name,
     slug: product.slug,
+    shortDescription: product.shortDescription,
     description: product.description,
+    seoTitle: product.seoTitle,
+    seoDescription: product.seoDescription,
     category: product.category,
     sku: product.sku,
     images: product.images ?? [],

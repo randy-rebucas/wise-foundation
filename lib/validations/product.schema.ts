@@ -11,9 +11,19 @@ const imageUrlSchema = z
   )
   .transform((s) => parseImageUrl(s)!);
 
+const optionalText = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .optional()
+    .transform((v) => (v?.trim() ? v.trim() : undefined));
+
 export const createProductSchema = z.object({
   name: z.string().min(2, "Name is required").max(200),
-  description: z.string().optional(),
+  shortDescription: optionalText(500),
+  description: optionalText(20_000),
+  seoTitle: optionalText(70),
+  seoDescription: optionalText(160),
   category: z.enum(["homecare", "cosmetics", "wellness", "scent"]),
   sku: z.string().min(1, "SKU is required").max(50),
   barcode: z.string().optional(),

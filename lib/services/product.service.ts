@@ -152,7 +152,10 @@ export async function cloneProduct(productId: string) {
   const product = await Product.create({
     name: newName,
     slug: slugify(newName),
+    shortDescription: source.shortDescription,
     description: source.description,
+    seoTitle: source.seoTitle,
+    seoDescription: source.seoDescription,
     category: source.category,
     sku: newSku,
     images: source.images ?? [],
@@ -325,15 +328,23 @@ export async function getProductsForPOS(branchId: string, search?: string) {
 
 const IMPORT_MAX_ROWS = 5000;
 
-const CSV_HEADERS = [
+const CSV_HEADERS_REQUIRED = [
   "sku",
   "name",
-  "description",
   "category",
   "barcode",
   "retailprice",
   "isactive",
   "tags",
+] as const;
+
+const CSV_HEADERS_EXPORT = [
+  ...CSV_HEADERS_REQUIRED.slice(0, 2),
+  "shortdescription",
+  "description",
+  "seotitle",
+  "seodescription",
+  ...CSV_HEADERS_REQUIRED.slice(2),
 ] as const;
 
 function normalizeCsvHeader(h: string): string {
@@ -368,14 +379,17 @@ export async function exportProductsToCsv(): Promise<string> {
   const dataRows: string[][] = products.map((p) => [
     p.sku,
     p.name,
+    p.shortDescription ?? "",
     p.description ?? "",
+    p.seoTitle ?? "",
+    p.seoDescription ?? "",
     p.category,
     p.barcode ?? "",
     String(p.retailPrice),
     p.isActive ? "true" : "false",
     (p.tags ?? []).join("; "),
   ]);
-  return "\uFEFF" + serializeCsv([[...CSV_HEADERS], ...dataRows]);
+  return "\uFEFF" + serializeCsv([[...CSV_HEADERS_EXPORT], ...dataRows]);
 }
 
 export interface ProductImportRowError {
@@ -404,13 +418,13 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
   }
 
   const headerRow = rows[0]!.map(normalizeCsvHeader);
-  const col = (key: (typeof CSV_HEADERS)[number]) => headerRow.indexOf(key);
+  const col = (key: string) => headerRow.indexOf(normalizeCsvHeader(key));
 
-  for (const key of CSV_HEADERS) {
+  for (const key of CSV_HEADERS_REQUIRED) {
     if (col(key) < 0) {
       errors.push({
         row: 1,
-        message: `Missing required column "${key}". Expected headers: ${CSV_HEADERS.join(", ")}.`,
+        message: `Missing required column "${key}". Expected: ${CSV_HEADERS_REQUIRED.join(", ")}.`,
       });
       return { created: 0, updated: 0, errors };
     }
@@ -431,9 +445,9 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
   for (let i = 1; i < rows.length; i++) {
     const line = rows[i]!;
     const rowNum = i + 1;
-    const get = (key: (typeof CSV_HEADERS)[number]) => {
+    const get = (key: string) => {
       const idx = col(key);
-      return idx < line.length ? line[idx]! : "";
+      return idx >= 0 && idx < line.length ? line[idx]! : "";
     };
 
     const sku = get("sku").trim();
@@ -443,7 +457,10 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
     }
 
     const name = get("name").trim();
+    const shortDescription = get("shortdescription").trim();
     const description = get("description").trim();
+    const seoTitle = get("seotitle").trim();
+    const seoDescription = get("seodescription").trim();
     const categoryRaw = get("category").trim().toLowerCase() as ProductCategory;
     const barcode = get("barcode").trim();
     const retailPrice = parsePriceCell(get("retailprice"));
@@ -457,7 +474,10 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
 
     const payload = {
       name,
+      shortDescription: shortDescription || undefined,
       description: description || undefined,
+      seoTitle: seoTitle || undefined,
+      seoDescription: seoDescription || undefined,
       category: categoryRaw,
       sku,
       barcode: barcode || undefined,

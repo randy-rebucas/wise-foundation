@@ -4,7 +4,14 @@ import type { ProductCategory } from "@/types";
 export interface IProduct extends Document {
   name: string;
   slug: string;
+  /** Brief summary for shop cards and meta description fallback (plain text). */
+  shortDescription?: string;
+  /** Full product description (plain text). */
   description?: string;
+  /** Optional override for HTML document title / OG title. */
+  seoTitle?: string;
+  /** Optional override for meta description / OG description (max ~160 recommended). */
+  seoDescription?: string;
   category: ProductCategory;
   sku: string;
   barcode?: string;
@@ -23,7 +30,10 @@ const ProductSchema = new Schema<IProduct>(
   {
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, lowercase: true, trim: true },
-    description: { type: String },
+    shortDescription: { type: String, maxlength: 500 },
+    description: { type: String, maxlength: 20_000 },
+    seoTitle: { type: String, maxlength: 70 },
+    seoDescription: { type: String, maxlength: 160 },
     category: {
       type: String,
       required: true,
