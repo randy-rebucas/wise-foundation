@@ -17,7 +17,8 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
-import { AppLogo } from "@/components/branding/AppLogo";
+import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
@@ -41,18 +42,6 @@ const STOCK_IMAGES = {
   product:
     "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
 };
-
-const FOOTER_COLUMNS = [
-  { title: "Shop", links: ["All Products", "Best Sellers", "New Arrivals", "Sale"] },
-  {
-    title: "Help",
-    links: ["FAQs", "Shipping & Delivery", "Returns & Refunds", "Contact Us"],
-  },
-  {
-    title: "Company",
-    links: ["About Us", "Our Ingredients", "Reviews", "Privacy Policy"],
-  },
-];
 
 type SuggestedProduct = {
   _id: string;
@@ -135,8 +124,7 @@ export default function MarketplaceCartPage() {
   }
 
   return (
-    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-      <div className="mx-auto max-w-7xl space-y-5">
+    <MarketplacePageShell gap="space-y-5">
         <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[280px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
@@ -472,35 +460,7 @@ export default function MarketplaceCartPage() {
           </div>
         )}
 
-        <footer className="overflow-hidden rounded-[2rem] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl">
-          <div className="grid gap-6 border-b border-white/55 p-5 sm:p-7 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
-            <div className="space-y-4">
-              <AppLogo size="lg" />
-              <p className="max-w-xs text-sm leading-6 text-[#2A4C6A]/75">
-                Glow naturally, wish beautifully. Premium skincare for your radiant confidence.
-              </p>
-            </div>
-            {FOOTER_COLUMNS.map((column) => (
-              <div key={column.title}>
-                <h3 className="font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
-                  {column.title}
-                </h3>
-                <ul className="mt-4 space-y-2 text-sm text-[#2A4C6A]/75">
-                  {column.links.map((link) => (
-                    <li key={link}>{link}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 px-5 py-4 text-center text-xs text-[#2A4C6A]/65 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-            <span>© {new Date().getFullYear()} Glowish. All rights reserved.</span>
-            <span>
-              Made with <span className="text-[#FF33CC]">♥</span> for your glow.
-            </span>
-          </div>
-        </footer>
-      </div>
-    </div>
+        <MarketplaceFooter />
+    </MarketplacePageShell>
   );
 }

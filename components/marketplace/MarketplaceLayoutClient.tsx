@@ -31,12 +31,12 @@ export function MarketplaceLayoutClient({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur-md">
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
             <Skeleton className="h-9 w-40" />
             <Skeleton className="h-9 w-32" />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">{children}</main>
       </div>
     );
   }

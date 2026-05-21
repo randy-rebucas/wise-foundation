@@ -11,8 +11,6 @@ import {
   FlaskConical,
   Heart,
   Leaf,
-  Mail,
-  MessageCircle,
   Package,
   Search,
   ShieldCheck,
@@ -31,6 +29,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLogo } from "@/components/branding/AppLogo";
+import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import type { ProductCategory } from "@/types";
 
@@ -165,21 +164,6 @@ const TRUST_PILLS = [
   "Natural ingredients",
   "Dermatologically tested",
   "Cruelty free",
-];
-
-const FOOTER_COLUMNS = [
-  {
-    title: "Shop",
-    links: ["All Products", "Best Sellers", "New Arrivals", "Sale"],
-  },
-  {
-    title: "Help",
-    links: ["FAQs", "Shipping & Delivery", "Returns & Refunds", "Contact Us"],
-  },
-  {
-    title: "Company",
-    links: ["About Us", "Our Ingredients", "Reviews", "Privacy Policy"],
-  },
 ];
 
 const HERO_PRODUCT_POSITIONS = [
@@ -605,40 +589,7 @@ export default function MarketplaceCatalogPage() {
           </div>
         </section>
 
-        <footer className="mt-8 overflow-hidden rounded-[2rem] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl">
-          <div className="grid gap-6 border-b border-white/55 p-5 sm:p-7 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
-            <div className="space-y-4">
-              <AppLogo size="lg" />
-              <p className="max-w-xs text-sm leading-6 text-[#2A4C6A]/75">
-                Glow naturally, wish beautifully. Premium skincare for your radiant confidence.
-              </p>
-              <div className="flex gap-2 text-[#2B6B56]">
-                {[Heart, MessageCircle, Mail].map((Icon, index) => (
-                  <span
-                    key={index}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-[#6ea43f] text-white shadow-sm"
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                ))}
-              </div>
-            </div>
-            {FOOTER_COLUMNS.map((column) => (
-              <div key={column.title}>
-                <h3 className="font-semibold text-[#3c2e60]">{column.title}</h3>
-                <ul className="mt-4 space-y-2 text-sm text-[#2A4C6A]/75">
-                  {column.links.map((link) => (
-                    <li key={link}>{link}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 px-5 py-4 text-center text-xs text-[#2A4C6A]/65 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-            <span>© {new Date().getFullYear()} Glowish. All rights reserved.</span>
-            <span>Made with <span className="text-[#FF33CC]">♥</span> for your glow.</span>
-          </div>
-        </footer>
+        <MarketplaceFooter className="mt-8" showSocial />
       </div>
     </div>
   );

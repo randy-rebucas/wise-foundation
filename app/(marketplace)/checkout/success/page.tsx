@@ -3,6 +3,9 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { MARKETPLACE_PAGE_FONT, MARKETPLACE_PAGE_OUTER } from "@/lib/marketplace/pageLayout";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -67,8 +70,7 @@ function SuccessInner() {
   const displayNumber = orderNumber.startsWith("#") ? orderNumber : `#${orderNumber}`;
 
   return (
-    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-      <div className="mx-auto max-w-4xl space-y-6">
+    <MarketplacePageShell>
         <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(255,51,204,0.14),transparent_40%)]" />
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[0_20px_55px_rgba(110,164,63,0.35)]">
@@ -224,8 +226,7 @@ function SuccessInner() {
             </p>
           </div>
         </section>
-      </div>
-    </div>
+    </MarketplacePageShell>
   );
 }
 
@@ -233,7 +234,13 @@ export default function MarketplaceCheckoutSuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="-mx-4 -my-8 px-4 py-16 text-center font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]/70">
+        <div
+          className={cn(
+            MARKETPLACE_PAGE_OUTER,
+            MARKETPLACE_PAGE_FONT,
+            "py-16 text-center text-[#2A4C6A]/70"
+          )}
+        >
           Loading…
         </div>
       }

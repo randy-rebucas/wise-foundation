@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,8 +78,8 @@ export function PaymongoReturnClient() {
 
   if (error) {
     return (
-      <div className="-mx-4 -my-8 min-h-full px-4 py-16 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-        <div className="mx-auto max-w-lg rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+      <MarketplacePageShell gap="" innerClassName="flex justify-center py-8">
+        <div className="w-full max-w-lg rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
           <Package className="mx-auto mb-4 h-12 w-12 text-destructive/70" />
           <h1 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
             Payment issue
@@ -88,16 +89,16 @@ export function PaymongoReturnClient() {
             <Link href="/checkout">Back to checkout</Link>
           </Button>
         </div>
-      </div>
+      </MarketplacePageShell>
     );
   }
 
   return (
-    <div className="-mx-4 -my-8 flex min-h-[50vh] items-center justify-center px-4 py-16 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
+    <MarketplacePageShell gap="" innerClassName="flex min-h-[50vh] items-center justify-center py-8">
       <div className="flex flex-col items-center gap-3 text-center">
         <Loader2 className="h-10 w-10 animate-spin text-[#6ea43f]" />
         <p className="text-sm font-medium text-[#1e3157]">Confirming your payment…</p>
       </div>
-    </div>
+    </MarketplacePageShell>
   );
 }

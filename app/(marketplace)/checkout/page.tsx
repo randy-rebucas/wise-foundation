@@ -30,6 +30,12 @@ import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import {
   computeCheckoutShippingQuote,
   computeMarketplaceOrderTotal,
   getCheckoutShippingMethodsForAddress,
@@ -802,8 +808,8 @@ export default function MarketplaceCheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-        <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+      <MarketplacePageShell gap="" innerClassName="flex justify-center">
+        <div className="w-full max-w-xl rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
           <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
           <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
             Checkout
@@ -813,16 +819,16 @@ export default function MarketplaceCheckoutPage() {
             <Link href="/shop">Browse products</Link>
           </Button>
         </div>
-      </div>
+      </MarketplacePageShell>
     );
   }
 
   return (
     <form
       onSubmit={submit}
-      className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]"
+      className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT)}
     >
-      <div className="mx-auto max-w-7xl space-y-5">
+      <div className={cn(MARKETPLACE_PAGE_INNER, "space-y-5")}>
         <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[260px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">

@@ -423,17 +423,22 @@ export function MarketplaceShell({
           ))}
         </nav>
 
-        <main className={cn("w-full min-w-0 flex-1", isHome ? "" : "mx-auto max-w-6xl px-4 py-6 sm:py-8")}>
+        <main
+          className={cn(
+            "w-full min-w-0 flex-1",
+            isHome ? "" : "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8"
+          )}
+        >
           {children}
         </main>
-        {!isHome && !hasCustomFooter && (
+        {/* {!isHome && !hasCustomFooter && (
           <footer className="border-t py-8 text-center text-sm text-muted-foreground">
             <AppLogo size="lg" className="mx-auto mb-3 opacity-90" />
             <p>
               © {new Date().getFullYear()} {brand.appName}. Secure checkout · Local fulfillment.
             </p>
           </footer>
-        )}
+        )} */}
       </div>
     </TenantProvider>
   );

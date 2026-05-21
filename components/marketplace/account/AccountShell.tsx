@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { ACCOUNT_NAV, isAccountNavActive } from "@/components/marketplace/account/accountNav";
 import { UserAvatar } from "@/components/marketplace/account/UserAvatar";
 import { useRequireCustomer } from "@/components/marketplace/account/useRequireCustomer";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { MARKETPLACE_PAGE_FONT, MARKETPLACE_PAGE_OUTER } from "@/lib/marketplace/pageLayout";
 import { useMarketplaceNotificationReadsStore } from "@/store/marketplaceNotificationReadsStore";
 
 type ProfileSummary = {
@@ -56,7 +58,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
 
   if (!ready || !user) {
     return (
-      <div className="-mx-4 -my-8 flex justify-center py-24 font-[family-name:var(--font-plus-jakarta-sans)]">
+      <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "flex justify-center py-24")}>
         <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
       </div>
     );
@@ -67,8 +69,8 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
   const email = profile?.email ?? user.email ?? "";
 
   return (
-    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-      <section className="mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl">
+    <MarketplacePageShell gap="">
+      <section className="w-full overflow-hidden rounded-[2rem] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl">
         <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="border-b border-white/60 bg-white/40 p-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center gap-3 border-b border-white/60 pb-5">
@@ -129,6 +131,6 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           <div className="p-5 sm:p-7">{children}</div>
         </div>
       </section>
-    </div>
+    </MarketplacePageShell>
   );
 }

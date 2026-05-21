@@ -28,6 +28,14 @@ export async function getBranchById(branchId: string) {
     .lean();
 }
 
+/** Head office branch for public storefront contact pages. */
+export async function getHeadOfficeBranchPublic() {
+  await connectDB();
+  return Branch.findOne({ isHeadOffice: true, deletedAt: null, isActive: true })
+    .select("name address phone email")
+    .lean();
+}
+
 export interface CreateBranchData {
   name: string;
   code: string;

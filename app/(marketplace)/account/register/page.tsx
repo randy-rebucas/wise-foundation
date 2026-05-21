@@ -20,6 +20,8 @@ import {
   UserPlus,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { MARKETPLACE_PAGE_FONT, MARKETPLACE_PAGE_OUTER } from "@/lib/marketplace/pageLayout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -116,15 +118,14 @@ export default function AccountRegisterPage() {
 
   if (status === "loading") {
     return (
-      <div className="-mx-4 -my-8 flex justify-center py-20 font-[family-name:var(--font-plus-jakarta-sans)]">
+      <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "flex justify-center py-20")}>
         <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
       </div>
     );
   }
 
   return (
-    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <MarketplacePageShell>
         <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-white/60 bg-white/35 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
           <article className="bg-white/80 p-6 sm:p-8 lg:p-10">
             <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157] sm:text-4xl">
@@ -342,7 +343,6 @@ export default function AccountRegisterPage() {
             </div>
           </aside>
         </section>
-      </div>
-    </div>
+    </MarketplacePageShell>
   );
 }

@@ -109,6 +109,7 @@ flowchart TD
 - `/` (home)
 - `/shop`
 - `/about-us`, `/contact`, `/categories`, `/reviews`
+- `/faqs`, `/shipping-delivery`, `/returns-refunds`, `/privacy-policy`
 - `/product/{slug}` (marketplace-listed, active products only)
 
 ### Not indexed (`robots: noindex`)
@@ -127,7 +128,7 @@ Client-rendered catalog pages (`/`, `/shop`) still receive correct `<head>` tags
 
 **URL:** `{NEXT_PUBLIC_APP_URL}/sitemap.xml`
 
-**Static entries:** `/`, `/shop`, `/about-us`, `/contact`, `/categories`, `/reviews`
+**Static entries:** `/`, `/shop`, `/about-us`, `/contact`, `/categories`, `/reviews`, `/faqs`, `/shipping-delivery`, `/returns-refunds`, `/privacy-policy`
 
 **Dynamic entries:** one URL per listed product (`listedFilter` in marketplace service — active, not deleted, `marketplaceListed` true or unset).
 

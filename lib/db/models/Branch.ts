@@ -31,7 +31,6 @@ const BranchSchema = new Schema<IBranch>(
   { timestamps: true }
 );
 
-BranchSchema.index({ code: 1 }, { unique: true });
 BranchSchema.index({ organizationId: 1, deletedAt: 1 });
 BranchSchema.index({ isActive: 1, deletedAt: 1 });
 

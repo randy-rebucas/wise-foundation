@@ -94,7 +94,6 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
   { timestamps: true }
 );
 
-PurchaseOrderSchema.index({ poNumber: 1 }, { unique: true });
 PurchaseOrderSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 PurchaseOrderSchema.index({ status: 1, deletedAt: 1 });
 

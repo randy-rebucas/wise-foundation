@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { buildPageMetadata } from "@/lib/seo/site";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const settings = await getPublicAppSettings();
-  return buildPageMetadata({
-    title: "About Us",
-    description: `Learn about ${settings.appName}, our story, and our commitment to quality products.`,
-    path: "/about-us",
-    settings,
-  });
-}
+import { MARKETPLACE_STOCK_IMAGES } from "@/lib/marketplace/stockImages";
+import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   Beaker,
@@ -23,37 +18,51 @@ import {
   Sparkles,
   Sprout,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-const heroHighlights = [
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return buildPageMetadata({
+    title: "About Us",
+    description: `Learn about ${settings.appName}, our story, and our commitment to quality skincare.`,
+    path: "/about-us",
+    settings,
+  });
+}
+
+const HERO_FLOATS = [
   {
-    title: "Natural Ingredients",
-    description: "Carefully selected from the best nature has to offer.",
-    icon: Leaf,
+    image: MARKETPLACE_STOCK_IMAGES.cleanser,
+    label: "Clean botanical care",
+    position: "left-[6%] top-[18%] h-48 w-32 -rotate-6 sm:left-[12%] sm:h-52 sm:w-36",
   },
   {
-    title: "Clinically Tested",
-    description: "Safe, effective and tested for all skin types.",
-    icon: Beaker,
+    image: MARKETPLACE_STOCK_IMAGES.serum,
+    label: "Daily glow essentials",
+    position: "left-[38%] top-[4%] h-52 w-36 sm:left-[40%] sm:h-60 sm:w-40",
   },
-];
+  {
+    image: MARKETPLACE_STOCK_IMAGES.collection,
+    label: "Pure skincare rituals",
+    position: "right-[6%] top-[24%] h-44 w-36 rotate-6 sm:right-[10%] sm:h-48 sm:w-40",
+  },
+] as const;
 
 const promises = [
   {
     title: "Clean & Safe",
-    description: "No harsh chemicals, only skin-loving care.",
+    description: "No harsh chemicals—only skin-loving care.",
     icon: Leaf,
     tone: "bg-emerald-100 text-emerald-600",
   },
   {
     title: "Effective Results",
-    description: "Formulated to deliver visible, healthy glow.",
+    description: "Formulated to deliver a visible, healthy glow.",
     icon: Droplets,
     tone: "bg-blue-100 text-blue-600",
   },
   {
     title: "For Every Skin",
-    description: "Gentle and suitable for all skin types.",
+    description: "Gentle routines suitable for all skin types.",
     icon: Heart,
     tone: "bg-pink-100 text-pink-600",
   },
@@ -69,48 +78,21 @@ const promises = [
     icon: ShieldCheck,
     tone: "bg-orange-100 text-orange-600",
   },
-];
+] as const;
 
+export default async function AboutUsPage() {
+  const settings = await getPublicAppSettings();
+  const appName = settings.appName;
 
-const stockImages = {
-  cleanser:
-    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
-  serum:
-    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
-  productSet:
-    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
-  model:
-    "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=900&q=80",
-};
-
-const heroProductCards = [
-  {
-    image: stockImages.cleanser,
-    label: "Clean botanical care",
-    position: "left-[18%] top-[22%] h-48 w-36 rotate-[-5deg]",
-  },
-  {
-    image: stockImages.serum,
-    label: "Daily glow essentials",
-    position: "left-[40%] top-[8%] h-56 w-40",
-  },
-  {
-    image: stockImages.productSet,
-    label: "Pure skincare rituals",
-    position: "right-[8%] top-[28%] h-44 w-40 rotate-[4deg]",
-  },
-];
-
-export default function AboutUsPage() {
   return (
-    <div className="-mx-4 -my-8 min-h-full px-4 py-8 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
-      <div className="mx-auto max-w-7xl space-y-5">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[470px]">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_44%,rgba(255,255,255,0.72),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
-          <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+    <MarketplacePageShell>
+        {/* Hero */}
+        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[460px]">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.72),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.14),transparent_38%)]" />
+          <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
-                About Glowish
+                About {appName}
               </p>
               <h1 className="mt-4 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#1e3157] sm:text-5xl lg:text-6xl">
                 Naturally Beautiful,
@@ -118,54 +100,84 @@ export default function AboutUsPage() {
                   Confidently You.
                 </span>
               </h1>
-              <p className="mt-6 max-w-md text-base leading-7 text-[#1e3157]/82">
-                At Glowish, we believe glowing skin starts with the right care and pure
+              <div className="mt-4 flex items-center gap-2 text-[#6ea43f]">
+                <span className="h-px w-10 bg-[#6ea43f]/70" />
+                <Leaf className="h-4 w-4" aria-hidden />
+                <span className="h-px w-10 bg-[#6ea43f]/70" />
+              </div>
+              <p className="mt-5 max-w-md text-base leading-7 text-[#1e3157]/82">
+                At {appName}, we believe glowing skin starts with the right care and pure
                 ingredients. Our mission is to help you feel confident in your skin every day.
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                {heroHighlights.map((item) => (
-                  <article key={item.title} className="flex items-center gap-3 border-white/50 sm:border-r sm:last:border-r-0">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/55 text-[#6ea43f] shadow-sm">
-                      <item.icon className="h-6 w-6" />
-                    </span>
-                    <div>
-                  <h2 className="font-[family-name:var(--font-playfair-display)] text-base font-semibold text-[#1e3157]">
-                    {item.title}
-                  </h2>
-                      <p className="mt-1 text-xs leading-5 text-[#2A4C6A]/75">{item.description}</p>
-                    </div>
-                  </article>
-                ))}
+                <article className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/35 p-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-sm">
+                    <Leaf className="h-6 w-6" aria-hidden />
+                  </span>
+                  <div>
+                    <h2 className="font-[family-name:var(--font-playfair-display)] text-base font-semibold text-[#1e3157]">
+                      Natural ingredients
+                    </h2>
+                    <p className="mt-1 text-xs leading-5 text-[#2A4C6A]/75">
+                      Carefully selected from the best nature has to offer.
+                    </p>
+                  </div>
+                </article>
+                <article className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/35 p-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 shadow-sm">
+                    <Beaker className="h-6 w-6" aria-hidden />
+                  </span>
+                  <div>
+                    <h2 className="font-[family-name:var(--font-playfair-display)] text-base font-semibold text-[#1e3157]">
+                      Clinically tested
+                    </h2>
+                    <p className="mt-1 text-xs leading-5 text-[#2A4C6A]/75">
+                      Safe, effective formulas for everyday use.
+                    </p>
+                  </div>
+                </article>
               </div>
+
+              <Button
+                className="mt-8 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
+                asChild
+              >
+                <Link href="/shop">
+                  Explore the shop
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
 
-            <div className="relative min-h-[330px] lg:min-h-[400px]">
-              <div className="absolute inset-x-[5%] bottom-10 h-28 rounded-[50%] bg-white/45 blur-2xl" />
-              <div className="absolute left-[22%] top-[6%] h-72 w-72 rounded-full border border-white/55 bg-white/20" />
-              <div className="absolute left-[4%] bottom-11 h-28 w-16 rounded-full bg-violet-200/65 blur-sm" />
-              <div className="absolute bottom-10 left-[12%] h-12 w-12 rounded-full bg-white/80 shadow-sm" />
-              <div className="absolute bottom-6 right-[4%] h-28 w-28 rounded-full bg-pink-300/40 blur-sm" />
+            <div className="relative min-h-[300px] sm:min-h-[360px] lg:min-h-[400px]">
+              <div className="absolute inset-x-[6%] bottom-8 h-20 rounded-[50%] bg-white/45 blur-2xl" />
+              <div className="absolute left-[24%] top-[6%] h-64 w-64 rounded-full border border-white/55 bg-white/15" />
+              <div className="absolute bottom-8 right-[6%] h-24 w-24 rounded-full bg-pink-300/35 blur-md" />
 
-              {heroProductCards.map((card) => (
+              {HERO_FLOATS.map((card) => (
                 <div
                   key={card.label}
-                  className={`absolute ${card.position} overflow-hidden rounded-[2rem] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
-                  <div
-                    className="relative h-full rounded-[1.4rem] bg-cover bg-center"
-                    style={{ backgroundImage: `url(${card.image})` }}
-                  >
-                    <div className="absolute inset-0 rounded-[1.4rem] bg-gradient-to-t from-white/85 via-white/10 to-transparent" />
-                    <span className="absolute bottom-3 left-3 right-3 text-center text-[10px] font-semibold text-[#1e3157]">
-                      {card.label}
-                    </span>
+                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7.5rem] overflow-hidden rounded-[1.35rem]">
+                    <Image
+                      src={card.image}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 140px, 180px"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/55 via-transparent to-transparent" />
                   </div>
+                  <p className="mt-1.5 text-center text-[10px] font-semibold text-[#1e3157]">
+                    {card.label}
+                  </p>
                 </div>
               ))}
 
-              <div className="absolute bottom-5 left-[45%] w-40 rounded-3xl border border-white/75 bg-white/70 p-4 shadow-[0_20px_55px_rgba(68,47,107,0.18)]">
-                <PackageCheck className="mx-auto h-10 w-10 text-[#6ea43f]" />
+              <div className="absolute bottom-6 left-[42%] flex w-44 flex-col items-center rounded-3xl border border-white/75 bg-white/75 p-4 shadow-[0_20px_55px_rgba(68,47,107,0.18)] backdrop-blur">
+                <PackageCheck className="h-10 w-10 text-[#6ea43f]" aria-hidden />
                 <p className="mt-2 text-center text-xs font-semibold text-[#1e3157]">
                   Gentle skincare essentials
                 </p>
@@ -174,24 +186,28 @@ export default function AboutUsPage() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        {/* Promise */}
+        <section className="rounded-[2rem] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
           <div className="mb-6 flex items-center justify-center gap-3 text-center">
-            <Leaf className="h-5 w-5 text-[#6ea43f]" />
-            <h2 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
-              Our Promise to You
+            <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
+            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
+              Our promise to you
             </h2>
-            <Leaf className="h-5 w-5 text-[#6ea43f]" />
+            <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {promises.map((promise) => (
-              <article key={promise.title} className="flex items-center gap-3 border-white/60 md:border-r md:last:border-r-0">
-                <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${promise.tone}`}>
-                  <promise.icon className="h-7 w-7" />
+              <article
+                key={promise.title}
+                className="flex items-start gap-3 rounded-2xl border border-white/60 bg-white/40 p-4 lg:border-r lg:last:border-r-0"
+              >
+                <span
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${promise.tone}`}
+                >
+                  <promise.icon className="h-6 w-6" aria-hidden />
                 </span>
                 <div>
-                  <h3 className="font-[family-name:var(--font-playfair-display)] text-base font-semibold text-[#1e3157]">
-                    {promise.title}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-[#1e3157]">{promise.title}</h3>
                   <p className="mt-1 text-xs leading-5 text-[#2A4C6A]/72">{promise.description}</p>
                 </div>
               </article>
@@ -199,39 +215,56 @@ export default function AboutUsPage() {
           </div>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <div
-            className="relative min-h-[250px] overflow-hidden rounded-[2rem] border border-white/65 bg-cover bg-center shadow-sm backdrop-blur"
-            style={{ backgroundImage: `url(${stockImages.model})` }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-pink-100/20 to-white/55" />
-            <Sparkles className="absolute right-12 top-12 h-10 w-10 text-[#d965c9]" />
+        {/* Story */}
+        <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-white/65 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="relative min-h-[280px] overflow-hidden sm:min-h-[320px] lg:min-h-full">
+            <Image
+              src={MARKETPLACE_STOCK_IMAGES.botanical}
+              alt={`${appName} skincare`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1e3157]/20 via-pink-100/15 to-white/40 lg:bg-gradient-to-t lg:from-[#1e3157]/35 lg:to-transparent" />
+            <Sparkles
+              className="absolute right-8 top-8 h-10 w-10 text-[#d965c9]/90 drop-shadow-sm"
+              aria-hidden
+            />
           </div>
 
-          <article className="rounded-[2rem] border border-white/65 bg-white/40 p-8 shadow-sm backdrop-blur">
-            <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
-              Our Story
-            </p>
-            <h2 className="mt-3 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#1e3157]">
-              From Nature,
+          <article className="flex flex-col justify-center bg-white/50 p-8 backdrop-blur sm:p-10">
+            <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">Our story</p>
+            <h2 className="mt-3 font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157] sm:text-4xl">
+              From nature,
               <span className="block font-[family-name:var(--font-great-vibes)] text-[#d965c9]">
-                For You
+                for you
               </span>
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#2A4C6A]/78">
-              Glowish was born from a simple belief: skincare should be pure, effective, and
-              accessible to everyone. Inspired by nature and backed by science, we create
-              products that bring out your natural glow and celebrate your unique beauty.
+            <p className="mt-4 text-sm leading-7 text-[#2A4C6A]/78">
+              {appName} was born from a simple belief: skincare should be pure, effective, and
+              accessible to everyone. Inspired by nature and backed by science, we create products
+              that bring out your natural glow and celebrate your unique beauty.
             </p>
-            <Button className="mt-6 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
-              <Link href="/shop">
-                Learn More About Our Journey
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+            <p className="mt-4 text-sm leading-7 text-[#2A4C6A]/78">
+              Every formula is developed with transparency in mind—so you know what you are putting
+              on your skin and why it works.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+                <Link href="/categories">
+                  Our ingredients
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" className="rounded-xl border-white/80 bg-white/60" asChild>
+                <Link href="/contact">Get in touch</Link>
+              </Button>
+            </div>
           </article>
         </section>
-      </div>
-    </div>
+
+        <MarketplaceFooter />
+    </MarketplacePageShell>
   );
 }

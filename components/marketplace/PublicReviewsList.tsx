@@ -61,59 +61,79 @@ export function PublicReviewsList() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
+      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/70 bg-white/30 py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" aria-hidden />
+        <p className="text-sm text-[#2A4C6A]/70">Loading reviews…</p>
       </div>
     );
   }
 
   if (error) {
-    return <p className="py-8 text-center text-sm text-[#2A4C6A]/80">{error}</p>;
+    return (
+      <p className="rounded-2xl border border-red-200/80 bg-red-50/80 py-8 text-center text-sm text-red-800/90">
+        {error}
+      </p>
+    );
   }
 
   if (!reviews.length) {
     return (
-      <p className="py-12 text-center text-sm text-[#2A4C6A]/80">
-        No customer reviews yet. Be the first to share your experience after your order arrives.
-      </p>
+      <div className="rounded-2xl border border-dashed border-white/70 bg-white/35 px-6 py-14 text-center">
+        <Star className="mx-auto h-10 w-10 text-[#FBC02D]/80" aria-hidden />
+        <p className="mt-4 font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#1e3157]">
+          No reviews yet
+        </p>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#2A4C6A]/75">
+          Be the first to share your experience after your order arrives.
+        </p>
+      </div>
     );
   }
 
   return (
     <>
-      <p className="mb-5 text-center text-sm text-[#2A4C6A]/72">
-        {stats.count} verified review{stats.count === 1 ? "" : "s"} · average {stats.avg}/5
-      </p>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/45 px-4 py-3 text-center sm:justify-between sm:text-left">
+        <p className="text-sm font-medium text-[#1e3157]">
+          <span className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#6ea43f]">
+            {stats.avg}
+          </span>
+          <span className="text-[#2A4C6A]/70"> / 5 average</span>
+        </p>
+        <p className="text-sm text-[#2A4C6A]/72">
+          {stats.count} verified review{stats.count === 1 ? "" : "s"}
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {reviews.map((review) => (
           <article
             key={review.id}
-            className="rounded-2xl border border-white/65 bg-white/55 p-4 shadow-sm backdrop-blur"
+            className="flex flex-col rounded-2xl border border-white/65 bg-white/55 p-5 shadow-[0_8px_30px_rgba(94,70,135,0.08)] backdrop-blur transition hover:border-white hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]"
           >
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-sm font-semibold text-violet-700">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-100 text-sm font-semibold text-violet-700">
                 {review.reviewerName.charAt(0).toUpperCase()}
               </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#1e3157]">{review.reviewerName}</p>
-                <p className="flex items-center gap-1 text-xs font-semibold text-[#6ea43f]">
-                  Verified Buyer
-                  <BadgeCheck className="h-3.5 w-3.5" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[#1e3157]">{review.reviewerName}</p>
+                  <span className="text-[11px] text-[#2A4C6A]/55">{formatReviewDate(review.createdAt)}</span>
+                </div>
+                <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[#6ea43f]">
+                  Verified buyer
+                  <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
                 </p>
               </div>
-              <span className="ml-auto shrink-0 text-[11px] text-[#2A4C6A]/55">
-                {formatReviewDate(review.createdAt)}
-              </span>
             </div>
-            <div className="mt-4 flex gap-0.5 text-[#FBC02D]">
+            <div className="mt-4 flex gap-0.5 text-[#FBC02D]" aria-label={`${review.rating} out of 5 stars`}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
-                  className={`h-4 w-4 ${i < review.rating ? "fill-current" : "opacity-30"}`}
+                  className={`h-4 w-4 ${i < review.rating ? "fill-current" : "opacity-25"}`}
+                  aria-hidden
                 />
               ))}
             </div>
-            <p className="mt-3 min-h-20 text-sm leading-6 text-[#2A4C6A]/80">{review.text}</p>
+            <p className="mt-3 flex-1 text-sm leading-6 text-[#2A4C6A]/85">&ldquo;{review.text}&rdquo;</p>
             {review.productSlug ? (
               <Link
                 href={`/product/${review.productSlug}`}

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppBrand } from "@/components/branding/AppBrand";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 function AccountLoginForm() {
@@ -155,10 +156,12 @@ function AccountLoginForm() {
 
 export default function AccountLoginPage() {
   return (
-    <div className="mx-auto w-full max-w-md py-8">
-      <Suspense fallback={<div className="text-center text-muted-foreground py-12">Loading…</div>}>
-        <AccountLoginForm />
-      </Suspense>
-    </div>
+    <MarketplacePageShell gap="" innerClassName="flex justify-center">
+      <div className="w-full max-w-md">
+        <Suspense fallback={<div className="py-12 text-center text-muted-foreground">Loading…</div>}>
+          <AccountLoginForm />
+        </Suspense>
+      </div>
+    </MarketplacePageShell>
   );
 }

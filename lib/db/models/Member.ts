@@ -44,7 +44,6 @@ const MemberSchema = new Schema<IMember>(
   { timestamps: true }
 );
 
-MemberSchema.index({ memberId: 1 }, { unique: true });
 MemberSchema.index({ organizationId: 1, deletedAt: 1 });
 MemberSchema.index({ phone: 1, deletedAt: 1 });
 MemberSchema.index({ status: 1, deletedAt: 1 });
