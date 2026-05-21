@@ -196,7 +196,7 @@ export async function deleteMediaAsset(assetId: string, options: { force?: boole
     return { ok: false as const, reason: "in_use" as const, referenceCount, asset };
   }
 
-  await deleteStoredImage(asset.publicId).catch(() => {});
+  await deleteStoredImage(asset.publicId, { url: asset.url }).catch(() => {});
   await MediaAsset.findByIdAndUpdate(assetId, { $set: { deletedAt: new Date() } });
   return { ok: true as const, asset, referenceCount };
 }

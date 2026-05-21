@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
-import { computeSetupRequired } from "@/lib/utils/setupRequired";
+import { resolveSetupRequiredForProxy } from "@/lib/utils/setupRequiredCache";
 import { isCustomerOrPublicApi, isStaffBlockedRole } from "@/lib/utils/apiAccess";
 import { proxyRateLimit } from "@/lib/utils/rateLimit";
 
@@ -87,19 +87,12 @@ export async function proxy(req: NextRequest) {
   const bypassSetupRedirect =
     pathname === "/setup" || pathname.startsWith("/api/setup");
   if (!bypassSetupRedirect) {
-    let setupRequired = true;
-    let setupCheckFailed = false;
-    try {
-      setupRequired = await Promise.race([
-        computeSetupRequired(),
-        new Promise<boolean>((_, reject) => {
-          setTimeout(() => reject(new Error("Setup check timed out")), 8_000);
-        }),
-      ]);
-    } catch (err) {
-      setupCheckFailed = true;
-      console.error("[proxy] setup check failed", err);
-    }
+    const appSetupCookieDone = req.cookies.get("app_setup")?.value === "done";
+    const { required: setupRequired, checkFailed: setupCheckFailed } =
+      await resolveSetupRequiredForProxy({
+        timeoutMs: 4_000,
+        appSetupCookieDone,
+      });
     if (setupCheckFailed && matchesPrefixList(pathname, UNAUTHENTICATED)) {
       return NextResponse.next();
     }

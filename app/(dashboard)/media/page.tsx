@@ -41,6 +41,7 @@ import {
   PendingUploadTiles,
   type PendingUploadItem,
 } from "@/components/media/PendingUploadTiles";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, Loader2, Search, Trash2, Images, Upload } from "lucide-react";
 
 function formatUploadedAt(iso?: string) {
@@ -63,7 +64,12 @@ export default function MediaPage() {
     isLoading: uploadStatusLoading,
     backend: uploadBackend,
     mediaLibraryFolder: libraryFolder,
+    status: uploadStatus,
   } = useImageUploadEnabled();
+  const cloudinaryError =
+    uploadStatus?.cloudinary?.configured && !uploadStatus.cloudinary.ok
+      ? uploadStatus.cloudinary.error
+      : undefined;
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
@@ -118,9 +124,13 @@ export default function MediaPage() {
   });
 
   async function handleUpload(files: File[]) {
-    console.log("[Media] handleUpload called", { filesCount: files.length, files: files.map(f => ({ name: f.name, size: f.size, type: f.type })) });
-    if (!files.length) {
-      console.log("[Media] No files provided, returning early");
+    if (!files.length) return;
+    if (!uploadReady) {
+      toast({
+        variant: "destructive",
+        title: "Upload unavailable",
+        description: "Configure Cloudinary or local uploads before adding files.",
+      });
       return;
     }
 
@@ -276,6 +286,11 @@ export default function MediaPage() {
                     </>
                   )}
                 </FileDropzone>
+                {cloudinaryError ? (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertDescription className="text-xs">{cloudinaryError}</AlertDescription>
+                  </Alert>
+                ) : null}
                 {!uploadStatusLoading && !uploadReady && (
                   <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
                     Uploads unavailable — set{" "}

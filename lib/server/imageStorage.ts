@@ -12,6 +12,13 @@ import {
   localImageStorageConfigured,
   saveImageBuffer as saveLocalImageBuffer,
 } from "@/lib/server/localImageStorage";
+import { UPLOAD_URL_PREFIX } from "@/lib/constants/uploads";
+import {
+  isCloudinaryStorageUrl,
+  isStoredUploadUrl,
+  parseCloudinaryPublicId,
+  parseStoredUploadKey,
+} from "@/lib/utils/storedImageUrl";
 
 export type ImageStorageBackend = "cloudinary" | "local";
 
@@ -59,11 +66,29 @@ export async function saveImageBuffer(
 
 export async function deleteStoredImage(
   publicId: string,
-  _options?: { url?: string }
+  options?: { url?: string }
 ): Promise<void> {
-  if (cloudinaryConfigured()) {
-    await deleteCloudinaryImage(publicId);
+  const url = options?.url?.trim();
+  const key = publicId.trim();
+
+  if (url && isCloudinaryStorageUrl(url)) {
+    const cloudId = parseCloudinaryPublicId(url) ?? key;
+    if (cloudId) {
+      await deleteCloudinaryImage(cloudId);
+    }
     return;
   }
-  await deleteLocalStoredImage(publicId);
+
+  if (url && isStoredUploadUrl(url)) {
+    const localKey = parseStoredUploadKey(url) ?? key;
+    await deleteLocalStoredImage(localKey);
+    return;
+  }
+
+  if (cloudinaryConfigured() && key && !key.startsWith(UPLOAD_URL_PREFIX)) {
+    await deleteCloudinaryImage(key);
+    return;
+  }
+
+  await deleteLocalStoredImage(key);
 }

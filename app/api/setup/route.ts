@@ -4,6 +4,10 @@ import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { User } from "@/lib/db/models/User";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
+import {
+  invalidateSetupRequiredCache,
+  setCachedSetupRequired,
+} from "@/lib/utils/setupRequiredCache";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
@@ -12,6 +16,7 @@ const APP_SETUP_COOKIE = "app_setup";
 export async function GET(req: Request) {
   try {
     const setupRequired = await computeSetupRequired();
+    setCachedSetupRequired(setupRequired);
     const res = NextResponse.json({ setupRequired });
     const existing = req.headers.get("cookie") ?? "";
 
@@ -139,6 +144,8 @@ export async function POST(req: Request) {
     );
 
     await mongoSession.commitTransaction();
+
+    setCachedSetupRequired(false);
 
     const response = NextResponse.json({ success: true });
     response.cookies.set(APP_SETUP_COOKIE, "done", {

@@ -1,6 +1,11 @@
 export interface ImageUploadStatus {
   configured: boolean;
   backend?: "cloudinary" | "local";
+  cloudinary?: {
+    configured: boolean;
+    ok: boolean;
+    error?: string;
+  };
   uploadUrlPrefix?: string;
   storagePath?: string;
   rootFolder?: string;
@@ -9,7 +14,7 @@ export interface ImageUploadStatus {
 }
 
 export async function fetchImageUploadStatus(): Promise<ImageUploadStatus> {
-  const res = await fetch("/api/products/images/status", {
+  const res = await fetch("/api/media/upload-status", {
     credentials: "include",
     cache: "no-store",
   });

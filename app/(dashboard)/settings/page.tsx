@@ -23,6 +23,7 @@ import {
   CheckCircle,
   Globe2,
   RefreshCw,
+  Images,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -118,6 +119,38 @@ export default function SettingsPage() {
       });
     }
   }, [meUser, user?.name]);
+
+  interface CloudinaryAdminStatus {
+    configured: boolean;
+    backend: "cloudinary" | "local";
+    cloudinary: { configured: boolean; ok: boolean; error?: string };
+    mediaLibraryFolder: string;
+    productCatalogFolder: string;
+    storagePath: string;
+    env: {
+      hasCloudinaryUrl: boolean;
+      hasCloudName: boolean;
+      hasApiKey: boolean;
+      hasApiSecret: boolean;
+      cloudinaryConfigured: boolean;
+    };
+  }
+
+  const {
+    data: cloudinaryStatus,
+    isLoading: cloudinaryLoading,
+    refetch: refetchCloudinary,
+    isFetching: cloudinaryFetching,
+  } = useQuery({
+    queryKey: ["admin-cloudinary-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/cloudinary/status");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to load Cloudinary status");
+      return json.data as CloudinaryAdminStatus;
+    },
+    enabled: isAdmin,
+  });
 
   const { data: appSettings, isLoading: appSettingsLoading } = useQuery({
     queryKey: ["app-settings"],
@@ -607,6 +640,99 @@ export default function SettingsPage() {
 
           {isAdmin ? (
             <TabsContent value="application" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Images className="h-4 w-4" />
+                    Image storage (Cloudinary)
+                  </CardTitle>
+                  <CardDescription>
+                    Product and media library uploads use Cloudinary when configured; otherwise files
+                    are stored under <code className="text-xs">public/uploads</code>.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {cloudinaryLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  ) : cloudinaryStatus ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={cloudinaryStatus.backend === "cloudinary" ? "default" : "secondary"}>
+                          Backend: {cloudinaryStatus.backend === "cloudinary" ? "Cloudinary" : "Local disk"}
+                        </Badge>
+                        {cloudinaryStatus.cloudinary.configured ? (
+                          <Badge variant={cloudinaryStatus.cloudinary.ok ? "success" : "destructive"}>
+                            {cloudinaryStatus.cloudinary.ok ? "API connected" : "API error"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Cloudinary not configured</Badge>
+                        )}
+                      </div>
+
+                      {cloudinaryStatus.cloudinary.error ? (
+                        <Alert variant="destructive">
+                          <AlertDescription>{cloudinaryStatus.cloudinary.error}</AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      {!cloudinaryStatus.cloudinary.configured ? (
+                        <p className="text-sm text-muted-foreground">
+                          Add{" "}
+                          <span className="font-mono text-xs">CLOUDINARY_URL</span> or{" "}
+                          <span className="font-mono text-xs">CLOUDINARY_CLOUD_NAME</span>,{" "}
+                          <span className="font-mono text-xs">CLOUDINARY_API_KEY</span>, and{" "}
+                          <span className="font-mono text-xs">CLOUDINARY_API_SECRET</span> to{" "}
+                          <span className="font-mono text-xs">.env.local</span>, then restart the dev
+                          server.
+                        </p>
+                      ) : (
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+                          <li>
+                            Media library folder:{" "}
+                            <span className="font-mono text-xs text-foreground">
+                              {cloudinaryStatus.mediaLibraryFolder}
+                            </span>
+                          </li>
+                          <li>
+                            Product catalog folder:{" "}
+                            <span className="font-mono text-xs text-foreground">
+                              {cloudinaryStatus.productCatalogFolder}
+                            </span>
+                          </li>
+                          <li>Storage path label: {cloudinaryStatus.storagePath}</li>
+                        </ul>
+                      )}
+
+                      <div className="rounded-lg border bg-muted/40 p-3 text-xs font-mono space-y-1">
+                        <p className="font-sans font-medium text-sm mb-2">Environment (set / missing)</p>
+                        <p>CLOUDINARY_URL: {cloudinaryStatus.env.hasCloudinaryUrl ? "set" : "—"}</p>
+                        <p>CLOUDINARY_CLOUD_NAME: {cloudinaryStatus.env.hasCloudName ? "set" : "—"}</p>
+                        <p>CLOUDINARY_API_KEY: {cloudinaryStatus.env.hasApiKey ? "set" : "—"}</p>
+                        <p>CLOUDINARY_API_SECRET: {cloudinaryStatus.env.hasApiSecret ? "set" : "—"}</p>
+                      </div>
+                    </>
+                  ) : null}
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void refetchCloudinary()}
+                      disabled={cloudinaryFetching}
+                    >
+                      <RefreshCw
+                        className={cn("h-4 w-4 mr-2", cloudinaryFetching && "animate-spin")}
+                      />
+                      Test connection
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
