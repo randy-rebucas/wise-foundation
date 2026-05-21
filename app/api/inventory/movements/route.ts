@@ -1,10 +1,12 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getStockMovements, getStockMovementsByOrg, processStockMovement } from "@/lib/services/inventory.service";
+import { assertInventoryAccessForUser } from "@/lib/organization/capabilities";
 import { stockMovementSchema } from "@/lib/validations/inventory.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
 import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
+import { orgCapabilityErrorResponse } from "@/lib/utils/orgCapabilityErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -15,8 +17,11 @@ const getHandler = async (req: AuthedRequest) => {
     const limit = parseInt(searchParams.get("limit") ?? "20");
 
     if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
-      const result = await getStockMovementsByOrg(req.user.organizationId, productId, page, limit);
-      return successResponse(result.movements, undefined, 200, { page, limit, total: result.total });
+      const caps = await assertInventoryAccessForUser(req.user);
+      if (caps?.inventorySurface === "organization") {
+        const result = await getStockMovementsByOrg(req.user.organizationId, productId, page, limit);
+        return successResponse(result.movements, undefined, 200, { page, limit, total: result.total });
+      }
     }
 
     const branchId = await resolveInventoryBranchId(searchParams.get("branchId"), req.user);
@@ -29,6 +34,8 @@ const getHandler = async (req: AuthedRequest) => {
       total: result.total,
     });
   } catch (err) {
+    const capErr = orgCapabilityErrorResponse(err);
+    if (capErr) return capErr;
     const branchErr = branchAccessErrorResponse(err);
     if (branchErr) return branchErr;
     return serverErrorResponse();
@@ -37,6 +44,15 @@ const getHandler = async (req: AuthedRequest) => {
 
 const postHandler = async (req: AuthedRequest) => {
   try {
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
+      const caps = await assertInventoryAccessForUser(req.user);
+      if (caps?.inventorySurface === "organization") {
+        return errorResponse(
+          "Manual branch stock movements are not used for distributor inventory. Use purchase orders or org transfers."
+        );
+      }
+    }
+
     const body = await req.json();
     const branchId = await resolveInventoryBranchId(body.branchId, req.user);
 
@@ -51,6 +67,8 @@ const postHandler = async (req: AuthedRequest) => {
 
     return successResponse(result, "Stock movement processed", 201);
   } catch (error) {
+    const capErr = orgCapabilityErrorResponse(error);
+    if (capErr) return capErr;
     const branchErr = branchAccessErrorResponse(error);
     if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);

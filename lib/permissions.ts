@@ -19,6 +19,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   ORG_ADMIN: [
     "manage:organizations",
     "manage:users",
+    "manage:inventory",
+    "use:pos",
+    "manage:orders",
     "view:reports",
     "submit:org_orders",
     "view:org_inventory",

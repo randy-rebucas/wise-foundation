@@ -44,6 +44,14 @@ interface NavItem {
   /** User needs any one of these permissions (platform admin always passes). */
   anyPermission?: string[];
   roles?: string[];
+  /** Never show for these roles (checked before roles/permissions). */
+  excludeRoles?: string[];
+  /** Hide for users tied to an organization (distributors, franchises, partners). */
+  hideForOrgUsers?: boolean;
+  /** Org-bound user must have POS enabled for their organization type. */
+  requireOrgPos?: boolean;
+  /** Org-bound user must have inventory enabled (any surface). */
+  requireOrgInventory?: boolean;
   /** When true, any authenticated dashboard user may see this link (still requires dashboard access). */
   allAuthenticated?: boolean;
 }
@@ -53,10 +61,16 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
   { label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
   { label: "Online store", path: "/", icon: Globe2, allAuthenticated: true },
-  { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos" },
+  { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos", requireOrgPos: true },
   { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
   { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
-  { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory" },
+  {
+    label: "Inventory",
+    path: "/inventory",
+    icon: Boxes,
+    permission: "manage:inventory",
+    requireOrgInventory: true,
+  },
   { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
   {
     label: "Purchase Orders",
@@ -68,7 +82,9 @@ const NAV_ITEMS: NavItem[] = [
     label: "Deliveries",
     path: "/deliveries",
     icon: Truck,
-    anyPermission: ["manage:inventory", "submit:org_orders"],
+    roles: ["ADMIN"],
+    excludeRoles: ["ORG_ADMIN"],
+    hideForOrgUsers: true,
   },
   { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
   { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
@@ -91,6 +107,11 @@ export interface SidebarUser {
   email?: string | null;
   role: string;
   permissions: string[];
+  organizationId?: string | null;
+  organizationCapabilities?: {
+    inventorySurface: "branch" | "organization" | "none";
+    posSurface: "branch" | "none";
+  } | null;
 }
 
 const SIDEBAR_COLLAPSED_KEY = "dashboard-sidebar-collapsed";
@@ -127,13 +148,31 @@ export function Sidebar({
   }
 
   const displayUser = session?.user ?? initialUser;
+  const orgCapabilities =
+    "organizationCapabilities" in displayUser
+      ? (displayUser.organizationCapabilities ?? null)
+      : (initialUser.organizationCapabilities ?? null);
+
   const accessUser = {
     role: displayUser.role,
     permissions: displayUser.permissions ?? [],
+    organizationId:
+      "organizationId" in displayUser
+        ? (displayUser.organizationId ?? null)
+        : (initialUser.organizationId ?? null),
+    organizationCapabilities: orgCapabilities,
   };
 
   function canAccess(item: NavItem): boolean {
     if (item.allAuthenticated) return true;
+    if (item.excludeRoles?.includes(accessUser.role)) return false;
+    if (item.hideForOrgUsers && accessUser.organizationId) return false;
+    if (item.requireOrgPos && accessUser.organizationId) {
+      if (accessUser.organizationCapabilities?.posSurface !== "branch") return false;
+    }
+    if (item.requireOrgInventory && accessUser.organizationId) {
+      if (accessUser.organizationCapabilities?.inventorySurface === "none") return false;
+    }
     if (item.roles) {
       return item.roles.includes(accessUser.role);
     }

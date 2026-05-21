@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
-import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/db/models/Role";
+import { getRolePermissions } from "@/lib/services/role.service";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
 
@@ -61,7 +61,7 @@ export async function createUser(data: CreateUserInput) {
   if (existing) throw new Error("Email is already registered");
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
-  const permissions = DEFAULT_ROLE_PERMISSIONS[data.role] ?? [];
+  const permissions = await getRolePermissions(data.role);
 
   const user = await User.create({
     name: data.name,
@@ -97,7 +97,7 @@ export async function updateUser(userId: string, data: UpdateUserInput) {
   }
 
   if (data.role) {
-    update.permissions = DEFAULT_ROLE_PERMISSIONS[data.role] ?? [];
+    update.permissions = await getRolePermissions(data.role);
   }
 
   const user = await User.findOneAndUpdate(

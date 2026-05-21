@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "@/lib/validations/auth.schema";
 import { verifyCredentials } from "@/lib/services/auth.service";
+import { loadOrganizationCapabilities } from "@/lib/organization/capabilities";
 import { effectivePermissions } from "@/lib/permissions";
 import type { UserRole } from "@/types";
 
@@ -10,6 +11,11 @@ declare module "next-auth" {
     role: UserRole;
     branchIds: string[];
     organizationId?: string | null;
+    organizationType?: import("@/types").OrganizationType | null;
+    organizationCapabilities?: {
+      inventorySurface: import("@/lib/organization/capabilities").InventorySurface;
+      posSurface: import("@/lib/organization/capabilities").PosSurface;
+    } | null;
     permissions: string[];
   }
   interface Session {
@@ -20,6 +26,11 @@ declare module "next-auth" {
       role: UserRole;
       branchIds: string[];
       organizationId?: string | null;
+      organizationType?: import("@/types").OrganizationType | null;
+      organizationCapabilities?: {
+        inventorySurface: import("@/lib/organization/capabilities").InventorySurface;
+        posSurface: import("@/lib/organization/capabilities").PosSurface;
+      } | null;
       permissions: string[];
       image?: string;
     };
@@ -79,6 +90,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = user.role;
         token.branchIds = user.branchIds;
         token.organizationId = user.organizationId ?? null;
+        token.organizationType = user.organizationType ?? null;
+        token.organizationCapabilities = user.organizationCapabilities ?? null;
         token.permissions = user.permissions;
       }
       return token;
@@ -90,6 +103,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = role;
         session.user.branchIds = token.branchIds as string[];
         session.user.organizationId = (token.organizationId as string | null) ?? null;
+        session.user.organizationType =
+          (token.organizationType as import("@/types").OrganizationType | null) ?? null;
+        const organizationId = (token.organizationId as string | null) ?? null;
+        if (organizationId) {
+          const caps = await loadOrganizationCapabilities(organizationId);
+          if (caps) {
+            session.user.organizationType = caps.type;
+            session.user.organizationCapabilities = {
+              inventorySurface: caps.inventorySurface,
+              posSurface: caps.posSurface,
+            };
+          } else {
+            session.user.organizationCapabilities =
+              (token.organizationCapabilities as {
+                inventorySurface: "branch" | "organization" | "none";
+                posSurface: "branch" | "none";
+              } | null) ?? null;
+          }
+        } else {
+          session.user.organizationCapabilities = null;
+          session.user.organizationType = null;
+        }
         session.user.permissions = effectivePermissions({
           role,
           permissions: (token.permissions as string[]) ?? [],

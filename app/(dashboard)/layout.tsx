@@ -36,6 +36,8 @@ export default async function DashboardLayout({ children }: Props) {
     email: session.user.email,
     role: session.user.role,
     permissions: session.user.permissions,
+    organizationId: session.user.organizationId ?? null,
+    organizationCapabilities: session.user.organizationCapabilities ?? null,
   };
 
   let tenantSettings: PublicAppSettings;

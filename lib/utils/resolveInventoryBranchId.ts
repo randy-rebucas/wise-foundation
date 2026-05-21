@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db/connect";
 import { Branch } from "@/lib/db/models/Branch";
+import { loadOrganizationCapabilitiesForUser } from "@/lib/organization/capabilities";
 import { assertBranchAccess, type BranchScopeUser } from "@/lib/utils/branchAccess";
 
 /**
@@ -17,7 +18,26 @@ export async function resolveInventoryBranchId(
   }
 
   const fromUser = user.branchIds?.[0]?.trim();
-  if (fromUser) return fromUser;
+  if (fromUser) {
+    await assertBranchAccess(user, fromUser);
+    return fromUser;
+  }
+
+  if (user.role === "ORG_ADMIN" && user.organizationId) {
+    const caps = await loadOrganizationCapabilitiesForUser(user);
+    if (caps?.posSurface === "branch" || caps?.inventorySurface === "branch") {
+      await connectDB();
+      const b = await Branch.findOne({
+        organizationId: user.organizationId,
+        deletedAt: null,
+        isActive: true,
+      })
+        .sort({ isHeadOffice: -1, name: 1 })
+        .lean();
+      return b?._id?.toString() ?? null;
+    }
+    return null;
+  }
 
   if (user.role === "ADMIN") {
     await connectDB();

@@ -19,6 +19,13 @@ describe("permissions", () => {
     expect(hasPermission({ role: "CUSTOMER", permissions: [] }, "manage:products")).toBe(false);
   });
 
+  it("ORG_ADMIN includes inventory, POS, and orders", () => {
+    const perms = effectivePermissions({ role: "ORG_ADMIN", permissions: [] });
+    expect(perms).toContain("manage:inventory");
+    expect(perms).toContain("use:pos");
+    expect(perms).toContain("manage:orders");
+  });
+
   it("hasAnyPermission requires one match", () => {
     expect(
       hasAnyPermission({ role: "INVENTORY_MANAGER", permissions: [] }, "manage:products", "use:pos")

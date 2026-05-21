@@ -70,6 +70,11 @@ export interface JWTPayload {
   permissions: string[];
 }
 
+export type OrganizationCapabilities = {
+  inventorySurface: "branch" | "organization" | "none";
+  posSurface: "branch" | "none";
+};
+
 export interface SessionUser {
   id: string;
   name: string;
@@ -77,6 +82,8 @@ export interface SessionUser {
   role: UserRole;
   branchIds: string[];
   organizationId?: string | null;
+  organizationType?: OrganizationType | null;
+  organizationCapabilities?: OrganizationCapabilities | null;
   permissions: string[];
   image?: string;
 }

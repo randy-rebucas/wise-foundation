@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { SYSTEM_ROLE_DEFINITIONS } from "../lib/roles/systemRoles";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -95,17 +96,8 @@ export async function runSeed(): Promise<void> {
 
   // ── 1. Roles ────────────────────────────────────────────────────────────────
   console.log("\n[1] Roles");
-  const ROLES = [
-    { name: "ADMIN",             displayName: "Administrator",      isSystem: true, permissions: ["manage:branches","manage:users","manage:products","manage:inventory","use:pos","view:reports","manage:members","manage:orders","manage:roles","manage:organizations"] },
-    { name: "ORG_ADMIN",         displayName: "Organization Admin", isSystem: true, permissions: ["manage:org_inventory","view:org_commissions","submit:org_orders","view:reports","manage:orders","manage:members","use:pos"] },
-    { name: "BRANCH_MANAGER",    displayName: "Branch Manager",     isSystem: true, permissions: ["manage:products","manage:inventory","use:pos","view:reports","manage:members","manage:orders"] },
-    { name: "STAFF",             displayName: "Staff",              isSystem: true, permissions: ["use:pos","manage:members","manage:orders"] },
-    { name: "INVENTORY_MANAGER", displayName: "Inventory Manager",  isSystem: true, permissions: ["manage:inventory","view:reports"] },
-    { name: "MEMBER",            displayName: "Member",             isSystem: true, permissions: ["view:own_orders"] },
-    { name: "CUSTOMER",          displayName: "Shop customer",    isSystem: true, permissions: [] },
-  ];
-  await Role.insertMany(ROLES);
-  console.log(`  ${ROLES.length} roles seeded`);
+  await Role.insertMany(SYSTEM_ROLE_DEFINITIONS);
+  console.log(`  ${SYSTEM_ROLE_DEFINITIONS.length} roles seeded (from lib/permissions.ts)`);
 
   // ── 2. Branches ─────────────────────────────────────────────────────────────
   console.log("\n[2] Branches");
@@ -169,7 +161,7 @@ export async function runSeed(): Promise<void> {
       password: adminPw,
       role: "ADMIN",
       branchIds: [hq._id],
-      permissions: ROLES.find(r => r.name === "ADMIN")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "ADMIN")!.permissions,
       isActive: true,
     },
     {
@@ -179,7 +171,7 @@ export async function runSeed(): Promise<void> {
       role: "ORG_ADMIN",
       branchIds: [],
       organizationId: distOrg._id,
-      permissions: ROLES.find(r => r.name === "ORG_ADMIN")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "ORG_ADMIN")!.permissions,
       isActive: true,
     },
     {
@@ -189,7 +181,7 @@ export async function runSeed(): Promise<void> {
       role: "ORG_ADMIN",
       branchIds: [],
       organizationId: franOrg._id,
-      permissions: ROLES.find(r => r.name === "ORG_ADMIN")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "ORG_ADMIN")!.permissions,
       isActive: true,
     },
     {
@@ -198,7 +190,7 @@ export async function runSeed(): Promise<void> {
       password: pw,
       role: "BRANCH_MANAGER",
       branchIds: [hq._id, northBranch._id],
-      permissions: ROLES.find(r => r.name === "BRANCH_MANAGER")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "BRANCH_MANAGER")!.permissions,
       isActive: true,
     },
     {
@@ -207,7 +199,7 @@ export async function runSeed(): Promise<void> {
       password: pw,
       role: "BRANCH_MANAGER",
       branchIds: [southBranch._id],
-      permissions: ROLES.find(r => r.name === "BRANCH_MANAGER")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "BRANCH_MANAGER")!.permissions,
       isActive: true,
     },
     {
@@ -216,7 +208,7 @@ export async function runSeed(): Promise<void> {
       password: pw,
       role: "STAFF",
       branchIds: [hq._id],
-      permissions: ROLES.find(r => r.name === "STAFF")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "STAFF")!.permissions,
       isActive: true,
     },
     {
@@ -225,7 +217,7 @@ export async function runSeed(): Promise<void> {
       password: pw,
       role: "STAFF",
       branchIds: [northBranch._id],
-      permissions: ROLES.find(r => r.name === "STAFF")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "STAFF")!.permissions,
       isActive: true,
     },
     {
@@ -234,7 +226,7 @@ export async function runSeed(): Promise<void> {
       password: pw,
       role: "INVENTORY_MANAGER",
       branchIds: [hq._id, northBranch._id, southBranch._id],
-      permissions: ROLES.find(r => r.name === "INVENTORY_MANAGER")!.permissions,
+      permissions: SYSTEM_ROLE_DEFINITIONS.find(r => r.name === "INVENTORY_MANAGER")!.permissions,
       isActive: true,
     },
   ]);

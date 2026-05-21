@@ -22,7 +22,9 @@ import {
   Loader2,
   CheckCircle,
   Globe2,
+  RefreshCw,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { AdminAppSettings } from "@/lib/types/appSettings";
 import {
@@ -44,6 +46,33 @@ interface MeUser {
   organizationName?: string | null;
 }
 
+interface RoleDefinition {
+  name: string;
+  displayName: string;
+  permissions: string[];
+  isSystem?: boolean;
+}
+
+interface RolesComparePayload {
+  codeDefaults: RoleDefinition[];
+  database: RoleDefinition[];
+}
+
+interface SyncRolesResult {
+  rolesUpserted: number;
+  usersUpdated: number;
+  roleNames: string[];
+}
+
+function permissionsKey(perms: string[]): string {
+  return [...perms].sort().join("\0");
+}
+
+function rolePermissionsInSync(code: RoleDefinition, db: RoleDefinition | undefined): boolean {
+  if (!db) return false;
+  return permissionsKey(code.permissions) === permissionsKey(db.permissions);
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
@@ -60,6 +89,8 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState("");
 
   const isAdmin = user?.role === "ADMIN";
+  const canManageRoles =
+    isAdmin || (user?.permissions?.includes("manage:roles") ?? false);
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -98,6 +129,69 @@ export default function SettingsPage() {
     },
     enabled: !!isAdmin,
   });
+
+  const [syncRolesOption, setSyncRolesOption] = useState(true);
+  const [syncUsersOption, setSyncUsersOption] = useState(true);
+
+  const {
+    data: rolesCompare,
+    isLoading: rolesLoading,
+    isError: rolesError,
+    error: rolesCompareError,
+    refetch: refetchRoles,
+  } = useQuery({
+    queryKey: ["admin-roles-compare"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/roles");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load roles (${res.status})`);
+      return json.data as RolesComparePayload;
+    },
+    enabled: canManageRoles,
+  });
+
+  const rolesSyncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/roles/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          syncRoles: syncRolesOption,
+          syncUsers: syncUsersOption,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Sync failed (${res.status})`);
+      return json.data as SyncRolesResult;
+    },
+    onSuccess: (result) => {
+      void refetchRoles();
+      const parts: string[] = [];
+      if (syncRolesOption) parts.push(`${result.rolesUpserted} role(s) updated`);
+      if (syncUsersOption) parts.push(`${result.usersUpdated} user(s) updated`);
+      toast({
+        title: "Roles and permissions synced",
+        description: parts.length ? parts.join(" · ") : "No changes requested.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const dbRoleByName = useMemo(() => {
+    const map = new Map<string, RoleDefinition>();
+    for (const r of rolesCompare?.database ?? []) {
+      map.set(r.name, r);
+    }
+    return map;
+  }, [rolesCompare?.database]);
+
+  const rolesDriftCount = useMemo(() => {
+    if (!rolesCompare?.codeDefaults) return 0;
+    return rolesCompare.codeDefaults.filter((code) => !rolePermissionsInSync(code, dbRoleByName.get(code.name)))
+      .length;
+  }, [rolesCompare?.codeDefaults, dbRoleByName]);
 
   const { data: branches = [] } = useQuery({
     queryKey: ["branches-settings"],
@@ -254,6 +348,12 @@ export default function SettingsPage() {
               <TabsTrigger value="application">
                 <Globe2 className="h-4 w-4 mr-2" />
                 Application
+              </TabsTrigger>
+            ) : null}
+            {canManageRoles ? (
+              <TabsTrigger value="roles">
+                <Shield className="h-4 w-4 mr-2" />
+                Roles
               </TabsTrigger>
             ) : null}
           </TabsList>
@@ -690,6 +790,167 @@ export default function SettingsPage() {
                         <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       ) : null}
                       Save application settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ) : null}
+
+          {canManageRoles ? (
+            <TabsContent value="roles" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Roles &amp; permissions
+                  </CardTitle>
+                  <CardDescription>
+                    Sync MongoDB role documents and user permission arrays from{" "}
+                    <code className="text-xs">lib/permissions.ts</code>. Run after changing role defaults in code.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {rolesError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        {rolesCompareError instanceof Error
+                          ? rolesCompareError.message
+                          : "Unable to load roles."}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {!rolesLoading && rolesDriftCount > 0 ? (
+                    <Alert>
+                      <AlertDescription>
+                        {rolesDriftCount} role{rolesDriftCount === 1 ? "" : "s"} out of sync with code defaults.
+                        Sync to align the database.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {!rolesLoading && rolesCompare && rolesDriftCount === 0 ? (
+                    <Alert variant="success">
+                      <CheckCircle className="h-4 w-4" />
+                      <AlertDescription>All roles match code defaults.</AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {rolesLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/60">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-medium">Role</th>
+                            <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
+                              Code
+                            </th>
+                            <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">
+                              Database
+                            </th>
+                            <th className="text-right px-3 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {(rolesCompare?.codeDefaults ?? []).map((code) => {
+                            const db = dbRoleByName.get(code.name);
+                            const inSync = rolePermissionsInSync(code, db);
+                            return (
+                              <tr key={code.name} className="hover:bg-muted/30">
+                                <td className="px-3 py-2.5">
+                                  <p className="font-medium">{code.displayName}</p>
+                                  <p className="text-xs text-muted-foreground font-mono">{code.name}</p>
+                                </td>
+                                <td className="px-3 py-2.5 hidden sm:table-cell text-muted-foreground">
+                                  {code.permissions.length} permissions
+                                </td>
+                                <td className="px-3 py-2.5 hidden sm:table-cell text-muted-foreground">
+                                  {db ? `${db.permissions.length} permissions` : "Missing"}
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <Badge variant={inSync ? "success" : "warning"}>
+                                    {inSync ? "In sync" : db ? "Drift" : "Missing"}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                    <p className="text-sm font-medium">Sync options</p>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={syncRolesOption}
+                        onCheckedChange={(v) => setSyncRolesOption(v === true)}
+                      />
+                      <span className="text-sm leading-tight">
+                        <span className="font-medium">Role documents</span>
+                        <span className="block text-muted-foreground text-xs mt-0.5">
+                          Upsert system roles in MongoDB from code.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <Checkbox
+                        checked={syncUsersOption}
+                        onCheckedChange={(v) => setSyncUsersOption(v === true)}
+                      />
+                      <span className="text-sm leading-tight">
+                        <span className="font-medium">User permissions</span>
+                        <span className="block text-muted-foreground text-xs mt-0.5">
+                          Reset each active user&apos;s stored permissions to their role defaults.
+                          Users should sign in again to refresh sessions.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void refetchRoles()}
+                      disabled={rolesLoading || rolesSyncMutation.isPending}
+                    >
+                      <RefreshCw className={cn("h-4 w-4 mr-2", rolesLoading && "animate-spin")} />
+                      Refresh
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          syncUsersOption &&
+                          !window.confirm(
+                            "Update permission arrays for all active users matching their roles? Users may need to sign in again."
+                          )
+                        ) {
+                          return;
+                        }
+                        rolesSyncMutation.mutate();
+                      }}
+                      disabled={
+                        rolesSyncMutation.isPending ||
+                        rolesLoading ||
+                        (!syncRolesOption && !syncUsersOption)
+                      }
+                    >
+                      {rolesSyncMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      Sync now
                     </Button>
                   </div>
                 </CardContent>

@@ -1,37 +1,9 @@
 import { connectDB } from "@/lib/db/connect";
 import { Organization, type OrganizationType, type IOrganizationSettings } from "@/lib/db/models/Organization";
+import { TYPE_DEFAULT_SETTINGS } from "@/lib/organization/typeDefaults";
 import type { SessionUser } from "@/types";
 
-const TYPE_DEFAULT_SETTINGS: Record<OrganizationType, IOrganizationSettings> = {
-  headquarters: {
-    canSellRetail: false,
-    canDistribute: true,
-    hasInventory: true,
-    commissionEnabled: false,
-    canSubmitOrders: false,
-  },
-  distributor: {
-    canSellRetail: false,
-    canDistribute: true,
-    hasInventory: true,
-    commissionEnabled: false,
-    canSubmitOrders: true,
-  },
-  franchise: {
-    canSellRetail: true,
-    canDistribute: false,
-    hasInventory: true,
-    commissionEnabled: false,
-    canSubmitOrders: true,
-  },
-  partner: {
-    canSellRetail: true,
-    canDistribute: false,
-    hasInventory: false,
-    commissionEnabled: true,
-    canSubmitOrders: true,
-  },
-};
+export { TYPE_DEFAULT_SETTINGS };
 
 export async function getOrganizations(type?: OrganizationType) {
   await connectDB();

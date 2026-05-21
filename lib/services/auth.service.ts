@@ -1,8 +1,10 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import { loadOrganizationCapabilities } from "@/lib/organization/capabilities";
 import { effectivePermissions } from "@/lib/permissions";
-import type { UserRole } from "@/types";
+import type { OrganizationType, UserRole } from "@/types";
+import type { InventorySurface, PosSurface } from "@/lib/organization/capabilities";
 
 export type LoginAudience = "staff" | "customer";
 
@@ -35,6 +37,24 @@ export async function verifyCredentials(
 
   const role = user.role as UserRole;
   const permissions = effectivePermissions({ role, permissions: user.permissions });
+  const organizationId = user.organizationId?.toString() ?? null;
+
+  let organizationType: OrganizationType | null = null;
+  let organizationCapabilities: {
+    inventorySurface: InventorySurface;
+    posSurface: PosSurface;
+  } | null = null;
+
+  if (organizationId) {
+    const caps = await loadOrganizationCapabilities(organizationId);
+    if (caps) {
+      organizationType = caps.type;
+      organizationCapabilities = {
+        inventorySurface: caps.inventorySurface,
+        posSurface: caps.posSurface,
+      };
+    }
+  }
 
   return {
     id: user._id.toString(),
@@ -42,7 +62,9 @@ export async function verifyCredentials(
     email: user.email,
     role,
     branchIds: (user.branchIds as Array<{ toString(): string }>).map((b) => b.toString()),
-    organizationId: user.organizationId?.toString() ?? null,
+    organizationId,
+    organizationType,
+    organizationCapabilities,
     permissions,
   };
 }

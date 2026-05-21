@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
+import { assertPosAccessForUser } from "@/lib/organization/capabilities";
 import { processCheckout } from "@/lib/services/pos.service";
 import { getOrders } from "@/lib/services/order.service";
 import { checkoutSchema } from "@/lib/validations/order.schema";
@@ -8,6 +9,7 @@ import { parsePagination } from "@/lib/utils/pagination";
 import { resolveInventoryBranchId } from "@/lib/utils/resolveInventoryBranchId";
 import { requireBranchAccessIfPresent } from "@/lib/utils/branchAccess";
 import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
+import { orgCapabilityErrorResponse } from "@/lib/utils/orgCapabilityErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest) => {
@@ -54,6 +56,8 @@ const getHandler = async (req: AuthedRequest) => {
 
 const postHandler = async (req: AuthedRequest) => {
   try {
+    await assertPosAccessForUser(req.user);
+
     const body = await req.json();
     const parsed = checkoutSchema.safeParse(body);
 
@@ -77,6 +81,8 @@ const postHandler = async (req: AuthedRequest) => {
 
     return successResponse(result, "Order completed", 201);
   } catch (error) {
+    const capErr = orgCapabilityErrorResponse(error);
+    if (capErr) return capErr;
     const branchErr = branchAccessErrorResponse(error);
     if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);

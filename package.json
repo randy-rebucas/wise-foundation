@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "reset": "tsx --env-file=.env.local scripts/reset.ts",
-    "reset-seed": "tsx --env-file=.env.local scripts/reset-and-seed.ts"
+    "reset-seed": "tsx --env-file=.env.local scripts/reset-and-seed.ts",
+    "docs:permissions-matrix": "node scripts/generate-permissions-matrix-image.mjs",
+    "sync:roles": "tsx --env-file=.env.local scripts/sync-roles.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

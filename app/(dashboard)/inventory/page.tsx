@@ -143,6 +143,13 @@ export default function InventoryPage() {
 
   const isAdmin = session?.user?.role === "ADMIN";
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN" && !!session?.user?.organizationId;
+  const orgCaps = session?.user?.organizationCapabilities;
+  const orgWarehouseMode = isOrgAdmin && orgCaps?.inventorySurface === "organization";
+  const orgBranchInventoryMode = isOrgAdmin && orgCaps?.inventorySurface === "branch";
+  const inventoryBlocked = isOrgAdmin && orgCaps?.inventorySurface === "none";
+  const orgTypeLabel = session?.user?.organizationType
+    ? session.user.organizationType.charAt(0).toUpperCase() + session.user.organizationType.slice(1)
+    : "Organization";
 
   const {
     data: branches = [],
@@ -150,18 +157,20 @@ export default function InventoryPage() {
     isError: isBranchesError,
     error: branchesError,
   } = useQuery<Branch[]>({
-    queryKey: ["branches"],
+    queryKey: ["branches", session?.user?.organizationId],
     queryFn: async () => {
       const res = await fetch("/api/branches?limit=100");
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
       return (data.data ?? []) as Branch[];
     },
+    enabled: isAdmin || orgBranchInventoryMode,
   });
 
   const branchIdForInventory =
     manualBranchId ?? defaultBranchId ?? (needsBranchSelect ? (branches[0]?._id ?? "") : "");
-  const inventoryQueryEnabled = isOrgAdmin || !!branchIdForInventory;
+  const inventoryQueryEnabled =
+    !inventoryBlocked && (orgWarehouseMode || !!branchIdForInventory);
 
   const [orgFilter, setOrgFilter] = useState("all");
 
@@ -184,12 +193,33 @@ export default function InventoryPage() {
     queryKey: ["inventory", branchIdForInventory, session?.user?.organizationId, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (branchIdForInventory) params.set("branchId", branchIdForInventory);
+      if (!orgWarehouseMode && branchIdForInventory) {
+        params.set("branchId", branchIdForInventory);
+      }
       const res = await fetch(`/api/inventory?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load inventory (${res.status})`);
+      const raw = (data.data ?? []) as (InventoryItem | OrgInventoryItem)[];
+      const mapped: InventoryItem[] = orgWarehouseMode
+        ? raw.map((row) => {
+            const item = row as OrgInventoryItem;
+            return {
+              _id: item._id,
+              quantity: item.quantity,
+              lowStockThreshold: 5,
+              productId: {
+                _id: item.productId._id,
+                name: item.productId.name,
+                sku: item.productId.sku,
+                category: "—",
+                retailPrice: item.productId.retailPrice,
+              },
+              variantId: null,
+            };
+          })
+        : (raw as InventoryItem[]);
       return {
-        data: (data.data ?? []) as InventoryItem[],
+        data: mapped,
         meta: data.meta as { total: number } | undefined,
       };
     },
@@ -205,7 +235,9 @@ export default function InventoryPage() {
     queryKey: ["movements", branchIdForInventory, session?.user?.organizationId, movPage],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(movPage), limit: "20" });
-      if (branchIdForInventory) params.set("branchId", branchIdForInventory);
+      if (!orgWarehouseMode && branchIdForInventory) {
+        params.set("branchId", branchIdForInventory);
+      }
       const res = await fetch(`/api/inventory/movements?${params}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load movements (${res.status})`);
@@ -366,9 +398,33 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col">
-      <Header title="Inventory" subtitle="Track stock levels and movements" />
+      <Header
+        title="Inventory"
+        subtitle={
+          orgWarehouseMode
+            ? `${orgTypeLabel} warehouse stock (organization-level)`
+            : orgBranchInventoryMode
+              ? `${orgTypeLabel} branch stock`
+              : "Track stock levels and movements"
+        }
+      />
       <div className="flex-1 p-6 space-y-6">
-        {needsBranchSelect && (
+        {inventoryBlocked && (
+          <Alert>
+            <AlertDescription>
+              Inventory is not enabled for your organization type. Use My Panel or Reseller Sales instead.
+            </AlertDescription>
+          </Alert>
+        )}
+        {orgWarehouseMode && (
+          <Alert>
+            <AlertDescription>
+              Showing organization warehouse quantities for your {orgTypeLabel.toLowerCase()}. Stock increases when
+              purchase orders are fulfilled.
+            </AlertDescription>
+          </Alert>
+        )}
+        {!inventoryBlocked && needsBranchSelect && (isAdmin || orgBranchInventoryMode) && (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-card p-4">
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <Building2 className="h-4 w-4 shrink-0 mt-0.5" />
@@ -471,14 +527,17 @@ export default function InventoryPage() {
               Org Transfer
             </Button>
           )}
-          <RoleGuard requiredPermissions={["manage:inventory"]}>
-            <Button onClick={() => { setMovementForm(defaultMovementForm); setFormError(""); setMovementOpen(true); }}>
-              <ArrowDownUp className="h-4 w-4 mr-2" />
-              Record Movement
-            </Button>
-          </RoleGuard>
+          {!orgWarehouseMode && (
+            <RoleGuard requiredPermissions={["manage:inventory"]}>
+              <Button onClick={() => { setMovementForm(defaultMovementForm); setFormError(""); setMovementOpen(true); }}>
+                <ArrowDownUp className="h-4 w-4 mr-2" />
+                Record Movement
+              </Button>
+            </RoleGuard>
+          )}
         </div>
 
+        {!inventoryBlocked && (
         <Tabs defaultValue="stock">
           <TabsList>
             <TabsTrigger value="stock">Current Stock</TabsTrigger>
@@ -591,6 +650,7 @@ export default function InventoryPage() {
             </TabsContent>
           )}
         </Tabs>
+        )}
       </div>
 
       {/* Org Transfer Dialog */}

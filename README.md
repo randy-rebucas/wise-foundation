@@ -11,7 +11,7 @@ A full-stack retail platform for multi-branch and multi-organization operations.
 - **Organizations** — Multi-org support (distributor, franchise, partner, headquarters) with org-level inventory
 - **Products** — Product catalog with variants, SKU management, and category filtering
 - **Reports** — Sales summaries, top products, branch performance, and inventory alerts
-- **Users & Roles** — ADMIN, ORG_ADMIN, BRANCH_MANAGER, INVENTORY_MANAGER, and STAFF roles with granular permissions
+- **Users & Roles** — ADMIN, ORG_ADMIN, BRANCH_MANAGER, INVENTORY_MANAGER, and STAFF roles with granular permissions ([matrix](docs/roles-and-permissions-matrix.md))
 - **Suppliers** — Supplier management linked to purchase orders
 
 ## Tech Stack

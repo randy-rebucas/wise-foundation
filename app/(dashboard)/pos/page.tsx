@@ -62,25 +62,32 @@ export default function POSPage() {
   const defaultBranchId = session?.user?.branchIds?.[0] ?? "";
   const { setMember, setBranchId } = useCartStore();
 
-  // Users with an assigned branch use it automatically; admins pick from a list.
+  const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
+  const orgCaps = session?.user?.organizationCapabilities;
+  const posBlocked = isOrgAdmin && orgCaps?.posSurface === "none";
+  const orgTypeLabel = session?.user?.organizationType
+    ? session.user.organizationType.charAt(0).toUpperCase() + session.user.organizationType.slice(1)
+    : "organization";
+
+  // Users with an assigned branch use it automatically; admins and franchise org admins pick from a list.
   const [selectedBranchId, setSelectedBranchId] = useState(defaultBranchId);
   const branchId = selectedBranchId || defaultBranchId;
 
-  const needsBranchSelect = !defaultBranchId;
+  const needsBranchSelect = !defaultBranchId || (isOrgAdmin && orgCaps?.posSurface === "branch");
 
   const {
     data: branches = [],
     isError: isBranchesError,
     error: branchesError,
   } = useQuery<Branch[]>({
-    queryKey: ["branches-for-pos"],
+    queryKey: ["branches-for-pos", session?.user?.organizationId],
     queryFn: async () => {
       const res = await fetch("/api/branches?limit=100");
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load branches (${res.status})`);
       return (data.data ?? []) as Branch[];
     },
-    enabled: needsBranchSelect,
+    enabled: needsBranchSelect && !posBlocked,
   });
 
   useEffect(() => {
@@ -139,6 +146,19 @@ export default function POSPage() {
     setMemberSearch("");
     setMemberResults([]);
     setMemberSearchError("");
+  }
+
+  if (posBlocked) {
+    return (
+      <div className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-8">
+        <h1 className="font-bold text-lg">Point of Sale unavailable</h1>
+        <Alert className="max-w-md">
+          <AlertDescription>
+            {orgTypeLabel} accounts do not use in-store POS. Use Purchase Orders or My Panel for your workflow.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   return (

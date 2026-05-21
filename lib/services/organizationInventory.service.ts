@@ -8,15 +8,45 @@ import { OrderItem } from "@/lib/db/models/OrderItem";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { generateOrderNumber } from "@/lib/utils";
 
+const ORG_LOW_STOCK_THRESHOLD = 5;
+
 export async function getOrgInventory(organizationId?: string) {
   await connectDB();
   const filter: Record<string, unknown> = {};
   if (organizationId) filter.organizationId = organizationId;
   return OrganizationInventory.find(filter)
     .populate("organizationId", "name type")
-    .populate("productId", "name sku images retailPrice")
+    .populate("productId", "name sku category images retailPrice")
     .sort({ organizationId: 1 })
     .lean();
+}
+
+/** Paginated organization warehouse stock (distributor / HQ org admins). */
+export async function getOrgInventoryPaged(
+  organizationId: string,
+  page = 1,
+  limit = 20,
+  lowStockOnly = false
+) {
+  await connectDB();
+  const filter: Record<string, unknown> = { organizationId };
+  if (lowStockOnly) {
+    filter.quantity = { $lte: ORG_LOW_STOCK_THRESHOLD };
+  }
+
+  const skip = (page - 1) * limit;
+  const [items, total] = await Promise.all([
+    OrganizationInventory.find(filter)
+      .sort({ quantity: 1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("organizationId", "name type")
+      .populate("productId", "name sku category images retailPrice")
+      .lean(),
+    OrganizationInventory.countDocuments(filter),
+  ]);
+
+  return { items, total, pages: Math.ceil(total / limit) };
 }
 
 export interface ResellerSaleItem {
