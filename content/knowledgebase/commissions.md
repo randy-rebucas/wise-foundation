@@ -5,11 +5,11 @@ summary: View commission lines, statuses (pending, paid, cancelled), and summari
 category: people-rewards
 relatedPaths:
   - /commissions
-permissionsNote: ADMIN or ORG_ADMIN for org-scoped commission APIs.
+permissionsNote: ADMIN or ORG_ADMIN can view commissions (org-scoped for ORG_ADMIN). Only ADMIN can mark paid or cancel.
 journeys:
   - id: commission-payout-checklist
     title: Payout checklist
-    audience: ORG_ADMIN · finance partner
+    audience: ADMIN · finance
     description: Before releasing funds.
     steps:
       - title: Filter pending

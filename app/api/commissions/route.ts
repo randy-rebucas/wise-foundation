@@ -35,4 +35,6 @@ const getHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withStaffAuth(withPermission("manage:organizations", { allowRoles: ["ORG_ADMIN"] })(getHandler));
+export const GET = withStaffAuth(
+  withPermission("view:org_commissions", { allowRoles: ["ORG_ADMIN"] })(getHandler)
+);

@@ -9,8 +9,11 @@ import { Branch } from "@/lib/db/models/Branch";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import { phpAmountToCentavos } from "@/lib/paymongo/config";
 import {
-  computeCheckoutShippingCost,
+  computeCheckoutShippingQuote,
   computeMarketplaceOrderTotal,
+  getCheckoutShippingMethodsForAddress,
+  getMarketplaceShippingOption,
+  MARKETPLACE_SHIPPING_METHODS,
 } from "@/lib/utils/marketplaceShipping";
 
 const listedFilter: Record<string, unknown> = {
@@ -28,11 +31,37 @@ export type MarketplaceCheckoutQuote = {
   amountCentavos: number;
 };
 
+export type MarketplaceCheckoutQuoteMethod = {
+  id: string;
+  title: string;
+  detail: string;
+  supportsCod: boolean;
+  baseShipping: number;
+  codFee: number;
+  shippingCost: number;
+};
+
+export type MarketplaceCheckoutQuoteExtended = MarketplaceCheckoutQuote & {
+  shippingMethods: MarketplaceCheckoutQuoteMethod[];
+  shippingBreakdown?: {
+    baseShipping: number;
+    codFee: number;
+    courier: string;
+  };
+};
+
+export type MarketplaceCheckoutQuoteInput = Pick<
+  MarketplaceCheckoutInput,
+  "items" | "shippingMethod" | "shipping"
+> & {
+  paymentMethod?: MarketplaceCheckoutInput["paymentMethod"];
+};
+
 /** Validates cart lines and stock; returns pricing for checkout / PayMongo intent. */
 export async function quoteMarketplaceCheckout(
-  input: Pick<MarketplaceCheckoutInput, "items" | "shippingMethod">,
+  input: MarketplaceCheckoutQuoteInput,
   customerUserId: string | null
-): Promise<MarketplaceCheckoutQuote> {
+): Promise<MarketplaceCheckoutQuoteExtended> {
   await connectDB();
   const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
   let branchId = settings?.marketplaceFulfillmentBranchId;
@@ -118,8 +147,6 @@ export async function quoteMarketplaceCheckout(
   }
   subtotal = Math.round(subtotal * 100) / 100;
 
-  const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod);
-
   let discountPercent = 0;
   if (customerUserId) {
     const dashboard = await getCustomerDashboard(customerUserId);
@@ -129,6 +156,52 @@ export async function quoteMarketplaceCheckout(
     discountPercent > 0
       ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
       : 0;
+
+  const region = input.shipping?.region ?? "";
+  const city = input.shipping?.city ?? "";
+  const paymentMethod = input.paymentMethod;
+
+  const availableMethods = getCheckoutShippingMethodsForAddress(region, city, paymentMethod);
+  const methodPool =
+    availableMethods.length > 0 ? availableMethods : [...MARKETPLACE_SHIPPING_METHODS];
+
+  const shippingMethods: MarketplaceCheckoutQuoteMethod[] = methodPool.map((method) => {
+    const quote = computeCheckoutShippingQuote({
+      merchandiseSubtotal: subtotal,
+      discountAmount,
+      shippingMethod: method.id,
+      paymentMethod,
+      region,
+      city,
+    });
+    return {
+      id: method.id,
+      title: method.title,
+      detail: method.detail,
+      supportsCod: method.supportsCod,
+      baseShipping: quote.baseShipping,
+      codFee: quote.codFee,
+      shippingCost: quote.shippingCost,
+    };
+  });
+
+  const selected =
+    shippingMethods.find((m) => m.id === input.shippingMethod) ??
+    shippingMethods[0];
+  if (!selected) {
+    throw new Error("Invalid shipping method");
+  }
+
+  const selectedQuote = computeCheckoutShippingQuote({
+    merchandiseSubtotal: subtotal,
+    discountAmount,
+    shippingMethod: selected.id,
+    paymentMethod,
+    region,
+    city,
+  });
+  const selectedOption = getMarketplaceShippingOption(selected.id);
+  const shippingCost = selectedQuote.shippingCost;
   const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
 
   return {
@@ -138,5 +211,11 @@ export async function quoteMarketplaceCheckout(
     shippingCost,
     total,
     amountCentavos: phpAmountToCentavos(total),
+    shippingMethods,
+    shippingBreakdown: {
+      baseShipping: selectedQuote.baseShipping,
+      codFee: selectedQuote.codFee,
+      courier: selectedOption?.title ?? selectedQuote.courier,
+    },
   };
 }

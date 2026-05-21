@@ -484,8 +484,6 @@ export async function placeMarketplaceOrder(
     const subtotal = Math.round(
       lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0) * 100
     ) / 100;
-    const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod);
-
     let discountPercent = 0;
     if (customerUserId) {
       const dashboard = await getCustomerDashboard(customerUserId);
@@ -497,6 +495,13 @@ export async function placeMarketplaceOrder(
       discountPercent > 0
         ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
         : 0;
+
+    const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod, {
+      discountAmount,
+      paymentMethod: input.paymentMethod,
+      region: input.shipping.region,
+      city: input.shipping.city,
+    });
     const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
 
     let codPaymentRecord: ResolvedMarketplaceCodPayment | undefined;
@@ -506,7 +511,12 @@ export async function placeMarketplaceOrder(
 
     if (input.paymongoPaymentIntentId) {
       const quote = await quoteMarketplaceCheckout(
-        { items: input.items, shippingMethod: input.shippingMethod },
+        {
+          items: input.items,
+          shippingMethod: input.shippingMethod,
+          shipping: input.shipping,
+          paymentMethod: input.paymentMethod,
+        },
         customerUserId
       );
       if (quote.total !== total) {

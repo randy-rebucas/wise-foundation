@@ -1,11 +1,22 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { markCommissionPaid, cancelCommission } from "@/lib/services/commission.service";
-import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { canManageCommissionPayouts } from "@/lib/permissions/commissionAccess";
+import {
+  successResponse,
+  errorResponse,
+  forbiddenResponse,
+  notFoundResponse,
+  serverErrorResponse,
+} from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
+    if (!canManageCommissionPayouts(req.user.role)) {
+      return forbiddenResponse("Only platform administrators can update commission payouts");
+    }
+
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
     const action = body.action as "pay" | "cancel";

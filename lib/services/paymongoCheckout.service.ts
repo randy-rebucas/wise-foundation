@@ -19,7 +19,13 @@ export async function createMarketplacePaymentIntent(
     throw new Error("PayMongo is not configured");
   }
 
-  const quote = await quoteMarketplaceCheckout(input, customerUserId);
+  const quote = await quoteMarketplaceCheckout(
+    {
+      ...input,
+      paymentMethod: paymentMethodAllowed[0] === "gcash" ? "gcash" : "card",
+    },
+    customerUserId
+  );
   const intent = await createPaymentIntent({
     amountCentavos: quote.amountCentavos,
     description: `Glowish order — ${input.shipping.email}`,

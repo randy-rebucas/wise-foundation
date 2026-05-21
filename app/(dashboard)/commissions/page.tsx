@@ -34,8 +34,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MoreHorizontal, DollarSign, Clock, CheckCircle, TrendingUp } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
-import { RoleGuard } from "@/components/layout/RoleGuard";
 import { useToast } from "@/hooks/use-toast";
+import { canManageCommissionPayouts } from "@/lib/permissions/commissionAccess";
+import { isPlatformAdmin } from "@/lib/permissions";
 
 interface CommissionRecord {
   _id: string;
@@ -78,6 +79,8 @@ export default function CommissionsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const userRole = session?.user?.role ?? "";
+  const canPayout = canManageCommissionPayouts(userRole);
+  const showOrgFilter = isPlatformAdmin(userRole);
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -91,6 +94,7 @@ export default function CommissionsPage() {
 
   const {
     data: summaryData,
+    isLoading: isSummaryLoading,
     isError: isSummaryError,
     error: summaryError,
   } = useQuery({
@@ -135,7 +139,7 @@ export default function CommissionsPage() {
       if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
       return (json.data ?? []) as { _id: string; name: string; type: string }[];
     },
-    enabled: userRole === "ADMIN",
+    enabled: showOrgFilter,
   });
 
   const actionMutation = useMutation({
@@ -225,33 +229,35 @@ export default function CommissionsPage() {
     {
       key: "actions",
       label: "",
-      render: (r: CommissionRecord) => (
-        <RoleGuard requiredPermissions={["manage:organizations"]}>
-          {r.status === "pending" && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openPayDialog(r._id)}>
-                  Mark as Paid
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => {
-                    setActionError("");
-                    actionMutation.mutate({ id: r._id, action: "cancel" });
-                  }}
-                >
-                  Cancel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </RoleGuard>
-      ),
+      render: (r: CommissionRecord) =>
+        canPayout && r.status === "pending" ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Commission actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openPayDialog(r._id)}>Mark as Paid</DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      "Cancel this commission? This cannot be undone if the order already settled."
+                    )
+                  ) {
+                    return;
+                  }
+                  setActionError("");
+                  actionMutation.mutate({ id: r._id, action: "cancel" });
+                }}
+              >
+                Cancel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null,
     },
   ];
 
@@ -273,7 +279,7 @@ export default function CommissionsPage() {
             </AlertDescription>
           </Alert>
         )}
-        {userRole === "ADMIN" && isOrgsError && (
+        {showOrgFilter && isOrgsError && (
           <Alert variant="destructive">
             <AlertDescription>
               {orgsError instanceof Error ? orgsError.message : "Unable to load organizations for filtering."}
@@ -281,31 +287,38 @@ export default function CommissionsPage() {
           </Alert>
         )}
 
+        {userRole === "ORG_ADMIN" ? (
+          <p className="text-sm text-muted-foreground">
+            Viewing commissions for your organization. Payouts are recorded by platform administrators
+            after transfer.
+          </p>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-4">
           <StatCard
             title="Total Earned"
-            value={money(summary.totalEarned)}
+            value={isSummaryLoading ? "…" : money(summary.totalEarned)}
             icon={TrendingUp}
             description="All active commissions"
             iconClassName="bg-blue-100"
           />
           <StatCard
             title="Pending Payout"
-            value={money(summary.totalPending)}
+            value={isSummaryLoading ? "…" : money(summary.totalPending)}
             icon={Clock}
             description="Awaiting payment"
             iconClassName="bg-yellow-100"
           />
           <StatCard
             title="Total Paid"
-            value={money(summary.totalPaid)}
+            value={isSummaryLoading ? "…" : money(summary.totalPaid)}
             icon={CheckCircle}
             description="Paid out"
             iconClassName="bg-green-100"
           />
           <StatCard
             title="Records"
-            value={summary.count}
+            value={isSummaryLoading ? "…" : summary.count}
             icon={DollarSign}
             description="Commission entries"
           />
@@ -321,7 +334,7 @@ export default function CommissionsPage() {
             </TabsList>
           </Tabs>
 
-          {userRole === "ADMIN" && (organizations.length > 0 || !isOrgsError) && (
+          {showOrgFilter && (organizations.length > 0 || !isOrgsError) && (
             <div className="w-56">
               <Select value={orgFilter || "all"} onValueChange={(v) => { setOrgFilter(v === "all" ? "" : v); setPage(1); }}>
                 <SelectTrigger>
@@ -347,7 +360,7 @@ export default function CommissionsPage() {
           keyExtractor={(r) => r._id}
           emptyMessage="No commission records found."
           page={page}
-          totalPages={Math.ceil(total / 20)}
+          totalPages={Math.max(1, Math.ceil(total / 20))}
           onPageChange={setPage}
         />
       </div>

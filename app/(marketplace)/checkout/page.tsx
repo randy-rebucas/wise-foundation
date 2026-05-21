@@ -30,9 +30,12 @@ import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
-  MARKETPLACE_SHIPPING_METHODS,
+  computeCheckoutShippingQuote,
   computeMarketplaceOrderTotal,
+  getCheckoutShippingMethodsForAddress,
+  type MarketplaceShippingMethodId,
 } from "@/lib/utils/marketplaceShipping";
+import type { MarketplaceCheckoutQuoteMethod } from "@/lib/services/marketplaceCheckoutQuote.service";
 import {
   CardPaymentSection,
   type CardPaymentFields,
@@ -85,7 +88,15 @@ const CHECKOUT_STEPS = [
   { id: "review", label: "Review" },
 ] as const;
 
-const SHIPPING_OPTIONS = MARKETPLACE_SHIPPING_METHODS;
+type CheckoutQuoteState = {
+  subtotal: number;
+  discountAmount: number;
+  discountPercent: number;
+  shippingCost: number;
+  total: number;
+  shippingMethods: MarketplaceCheckoutQuoteMethod[];
+  shippingBreakdown?: { baseShipping: number; codFee: number; courier: string };
+};
 
 const PAYMENT_OPTIONS = [
   { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
@@ -128,7 +139,9 @@ export default function MarketplaceCheckoutPage() {
 
   const [loading, setLoading] = useState(false);
   const [shippingMethod, setShippingMethod] =
-    useState<(typeof SHIPPING_OPTIONS)[number]["id"]>("standard");
+    useState<MarketplaceShippingMethodId>("jt_economy");
+  const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteState | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [saveInfo, setSaveInfo] = useState(true);
   const [savedAddresses, setSavedAddresses] = useState<MarketplaceSavedAddress[]>([]);
@@ -175,13 +188,59 @@ export default function MarketplaceCheckoutPage() {
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
-  const shippingCost =
-    SHIPPING_OPTIONS.find((option) => option.id === shippingMethod)?.price ?? 120;
-  const discountAmount =
+  const fallbackDiscountAmount =
     memberDiscountPercent > 0
       ? Math.round((subtotal * Math.min(100, memberDiscountPercent)) / 100 * 100) / 100
       : 0;
-  const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
+  const fallbackShipping = (() => {
+    try {
+      return computeCheckoutShippingQuote({
+        merchandiseSubtotal: subtotal,
+        discountAmount: fallbackDiscountAmount,
+        shippingMethod,
+        paymentMethod: form.paymentMethod,
+        region: form.region,
+        city: form.city,
+      }).shippingCost;
+    } catch {
+      return 0;
+    }
+  })();
+  const discountAmount = checkoutQuote?.discountAmount ?? fallbackDiscountAmount;
+  const shippingCost = checkoutQuote?.shippingCost ?? fallbackShipping;
+  const total =
+    checkoutQuote?.total ??
+    computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
+  const fallbackShippingMethods: MarketplaceCheckoutQuoteMethod[] =
+    getCheckoutShippingMethodsForAddress(form.region, form.city, form.paymentMethod).flatMap(
+      (method) => {
+        try {
+          const quote = computeCheckoutShippingQuote({
+            merchandiseSubtotal: subtotal,
+            discountAmount: fallbackDiscountAmount,
+            shippingMethod: method.id,
+            paymentMethod: form.paymentMethod,
+            region: form.region,
+            city: form.city,
+          });
+          return [
+            {
+              id: method.id,
+              title: method.title,
+              detail: method.detail,
+              supportsCod: method.supportsCod,
+              baseShipping: quote.baseShipping,
+              codFee: quote.codFee,
+              shippingCost: quote.shippingCost,
+            },
+          ];
+        } catch {
+          return [];
+        }
+      }
+    );
+  const shippingMethodOptions =
+    checkoutQuote?.shippingMethods ?? fallbackShippingMethods;
 
   const applyAddress = useCallback((addr: MarketplaceSavedAddress) => {
     setForm((f) => ({
@@ -296,6 +355,82 @@ export default function MarketplaceCheckoutPage() {
     setPmBillingEmail((e) => e || form.email);
     setPmBillingPhone((p) => p || form.phone);
   }, [form.fullName, form.email, form.phone]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setCheckoutQuote(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void (async () => {
+        setQuoteLoading(true);
+        try {
+          const res = await fetch("/api/marketplace/checkout/quote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              items: items.map((i) => ({
+                productId: i.productId,
+                variantId: i.variantId,
+                quantity: i.quantity,
+              })),
+              shipping: {
+                fullName: form.fullName.trim() || "Guest",
+                email: form.email.trim() || "guest@checkout.local",
+                phone: form.phone.trim() || "0000000000",
+                line1: form.line1.trim() || "—",
+                line2: form.line2.trim() || undefined,
+                city: form.city.trim() || "Quezon City",
+                region: form.region.trim() || "Metro Manila",
+                postalCode: form.postalCode.trim() || "1100",
+              },
+              shippingMethod,
+              paymentMethod: form.paymentMethod,
+            }),
+            signal: controller.signal,
+          });
+          const json = await res.json();
+          if (!res.ok || !json.success) {
+            throw new Error(json.error ?? "Could not update shipping rates");
+          }
+          const quote = json.data as CheckoutQuoteState;
+          setCheckoutQuote(quote);
+          if (
+            quote.shippingMethods.length > 0 &&
+            !quote.shippingMethods.some((m) => m.id === shippingMethod)
+          ) {
+            setShippingMethod(quote.shippingMethods[0].id as MarketplaceShippingMethodId);
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") return;
+          setCheckoutQuote(null);
+        } finally {
+          if (!controller.signal.aborted) setQuoteLoading(false);
+        }
+      })();
+    }, 350);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    items,
+    shippingMethod,
+    form.region,
+    form.city,
+    form.paymentMethod,
+    form.fullName,
+    form.email,
+    form.phone,
+    form.line1,
+    form.line2,
+    form.postalCode,
+    memberDiscountPercent,
+    subtotal,
+  ]);
 
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
 
@@ -922,36 +1057,61 @@ export default function MarketplaceCheckoutPage() {
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Shipping Method
               </h2>
+              <p className="mt-1 text-xs text-[#2A4C6A]/65">
+                Rates follow J&amp;T, Flash Express, and Lalamove tariffs for your area. COD orders
+                include the courier&apos;s cash-collection fee.
+              </p>
               <div className="mt-4 space-y-3">
-                {SHIPPING_OPTIONS.map((option) => {
-                  const selected = shippingMethod === option.id;
-                  return (
-                    <label
-                      key={option.id}
-                      className={cn(
-                        "flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition",
-                        selected
-                          ? "border-violet-300 bg-violet-50/80"
-                          : "border-white/70 bg-white/50 hover:bg-white/70"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="shippingMethod"
-                          checked={selected}
-                          onChange={() => setShippingMethod(option.id)}
-                          className="h-4 w-4 accent-[#6ea43f]"
-                        />
-                        <div>
-                          <p className="text-sm font-semibold text-[#1e3157]">{option.title}</p>
-                          <p className="text-xs text-[#2A4C6A]/65">{option.detail}</p>
+                {shippingMethodOptions.length === 0 ? (
+                  <p className="text-sm text-[#2A4C6A]/70">
+                    Enter your city and province to see available couriers.
+                  </p>
+                ) : (
+                  shippingMethodOptions.map((option) => {
+                    const selected = shippingMethod === option.id;
+                    return (
+                      <label
+                        key={option.id}
+                        className={cn(
+                          "flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition",
+                          selected
+                            ? "border-violet-300 bg-violet-50/80"
+                            : "border-white/70 bg-white/50 hover:bg-white/70"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="shippingMethod"
+                            checked={selected}
+                            onChange={() =>
+                              setShippingMethod(option.id as MarketplaceShippingMethodId)
+                            }
+                            className="h-4 w-4 accent-[#6ea43f]"
+                          />
+                          <div>
+                            <p className="text-sm font-semibold text-[#1e3157]">{option.title}</p>
+                            <p className="text-xs text-[#2A4C6A]/65">{option.detail}</p>
+                            {selected &&
+                            form.paymentMethod === "cash" &&
+                            option.codFee > 0 ? (
+                              <p className="mt-1 text-[10px] text-[#2A4C6A]/55">
+                                Freight {money(option.baseShipping)} + COD fee {money(option.codFee)}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                      <span className="text-sm font-bold text-[#1e3157]">{money(option.price)}</span>
-                    </label>
-                  );
-                })}
+                        <span className="text-sm font-bold text-[#1e3157]">
+                          {quoteLoading && selected ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            money(option.shippingCost)
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
               </div>
             </section>
           </div>
@@ -1008,8 +1168,23 @@ export default function MarketplaceCheckoutPage() {
                 ) : null}
                 <div className="flex justify-between text-[#2A4C6A]/80">
                   <span>Shipping</span>
-                  <span className="font-semibold text-[#1e3157]">{money(shippingCost)}</span>
+                  <span className="font-semibold text-[#1e3157]">
+                    {quoteLoading ? "…" : money(shippingCost)}
+                  </span>
                 </div>
+                {checkoutQuote?.shippingBreakdown &&
+                checkoutQuote.shippingBreakdown.codFee > 0 ? (
+                  <div className="space-y-1 pl-2 text-xs text-[#2A4C6A]/65">
+                    <div className="flex justify-between">
+                      <span>{checkoutQuote.shippingBreakdown.courier} freight</span>
+                      <span>{money(checkoutQuote.shippingBreakdown.baseShipping)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>COD collection fee</span>
+                      <span>{money(checkoutQuote.shippingBreakdown.codFee)}</span>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="flex justify-between pt-2 text-lg font-bold text-[#6ea43f]">
                   <span>Total</span>
                   <span>{money(total)}</span>
