@@ -36,6 +36,7 @@ import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
+import { getStaffHomeLabel, getStaffHomePath } from "@/lib/navigation/staffHome";
 
 /** Roles that may open the operations dashboard from the storefront. */
 const MARKETPLACE_DASHBOARD_ROLES: readonly UserRole[] = [
@@ -143,6 +144,9 @@ export function MarketplaceShell({
   const role = session?.user?.role as UserRole | undefined;
   const canOpenDashboard =
     !!role && MARKETPLACE_DASHBOARD_ROLES.includes(role);
+  const staffHomeHref =
+    session?.user && canOpenDashboard ? getStaffHomePath(session.user) : "/dashboard";
+  const staffHomeLabel = role && canOpenDashboard ? getStaffHomeLabel(role) : "Dashboard";
   const displayName = session?.user?.name ?? "Glowish guest";
   const displayEmail = session?.user?.email ?? "Sign in for your account";
 
@@ -242,13 +246,13 @@ export function MarketplaceShell({
                             asChild
                             className="rounded-2xl px-3 py-3 focus:bg-[#f4e8ff]/80"
                           >
-                            <Link href="/dashboard" className="flex items-center gap-3">
+                            <Link href={staffHomeHref} className="flex items-center gap-3">
                               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
                                 <LayoutDashboard className="h-4 w-4" />
                               </span>
                               <span className="min-w-0 flex-1">
                                 <span className="block text-sm font-semibold text-[#3c2e60]">
-                                  Dashboard
+                                  {staffHomeLabel}
                                 </span>
                                 <span className="block text-xs text-[#2A4C6A]/65">
                                   Open operations dashboard

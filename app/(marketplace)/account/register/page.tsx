@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
+import { getStaffHomePath } from "@/lib/navigation/staffHome";
 import {
   Eye,
   EyeOff,
@@ -69,7 +70,7 @@ export default function AccountRegisterPage() {
     if (session.user.role === "CUSTOMER") {
       router.replace("/account");
     } else {
-      router.replace("/dashboard");
+      router.replace(getStaffHomePath(session.user));
     }
   }, [status, session, router]);
 

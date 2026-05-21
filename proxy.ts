@@ -5,6 +5,7 @@ import type { Session } from "next-auth";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { resolveSetupRequiredForProxy } from "@/lib/utils/setupRequiredCache";
 import { isCustomerOrPublicApi, isStaffBlockedRole } from "@/lib/utils/apiAccess";
+import { getStaffHomePath, resolveStaffRedirectPath } from "@/lib/navigation/staffHome";
 import { proxyRateLimit } from "@/lib/utils/rateLimit";
 
 /** Reachable without auth while maintenance is on (admins can still sign in). */
@@ -150,6 +151,16 @@ export async function proxy(req: NextRequest) {
     isStaffBlockedRole(session.user.role)
   ) {
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+  }
+
+  if (pathname === "/login" && !isStaffBlockedRole(session.user.role)) {
+    const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+    const dest = resolveStaffRedirectPath(session.user, callbackUrl);
+    return NextResponse.redirect(new URL(dest, req.url));
+  }
+
+  if (pathname === "/account/login" && session.user.role !== "CUSTOMER") {
+    return NextResponse.redirect(new URL(getStaffHomePath(session.user), req.url));
   }
 
   return NextResponse.next();

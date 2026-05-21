@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { requireStaffRoleHome } from "@/lib/navigation/requireStaffHome";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
 
 export default async function DashboardPage() {
   const session = await auth();
+  requireStaffRoleHome(session, ["ADMIN"]);
 
   let settings: PublicAppSettings;
   try {

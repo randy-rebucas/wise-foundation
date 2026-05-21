@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { getStaffHomePath } from "@/lib/navigation/staffHome";
+import { requireStaffRoleHome } from "@/lib/navigation/requireStaffHome";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,7 +132,11 @@ const ORG_TYPE_COLOR: Record<string, string> = {
 
 export default async function OrgDashboardPage() {
   const session = await auth();
-  if (!session?.user?.organizationId) redirect("/dashboard");
+  if (!session?.user) redirect("/login");
+  requireStaffRoleHome(session, ["ORG_ADMIN"]);
+  if (!session.user.organizationId) {
+    redirect(getStaffHomePath(session.user));
+  }
 
   const [stats, settings] = await Promise.all([
     getOrgDashboardStats(session.user.organizationId),

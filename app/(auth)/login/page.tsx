@@ -3,7 +3,8 @@
 import { useState, Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { getSession, signIn, useSession } from "next-auth/react";
+import { resolveStaffRedirectPath } from "@/lib/navigation/staffHome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const setupDone = searchParams.get("setup") === "done";
   const [email, setEmail] = useState("");
@@ -30,7 +31,7 @@ function LoginForm() {
     if (session.user.role === "CUSTOMER") {
       router.replace("/account/login");
     } else {
-      router.replace(callbackUrl.startsWith("/") ? callbackUrl : "/dashboard");
+      router.replace(resolveStaffRedirectPath(session.user, callbackUrl));
     }
   }, [status, session, router, callbackUrl]);
 
@@ -50,8 +51,12 @@ function LoginForm() {
       if (result?.error) {
         setError("Invalid email or password");
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        const nextSession = await getSession();
+        if (nextSession?.user) {
+          router.replace(resolveStaffRedirectPath(nextSession.user, callbackUrl));
+        } else {
+          router.refresh();
+        }
       }
     } catch {
       setError("An unexpected error occurred");

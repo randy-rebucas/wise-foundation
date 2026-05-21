@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
+import { getStaffHomePath } from "@/lib/navigation/staffHome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +30,7 @@ function AccountLoginForm() {
     if (session.user.role === "CUSTOMER") {
       router.replace("/account");
     } else {
-      router.replace("/login");
+      router.replace(getStaffHomePath(session.user));
     }
   }, [status, session, router]);
 
