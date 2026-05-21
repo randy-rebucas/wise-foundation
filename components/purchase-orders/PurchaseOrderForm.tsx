@@ -28,6 +28,11 @@ import {
   type PurchaseOrderCatalogTemplate,
   type ProductVariantOption,
 } from "@/components/purchase-orders/purchaseOrderFormTypes";
+import {
+  purchaseOrderFetchInit,
+  purchaseOrderFreshQueryOptions,
+  purchaseOrderQueryKeys,
+} from "@/lib/purchaseOrders/reactQuery";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 import { computePurchaseOrderTotals } from "@/lib/utils/purchaseOrderTotals";
 import { cn } from "@/lib/utils";
@@ -133,10 +138,13 @@ export function PurchaseOrderForm({
     isError: isProductsError,
     error: productsError,
   } = useQuery<ProductHit[]>({
-    queryKey: ["products-simple"],
-    staleTime: 0,
+    queryKey: [purchaseOrderQueryKeys.products],
+    ...purchaseOrderFreshQueryOptions,
     queryFn: async () => {
-      const res = await fetch("/api/products?limit=100&isActive=true&includeVariantSummary=true");
+      const res = await fetch(
+        "/api/products?limit=100&isActive=true&includeVariantSummary=true",
+        purchaseOrderFetchInit
+      );
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
       return (data.data ?? []) as ProductHit[];
@@ -148,9 +156,10 @@ export function PurchaseOrderForm({
     isError: isOrgsError,
     error: orgsError,
   } = useQuery({
-    queryKey: ["organizations-for-purchase-orders"],
+    queryKey: [purchaseOrderQueryKeys.organizations],
+    ...purchaseOrderFreshQueryOptions,
     queryFn: async () => {
-      const res = await fetch("/api/organizations/for-purchase-orders");
+      const res = await fetch("/api/organizations/for-purchase-orders", purchaseOrderFetchInit);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load organizations (${res.status})`);
       return (json.data ?? []) as Organization[];
@@ -161,7 +170,7 @@ export function PurchaseOrderForm({
     if (!poId) return;
     setInitialLoading(true);
     try {
-      const res = await fetch(`/api/purchase-orders/${poId}`);
+      const res = await fetch(`/api/purchase-orders/${poId}`, purchaseOrderFetchInit);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
       const po = json.data as {
@@ -215,7 +224,7 @@ export function PurchaseOrderForm({
         );
         let variants: ProductVariantOption[] | undefined;
         if (productId) {
-          const vRes = await fetch(`/api/products/${productId}/variants`);
+          const vRes = await fetch(`/api/products/${productId}/variants`, purchaseOrderFetchInit);
           const vJson = await vRes.json();
           if (vJson.success) {
             const active = ((vJson.data ?? []) as ProductVariantOption[]).filter(
@@ -301,7 +310,7 @@ export function PurchaseOrderForm({
     async (opts?: { replace?: boolean; silent?: boolean }) => {
       setTemplateLoading(true);
       try {
-        const res = await fetch("/api/purchase-orders/template");
+        const res = await fetch("/api/purchase-orders/template", purchaseOrderFetchInit);
         const json = await res.json();
         if (!json.success) {
           throw new Error(json.error ?? `Failed to load catalog template (${res.status})`);
@@ -418,9 +427,13 @@ export function PurchaseOrderForm({
       return data.data as { _id: string; poNumber?: string };
     },
     onSuccess: (po) => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.products] });
+      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.organizations] });
       if (po?._id) {
-        queryClient.invalidateQueries({ queryKey: ["purchase-order", po._id] });
+        void queryClient.invalidateQueries({
+          queryKey: [purchaseOrderQueryKeys.detail, po._id],
+        });
       }
       onSuccess(
         po?._id
@@ -492,7 +505,7 @@ export function PurchaseOrderForm({
     );
 
     try {
-      const res = await fetch(`/api/products/${productId}`);
+      const res = await fetch(`/api/products/${productId}`, purchaseOrderFetchInit);
       const json = await res.json();
       if (isStaleVariantLoad(index, seq)) return;
       if (!json.success) {

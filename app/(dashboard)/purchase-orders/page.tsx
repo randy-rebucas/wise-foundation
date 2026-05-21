@@ -28,6 +28,11 @@ import { useFormatCurrency, useFormatDateTime } from "@/components/providers/Ten
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import type { OrganizationType } from "@/components/purchase-orders/purchaseOrderFormTypes";
+import {
+  purchaseOrderFetchInit,
+  purchaseOrderFreshQueryOptions,
+  purchaseOrderQueryKeys,
+} from "@/lib/purchaseOrders/reactQuery";
 
 interface PurchaseOrder {
   _id: string;
@@ -83,11 +88,12 @@ export default function PurchaseOrdersPage() {
     isError: isListError,
     error: listError,
   } = useQuery({
-    queryKey: ["purchase-orders", statusFilter, page],
+    queryKey: [purchaseOrderQueryKeys.list, statusFilter, page],
+    ...purchaseOrderFreshQueryOptions,
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const res = await fetch(`/api/purchase-orders?${params}`);
+      const res = await fetch(`/api/purchase-orders?${params}`, purchaseOrderFetchInit);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase orders (${res.status})`);
       return json as {
@@ -107,6 +113,7 @@ export default function PurchaseOrdersPage() {
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const res = await fetch(`/api/purchase-orders/${id}`, {
+        ...purchaseOrderFetchInit,
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -114,14 +121,15 @@ export default function PurchaseOrdersPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] }),
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Status update failed", description: err.message }),
   });
 
   const duplicateMutation = useMutation({
     mutationFn: async (id: string) => {
-      const getRes = await fetch(`/api/purchase-orders/${id}`);
+      const getRes = await fetch(`/api/purchase-orders/${id}`, purchaseOrderFetchInit);
       const getJson = await getRes.json();
       if (!getRes.ok || !getJson.success) {
         throw new Error(getJson.error ?? `Failed to load purchase order (${getRes.status})`);
@@ -196,7 +204,7 @@ export default function PurchaseOrdersPage() {
       return postJson.data as { _id: string; poNumber?: string };
     },
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({
         title: "Purchase order duplicated",
         description: created.poNumber
@@ -215,12 +223,15 @@ export default function PurchaseOrdersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/purchase-orders/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/purchase-orders/${id}`, {
+        ...purchaseOrderFetchInit,
+        method: "DELETE",
+      });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({ title: "Purchase order deleted" });
     },
     onError: (err: Error) =>

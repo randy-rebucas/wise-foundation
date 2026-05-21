@@ -39,6 +39,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
+import {
+  purchaseOrderFetchInit,
+  purchaseOrderFreshQueryOptions,
+  purchaseOrderQueryKeys,
+} from "@/lib/purchaseOrders/reactQuery";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -224,10 +229,11 @@ export default function PurchaseOrderDetailPage() {
   }
 
   const { data: po, isLoading, isError, error } = useQuery({
-    queryKey: ["purchase-order", id],
+    queryKey: [purchaseOrderQueryKeys.detail, id],
     enabled: !!id,
+    ...purchaseOrderFreshQueryOptions,
     queryFn: async () => {
-      const res = await fetch(`/api/purchase-orders/${id}`);
+      const res = await fetch(`/api/purchase-orders/${id}`, purchaseOrderFetchInit);
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
       return json.data as PurchaseOrderDetail;
@@ -249,8 +255,8 @@ export default function PurchaseOrderDetailPage() {
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({ title: "Discount updated" });
     },
     onError: (err: Error) =>
@@ -268,8 +274,8 @@ export default function PurchaseOrderDetailPage() {
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       queryClient.invalidateQueries({ queryKey: ["deliveries"] });
     },
     onError: (err: Error) =>
@@ -283,7 +289,7 @@ export default function PurchaseOrderDetailPage() {
       if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({ title: "Purchase order deleted" });
       router.push("/purchase-orders");
     },
@@ -304,8 +310,8 @@ export default function PurchaseOrderDetailPage() {
     onSuccess: () => {
       setDeclineOpen(false);
       setDeclineReason("");
-      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       queryClient.invalidateQueries({ queryKey: ["deliveries"] });
       toast({ title: "Purchase order declined" });
     },
@@ -314,8 +320,8 @@ export default function PurchaseOrderDetailPage() {
   });
 
   function handleReceiveSuccess() {
-    queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-    queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+    queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+    queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
     queryClient.invalidateQueries({ queryKey: ["deliveries"] });
     toast({
       title: po?.branchId ? "Purchase order fulfilled" : "Delivery confirmed",
@@ -920,8 +926,8 @@ export default function PurchaseOrderDetailPage() {
         poNumber={po.poNumber}
         role={signRole}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-          queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+          queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+          queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
           queryClient.invalidateQueries({ queryKey: ["deliveries"] });
           toast({
             title: signRole === "submit" ? "Purchase order submitted" : "Purchase order approved",
