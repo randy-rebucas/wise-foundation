@@ -376,7 +376,17 @@ export function PurchaseOrderForm({
   }, [isEdit, applyCatalogTemplateOnMount, applyCatalogTemplate]);
 
   function buildItemsPayload() {
-    return poItems
+    const incomplete = poItems.filter(
+      (i) =>
+        i.productId &&
+        (i.variantsLoading || (i.variants && i.variants.length > 0 && !i.variantId))
+    );
+    if (incomplete.length > 0) {
+      const names = incomplete.map((i) => i.productName || i.baseProductName || "Line item").join(", ");
+      throw new Error(`Select a variant for: ${names}`);
+    }
+
+    const items = poItems
       .filter((i) => i.productId && (!i.variants?.length || i.variantId))
       .map(({ productId, variantId, productName, sku, quantity, unitCost }) => ({
         productId,
@@ -386,6 +396,12 @@ export function PurchaseOrderForm({
         quantity,
         unitCost,
       }));
+
+    if (items.length === 0) {
+      throw new Error("Add at least one complete line item before saving.");
+    }
+
+    return items;
   }
 
   const saveMutation = useMutation({
@@ -393,6 +409,7 @@ export function PurchaseOrderForm({
       const items = buildItemsPayload();
       if (isEdit && poId) {
         const res = await fetch(`/api/purchase-orders/${poId}`, {
+          ...purchaseOrderFetchInit,
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -410,6 +427,7 @@ export function PurchaseOrderForm({
         return data.data as { _id: string; poNumber?: string };
       }
       const res = await fetch("/api/purchase-orders", {
+        ...purchaseOrderFetchInit,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -426,13 +444,12 @@ export function PurchaseOrderForm({
       if (!data.success) throw new Error(data.error ?? `Create failed (${res.status})`);
       return data.data as { _id: string; poNumber?: string };
     },
-    onSuccess: (po) => {
-      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
-      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.products] });
-      void queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.organizations] });
-      if (po?._id) {
-        void queryClient.invalidateQueries({
-          queryKey: [purchaseOrderQueryKeys.detail, po._id],
+    onSuccess: async (po) => {
+      const id = po?._id ? String(po._id) : poId;
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+      if (id) {
+        await queryClient.refetchQueries({
+          queryKey: [purchaseOrderQueryKeys.detail, id],
         });
       }
       onSuccess(

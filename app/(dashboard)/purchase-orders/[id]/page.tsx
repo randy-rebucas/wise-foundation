@@ -254,9 +254,9 @@ export default function PurchaseOrderDetailPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({ title: "Discount updated" });
     },
     onError: (err: Error) =>
@@ -273,10 +273,10 @@ export default function PurchaseOrderDetailPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
-      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+      await queryClient.invalidateQueries({ queryKey: ["deliveries"] });
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Update failed", description: err.message }),
@@ -307,22 +307,22 @@ export default function PurchaseOrderDetailPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Decline failed (${res.status})`);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setDeclineOpen(false);
       setDeclineReason("");
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
-      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+      await queryClient.invalidateQueries({ queryKey: ["deliveries"] });
       toast({ title: "Purchase order declined" });
     },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Decline failed", description: err.message }),
   });
 
-  function handleReceiveSuccess() {
-    queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
-    queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
-    queryClient.invalidateQueries({ queryKey: ["deliveries"] });
+  async function handleReceiveSuccess() {
+    await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+    await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+    await queryClient.invalidateQueries({ queryKey: ["deliveries"] });
     toast({
       title: po?.branchId ? "Purchase order fulfilled" : "Delivery confirmed",
       description: "Inventory has been updated.",
@@ -925,10 +925,10 @@ export default function PurchaseOrderDetailPage() {
         poId={id}
         poNumber={po.poNumber}
         role={signRole}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
-          queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
-          queryClient.invalidateQueries({ queryKey: ["deliveries"] });
+        onSuccess={async () => {
+          await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.detail, id] });
+          await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+          await queryClient.invalidateQueries({ queryKey: ["deliveries"] });
           toast({
             title: signRole === "submit" ? "Purchase order submitted" : "Purchase order approved",
           });

@@ -121,8 +121,9 @@ export default function PurchaseOrdersPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] }),
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+    },
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Status update failed", description: err.message }),
   });
@@ -203,8 +204,8 @@ export default function PurchaseOrdersPage() {
       }
       return postJson.data as { _id: string; poNumber?: string };
     },
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+    onSuccess: async (created) => {
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({
         title: "Purchase order duplicated",
         description: created.poNumber
@@ -230,8 +231,8 @@ export default function PurchaseOrdersPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? `Delete failed (${res.status})`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [purchaseOrderQueryKeys.list] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: [purchaseOrderQueryKeys.list] });
       toast({ title: "Purchase order deleted" });
     },
     onError: (err: Error) =>

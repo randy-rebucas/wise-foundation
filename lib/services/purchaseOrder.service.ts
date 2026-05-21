@@ -211,10 +211,12 @@ async function normalizePurchaseOrderItems(
       retailPrice = variant.retailPrice;
     }
 
-    let unitCost = defaultProcurementUnitCost(retailPrice);
-    if (typeof item.unitCost === "number" && item.unitCost >= 0 && item.unitCost <= retailPrice * 1.1) {
-      unitCost = item.unitCost;
-    }
+    const submittedCost =
+      typeof item.unitCost === "number" && Number.isFinite(item.unitCost) && item.unitCost >= 0
+        ? item.unitCost
+        : undefined;
+    const unitCost =
+      submittedCost !== undefined ? submittedCost : defaultProcurementUnitCost(retailPrice);
 
     normalized.push({
       productId: String(product._id),

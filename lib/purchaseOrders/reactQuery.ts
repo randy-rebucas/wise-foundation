@@ -1,7 +1,7 @@
 /** PO screens always fetch fresh data (pricing, lines, status). */
 export const purchaseOrderFreshQueryOptions = {
   staleTime: 0,
-  gcTime: 0,
+  gcTime: 60_000,
   refetchOnMount: "always" as const,
   refetchOnWindowFocus: true,
 } as const;
