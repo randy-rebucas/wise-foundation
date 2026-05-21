@@ -1,4 +1,5 @@
 import { Schema, model, models, type Document, type Types } from "mongoose";
+import type { PurchaseOrderDiscountByOrgType } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 
 export interface IAppSettings extends Document {
   /** Branch that fulfills web marketplace orders (inventory deducted here). */
@@ -15,9 +16,21 @@ export interface IAppSettings extends Document {
   defaultLowStockThreshold: number;
   /** Optional footer line on receipts / checkout summary. */
   receiptFooter: string;
+  /** Default purchase order discount % by organization type. */
+  purchaseOrderDiscountByOrgType: PurchaseOrderDiscountByOrgType;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const purchaseOrderDiscountByOrgTypeSchema = new Schema(
+  {
+    distributor: { type: Number, default: 0, min: 0, max: 100 },
+    franchise: { type: Number, default: 0, min: 0, max: 100 },
+    partner: { type: Number, default: 0, min: 0, max: 100 },
+    headquarters: { type: Number, default: 0, min: 0, max: 100 },
+  },
+  { _id: false }
+);
 
 const AppSettingsSchema = new Schema<IAppSettings>(
   {
@@ -34,8 +47,21 @@ const AppSettingsSchema = new Schema<IAppSettings>(
     memberDefaultDiscountPercent: { type: Number, default: 10, min: 0, max: 100 },
     defaultLowStockThreshold: { type: Number, default: 10, min: 1 },
     receiptFooter: { type: String, default: "" },
+    purchaseOrderDiscountByOrgType: {
+      type: purchaseOrderDiscountByOrgTypeSchema,
+      default: () => ({
+        distributor: 0,
+        franchise: 0,
+        partner: 0,
+        headquarters: 0,
+      }),
+    },
   },
   { timestamps: true }
 );
+
+if (process.env.NODE_ENV !== "production") {
+  delete (models as Record<string, unknown>).AppSettings;
+}
 
 export const AppSettings = models.AppSettings || model<IAppSettings>("AppSettings", AppSettingsSchema);

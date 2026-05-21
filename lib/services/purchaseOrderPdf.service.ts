@@ -25,7 +25,7 @@ type PoPdfRow = {
   discountPercent?: number;
   discountAmount?: number;
   total: number;
-  paymentTermsMonths?: 3 | 6 | null;
+  paymentTermsMonths?: 3 | 6 | "weekly" | null;
   notes?: string;
   expectedDeliveryDate?: Date | string | null;
   createdAt: Date | string;
@@ -430,11 +430,15 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
   if (paymentTermsLabel) {
     doc.text(`Payment terms: ${txt(paymentTermsLabel)}`);
     if (paymentSchedule) {
-      doc.text(
-        txt(
-          `${paymentSchedule.months} installments · ${money(paymentSchedule.installmentAmount)}/mo · Due through ${formatDateTimeInTimezone(paymentSchedule.finalDueDate, settings.timezone).slice(0, 10)}`
-        )
-      );
+      const dueThrough = formatDateTimeInTimezone(
+        paymentSchedule.finalDueDate,
+        settings.timezone
+      ).slice(0, 10);
+      const scheduleLine =
+        paymentSchedule.cadenceLabel === "weekly"
+          ? `Full balance ${money(paymentSchedule.total)} due ${dueThrough}`
+          : `${paymentSchedule.installments.length} installments · ${money(paymentSchedule.installmentAmount)}/mo · Due through ${dueThrough}`;
+      doc.text(txt(scheduleLine));
     }
   }
 

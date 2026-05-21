@@ -33,8 +33,9 @@ export function PaymentTermsSchedulePanel({
       <div>
         <p className="text-sm font-medium">Payment schedule</p>
         <p className="text-xs text-muted-foreground">
-          {schedule.months} monthly installments from {formatMoney(schedule.installmentAmount)}{" "}
-          per month · Final due {formatDate(schedule.finalDueDate)}
+          {schedule.cadenceLabel === "weekly"
+            ? `Full balance due ${formatDate(schedule.finalDueDate)} (7 days from terms start)`
+            : `${schedule.installments.length} monthly installments from ${formatMoney(schedule.installmentAmount)} per month · Final due ${formatDate(schedule.finalDueDate)}`}
         </p>
       </div>
       <div className="overflow-x-auto rounded-md border bg-background">

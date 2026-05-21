@@ -24,6 +24,11 @@ export function canApprovePurchaseOrders(user: SessionUser): boolean {
   return isPlatformAdmin(user.role);
 }
 
+/** Platform admin may override PO discount %; others use org-type defaults. */
+export function canSetPurchaseOrderDiscount(user: SessionUser): boolean {
+  return canApprovePurchaseOrders(user);
+}
+
 export function isOrgPurchaseOrderSubmitter(user: SessionUser): boolean {
   return user.role === "ORG_ADMIN" && canSubmitOrgPurchaseOrders(user);
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTenant } from "@/components/providers/TenantProvider";
+import { getPurchaseOrderDiscountForOrgType } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -74,8 +76,11 @@ export function PurchaseOrderForm({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: session } = useSession();
+  const tenant = useTenant();
   const isEdit = mode === "edit" && !!poId;
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
+  const canSetDiscount = session?.user?.role === "ADMIN";
+  const prevOrgIdRef = useRef<string | null>(null);
   const sessionOrgId = session?.user?.organizationId
     ? String(session.user.organizationId)
     : "";
@@ -93,9 +98,10 @@ export function PurchaseOrderForm({
   const [templateLoading, setTemplateLoading] = useState(false);
   const [catalogApplied, setCatalogApplied] = useState(false);
 
-  function paymentTermsPayload(): 3 | 6 | null {
+  function paymentTermsPayload(): 3 | 6 | "weekly" | null {
     if (paymentTerms === "3") return 3;
     if (paymentTerms === "6") return 6;
+    if (paymentTerms === "weekly") return "weekly";
     return null;
   }
 
@@ -141,7 +147,7 @@ export function PurchaseOrderForm({
         createdAt?: string;
         organizationId?: { _id: string } | string;
         expectedDeliveryDate?: string;
-        paymentTermsMonths?: 3 | 6 | null;
+        paymentTermsMonths?: 3 | 6 | "weekly" | null;
         discountPercent?: number;
         notes?: string;
         items: {
@@ -165,10 +171,14 @@ export function PurchaseOrderForm({
         po.organizationId && typeof po.organizationId === "object"
           ? po.organizationId._id
           : po.organizationId;
-      setSelectedOrgId(orgId ? String(orgId) : "");
+      const orgIdStr = orgId ? String(orgId) : "";
+      setSelectedOrgId(orgIdStr);
+      prevOrgIdRef.current = orgIdStr;
       setExpectedDate(toDateInputValue(po.expectedDeliveryDate));
       const terms = po.paymentTermsMonths;
-      setPaymentTerms(terms === 3 ? "3" : terms === 6 ? "6" : "");
+      setPaymentTerms(
+        terms === 3 ? "3" : terms === 6 ? "6" : terms === "weekly" ? "weekly" : ""
+      );
       setDiscountPercent(Number(po.discountPercent ?? 0));
       setPONotes(po.notes ?? "");
 
@@ -237,6 +247,22 @@ export function PurchaseOrderForm({
     if (isEdit || !isOrgAdmin || !sessionOrgId) return;
     setSelectedOrgId(sessionOrgId);
   }, [isEdit, isOrgAdmin, sessionOrgId]);
+
+  useEffect(() => {
+    if (!selectedOrgId) return;
+    const org = organizations.find((o) => o._id === selectedOrgId);
+    if (!org) return;
+
+    const orgChanged = prevOrgIdRef.current !== selectedOrgId;
+    if (isEdit && !orgChanged) return;
+
+    const pct = getPurchaseOrderDiscountForOrgType(
+      org.type,
+      tenant.purchaseOrderDiscountByOrgType
+    );
+    setDiscountPercent(pct);
+    prevOrgIdRef.current = selectedOrgId;
+  }, [selectedOrgId, organizations, tenant.purchaseOrderDiscountByOrgType, isEdit]);
 
   const orgOptions =
     isOrgAdmin && sessionOrgId
@@ -544,6 +570,7 @@ export function PurchaseOrderForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None</SelectItem>
+              <SelectItem value="weekly">Weekly (due in 7 days)</SelectItem>
               <SelectItem value="3">3 months</SelectItem>
               <SelectItem value="6">6 months</SelectItem>
             </SelectContent>
@@ -558,13 +585,20 @@ export function PurchaseOrderForm({
             max={100}
             step={0.01}
             value={discountPercent}
+            readOnly={!canSetDiscount}
+            disabled={!canSetDiscount}
             onChange={(e) => {
+              if (!canSetDiscount) return;
               const n = parseFloat(e.target.value);
               setDiscountPercent(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
             }}
             placeholder="e.g. 20"
           />
-          <p className="text-xs text-muted-foreground">Applied to line subtotal (e.g. 20% off)</p>
+          <p className="text-xs text-muted-foreground">
+            {canSetDiscount
+              ? "Applied to line subtotal. Defaults from organization type; you may override."
+              : "Set by organization type (configured by administrator)."}
+          </p>
         </div>
         <PaymentTermsSchedulePanel
           total={pricing.total}

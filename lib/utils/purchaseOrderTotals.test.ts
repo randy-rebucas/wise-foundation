@@ -23,9 +23,10 @@ describe("computePurchaseOrderTotals", () => {
 });
 
 describe("formatPurchaseOrderPaymentTerms", () => {
-  it("formats 3 and 6 month terms", () => {
+  it("formats 3, 6 month, and weekly terms", () => {
     expect(formatPurchaseOrderPaymentTerms(3)).toBe("3 months");
     expect(formatPurchaseOrderPaymentTerms(6)).toBe("6 months");
+    expect(formatPurchaseOrderPaymentTerms("weekly")).toBe("Weekly");
     expect(formatPurchaseOrderPaymentTerms(null)).toBeNull();
   });
 });
@@ -51,6 +52,19 @@ describe("computePaymentTermsSchedule", () => {
   it("returns null without terms or zero total", () => {
     expect(computePaymentTermsSchedule({ total: 500, paymentTermsMonths: null })).toBeNull();
     expect(computePaymentTermsSchedule({ total: 0, paymentTermsMonths: 6 })).toBeNull();
+  });
+
+  it("schedules full payment one week after start for weekly terms", () => {
+    const schedule = computePaymentTermsSchedule({
+      total: 1200,
+      paymentTermsMonths: "weekly",
+      termsStartDate: "2026-03-01",
+    });
+    expect(schedule).not.toBeNull();
+    expect(schedule!.cadenceLabel).toBe("weekly");
+    expect(schedule!.installments).toHaveLength(1);
+    expect(schedule!.installments[0]!.amount).toBe(1200);
+    expect(schedule!.installments[0]!.dueDate).toBe("2026-03-08");
   });
 });
 

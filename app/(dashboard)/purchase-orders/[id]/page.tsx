@@ -66,7 +66,7 @@ interface PurchaseOrderDetail {
   discountPercent: number;
   discountAmount: number;
   total: number;
-  paymentTermsMonths?: 3 | 6 | null;
+  paymentTermsMonths?: 3 | 6 | "weekly" | null;
   expectedDeliveryDate?: string;
   notes?: string;
   createdBy: { name: string };
@@ -166,6 +166,7 @@ export default function PurchaseOrderDetailPage() {
   const [signOpen, setSignOpen] = useState(false);
   const [signRole, setSignRole] = useState<PurchaseOrderSignRole>("submit");
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [discountDraft, setDiscountDraft] = useState(0);
 
   useEffect(() => {
     const sign = searchParams.get("sign");
@@ -207,6 +208,29 @@ export default function PurchaseOrderDetailPage() {
       if (!json.success) throw new Error(json.error ?? `Failed to load purchase order (${res.status})`);
       return json.data as PurchaseOrderDetail;
     },
+  });
+
+  useEffect(() => {
+    if (po) setDiscountDraft(Number(po.discountPercent ?? 0));
+  }, [po]);
+
+  const discountMutation = useMutation({
+    mutationFn: async (discountPercent: number) => {
+      const res = await fetch(`/api/purchase-orders/${id}/discount`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ discountPercent }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({ title: "Discount updated" });
+    },
+    onError: (err: Error) =>
+      toast({ variant: "destructive", title: "Discount update failed", description: err.message }),
   });
 
   const statusMutation = useMutation({
@@ -528,6 +552,50 @@ export default function PurchaseOrderDetailPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {isPlatformAdmin &&
+            (po.status === "submitted" || po.status === "draft") && (
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Order discount</p>
+                  <p className="text-xs text-muted-foreground">
+                    Override the organization-type default before approval. Recalculates order
+                    total.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="space-y-2 flex-1 max-w-[12rem]">
+                    <Label htmlFor="po-admin-discount">Discount (%)</Label>
+                    <Input
+                      id="po-admin-discount"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.01}
+                      value={discountDraft}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value);
+                        setDiscountDraft(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={
+                      discountMutation.isPending ||
+                      discountDraft === Number(po.discountPercent ?? 0)
+                    }
+                    onClick={() => discountMutation.mutate(discountDraft)}
+                  >
+                    {discountMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Apply discount
+                  </Button>
+                </div>
+              </div>
+            )}
 
           {(po.submittedSignature || po.approvedSignature) && (
             <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">

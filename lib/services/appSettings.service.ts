@@ -4,6 +4,11 @@ import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
+import {
+  DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
+  normalizePurchaseOrderDiscountByOrgType,
+  PO_DISCOUNT_ORG_TYPES,
+} from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 
 const DEFAULTS: PublicAppSettings = {
   appName: "Glowish",
@@ -13,6 +18,7 @@ const DEFAULTS: PublicAppSettings = {
   memberDefaultDiscountPercent: 10,
   defaultLowStockThreshold: 10,
   receiptFooter: "",
+  purchaseOrderDiscountByOrgType: { ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE },
   imageUploadEnabled: false,
 };
 
@@ -25,6 +31,9 @@ export function toPublicAppSettings(
     memberDefaultDiscountPercent?: number;
     defaultLowStockThreshold?: number;
     receiptFooter?: string;
+    purchaseOrderDiscountByOrgType?: Partial<
+      PublicAppSettings["purchaseOrderDiscountByOrgType"]
+    >;
   } | null
 ): PublicAppSettings {
   if (!doc) return { ...DEFAULTS, imageUploadEnabled: imageUploadConfigured() };
@@ -37,8 +46,16 @@ export function toPublicAppSettings(
       doc.memberDefaultDiscountPercent ?? DEFAULTS.memberDefaultDiscountPercent,
     defaultLowStockThreshold: doc.defaultLowStockThreshold ?? DEFAULTS.defaultLowStockThreshold,
     receiptFooter: doc.receiptFooter ?? DEFAULTS.receiptFooter,
+    purchaseOrderDiscountByOrgType: normalizePurchaseOrderDiscountByOrgType(
+      doc.purchaseOrderDiscountByOrgType
+    ),
     imageUploadEnabled: imageUploadConfigured(),
   };
+}
+
+export async function getPurchaseOrderDiscountByOrgType() {
+  const doc = await getAppSettingsLean();
+  return normalizePurchaseOrderDiscountByOrgType(doc?.purchaseOrderDiscountByOrgType);
 }
 
 export async function getAppSettingsLean() {
@@ -69,8 +86,19 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
   const existing = await AppSettings.findOne().sort({ createdAt: 1 });
   if (!existing) throw new Error("Application settings not found");
 
-  const { marketplaceFulfillmentBranchId, ...rest } = updates;
+  const { marketplaceFulfillmentBranchId, purchaseOrderDiscountByOrgType, ...rest } =
+    updates;
   const set: Record<string, unknown> = { ...rest };
+
+  if (purchaseOrderDiscountByOrgType !== undefined) {
+    const normalized = normalizePurchaseOrderDiscountByOrgType(
+      purchaseOrderDiscountByOrgType
+    );
+    for (const key of PO_DISCOUNT_ORG_TYPES) {
+      set[`purchaseOrderDiscountByOrgType.${key}`] = normalized[key];
+    }
+  }
+
   if (marketplaceFulfillmentBranchId !== undefined) {
     set.marketplaceFulfillmentBranchId =
       marketplaceFulfillmentBranchId &&

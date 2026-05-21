@@ -1,3 +1,5 @@
+import type { PurchaseOrderDiscountByOrgType } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
+
 /** Serializable tenant / application settings exposed to the client and API. */
 export interface PublicAppSettings {
   appName: string;
@@ -7,6 +9,8 @@ export interface PublicAppSettings {
   memberDefaultDiscountPercent: number;
   defaultLowStockThreshold: number;
   receiptFooter: string;
+  /** Default PO discount % by organization type (configured by ADMIN). */
+  purchaseOrderDiscountByOrgType: PurchaseOrderDiscountByOrgType;
   /** From server at request time; product image upload requires a writable upload directory when false. */
   imageUploadEnabled: boolean;
 }

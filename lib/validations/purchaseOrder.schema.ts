@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { PURCHASE_ORDER_PAYMENT_TERMS_MONTHS } from "@/lib/utils/purchaseOrderTotals";
+import {
+  PURCHASE_ORDER_PAYMENT_TERMS_MONTHS,
+  PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY,
+} from "@/lib/utils/purchaseOrderTotals";
 
 const paymentTermsMonthsSchema = z
-  .union([z.literal(3), z.literal(6)])
+  .union([z.literal(3), z.literal(6), z.literal(PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY)])
   .nullable()
   .optional();
 
@@ -41,7 +44,7 @@ export const updatePurchaseOrderSchema = z.object({
   notes: z.string().optional(),
 });
 
-export { PURCHASE_ORDER_PAYMENT_TERMS_MONTHS };
+export { PURCHASE_ORDER_PAYMENT_TERMS_MONTHS, PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY };
 
 export const receivePurchaseOrderSchema = z.object({
   items: z.array(

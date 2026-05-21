@@ -1,13 +1,23 @@
-/** Allowed purchase-order payment terms (months). */
+/** Allowed purchase-order payment terms (monthly installment counts or weekly). */
 export const PURCHASE_ORDER_PAYMENT_TERMS_MONTHS = [3, 6] as const;
+export const PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY = "weekly" as const;
+
 export type PurchaseOrderPaymentTermsMonths =
-  (typeof PURCHASE_ORDER_PAYMENT_TERMS_MONTHS)[number];
+  | (typeof PURCHASE_ORDER_PAYMENT_TERMS_MONTHS)[number]
+  | typeof PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY;
+
+export function isPurchaseOrderPaymentTerms(
+  value: unknown
+): value is PurchaseOrderPaymentTermsMonths {
+  return value === 3 || value === 6 || value === PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY;
+}
 
 export function formatPurchaseOrderPaymentTerms(
-  months: PurchaseOrderPaymentTermsMonths | null | undefined
+  terms: PurchaseOrderPaymentTermsMonths | null | undefined
 ): string | null {
-  if (months === 3) return "3 months";
-  if (months === 6) return "6 months";
+  if (terms === 3) return "3 months";
+  if (terms === 6) return "6 months";
+  if (terms === PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY) return "Weekly";
   return null;
 }
 
@@ -34,13 +44,15 @@ export type PaymentTermsInstallment = {
 };
 
 export type PaymentTermsSchedule = {
-  months: PurchaseOrderPaymentTermsMonths;
+  terms: PurchaseOrderPaymentTermsMonths;
   total: number;
-  /** Typical monthly amount (last installment may differ by rounding). */
+  /** Per-installment amount (monthly split or full total for weekly). */
   installmentAmount: number;
   installments: PaymentTermsInstallment[];
   firstDueDate: string;
   finalDueDate: string;
+  /** Human-readable cadence for UI copy. */
+  cadenceLabel: string;
 };
 
 /** Add whole calendar months, preserving day-of-month when possible. */
@@ -61,17 +73,22 @@ export function toISODateOnly(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+export function addDays(date: Date, days: number): Date {
+  const d = new Date(date.getTime());
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 /**
- * Split PO total into equal monthly installments (3 or 6).
- * First payment is due one month after `termsStartDate` (defaults to today).
+ * Build payment schedule: 3/6 monthly installments (due monthly from start) or weekly (full balance due in 7 days).
  */
 export function computePaymentTermsSchedule(params: {
   total: number;
   paymentTermsMonths?: PurchaseOrderPaymentTermsMonths | null;
   termsStartDate?: Date | string | null;
 }): PaymentTermsSchedule | null {
-  const months = params.paymentTermsMonths;
-  if (months !== 3 && months !== 6) return null;
+  const terms = params.paymentTermsMonths;
+  if (!isPurchaseOrderPaymentTerms(terms)) return null;
 
   const total = Math.max(0, params.total);
   if (total <= 0) return null;
@@ -82,6 +99,20 @@ export function computePaymentTermsSchedule(params: {
       : new Date();
   if (Number.isNaN(start.getTime())) return null;
 
+  if (terms === PURCHASE_ORDER_PAYMENT_TERMS_WEEKLY) {
+    const dueDate = toISODateOnly(addDays(start, 7));
+    return {
+      terms,
+      total,
+      installmentAmount: total,
+      installments: [{ installmentNumber: 1, dueDate, amount: total }],
+      firstDueDate: dueDate,
+      finalDueDate: dueDate,
+      cadenceLabel: "weekly",
+    };
+  }
+
+  const months = terms;
   const perMonth = Math.round((total / months) * 100) / 100;
   const installments: PaymentTermsInstallment[] = [];
   let allocated = 0;
@@ -99,11 +130,12 @@ export function computePaymentTermsSchedule(params: {
   }
 
   return {
-    months,
+    terms,
     total,
     installmentAmount: perMonth,
     installments,
     firstDueDate: installments[0]!.dueDate,
     finalDueDate: installments[installments.length - 1]!.dueDate,
+    cadenceLabel: "monthly",
   };
 }

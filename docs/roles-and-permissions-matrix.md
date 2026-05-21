@@ -127,8 +127,11 @@ draft → submitted → approved → received
 | Download PDF | Yes | Yes (if can view PO) | Yes |
 | Catalog template API | Yes | Yes | Yes |
 | **Deliveries** nav | Yes (no `organizationId`) | **Hidden** | Hidden (nav); API may still allow if permitted |
+| **PO discount %** | Configure per org type in Settings; override on draft/submitted PO | Auto-filled from org type (read-only) | Auto-filled from org type (read-only) |
 
-Helpers: `canApprovePurchaseOrders`, `canSubmitOrgPurchaseOrders`, `canManagePurchaseOrdersInventory` in [`lib/permissions/purchaseOrders.ts`](../lib/permissions/purchaseOrders.ts).
+**Discount rules:** ADMIN sets default purchase-order discount % per organization type (`purchaseOrderDiscountByOrgType` in application settings). When an organization is selected on a PO, that default is applied automatically. Only **ADMIN** may override the discount on create/edit or via `PATCH /api/purchase-orders/[id]/discount` (draft or submitted). Non-admins cannot change discount via API even if the client sends a different value.
+
+Helpers: `canApprovePurchaseOrders`, `canSetPurchaseOrderDiscount`, `canSubmitOrgPurchaseOrders`, `canManagePurchaseOrdersInventory` in [`lib/permissions/purchaseOrders.ts`](../lib/permissions/purchaseOrders.ts).
 
 ### PO-related API gates
 
@@ -137,6 +140,7 @@ Helpers: `canApprovePurchaseOrders`, `canSubmitOrgPurchaseOrders`, `canManagePur
 | `/api/purchase-orders`, `/api/purchase-orders/[id]`, template, pdf, sign | `manage:inventory` **or** `submit:org_orders` |
 | `/api/purchase-orders/[id]/receive` | `manage:inventory` |
 | `/api/purchase-orders/[id]/decline` | `withStaffAuth` only → service enforces **ADMIN** |
+| `/api/purchase-orders/[id]/discount` | `withStaffAuth` only → service enforces **ADMIN** |
 | `/api/deliveries` | `manage:inventory` **or** `submit:org_orders` (nav is stricter) |
 
 ---

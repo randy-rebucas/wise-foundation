@@ -71,8 +71,8 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     discountAmount: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 },
     paymentTermsMonths: {
-      type: Number,
-      enum: [3, 6],
+      type: Schema.Types.Mixed,
+      enum: [3, 6, "weekly"],
       default: null,
     },
     expectedDeliveryDate: { type: Date, default: null },

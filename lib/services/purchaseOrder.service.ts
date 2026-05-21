@@ -15,9 +15,11 @@ import { hasPermission } from "@/lib/permissions";
 import {
   canApprovePurchaseOrders,
   canManagePurchaseOrdersInventory,
+  canSetPurchaseOrderDiscount,
   canSubmitOrgPurchaseOrders,
   isOrgPurchaseOrderSubmitter,
 } from "@/lib/permissions/purchaseOrders";
+import { resolvePurchaseOrderDiscountPercent } from "@/lib/purchaseOrders/discount.server";
 import { refEntityId } from "@/lib/purchaseOrders/entityId";
 import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
 import { assertCanEditDraftPurchaseOrder } from "@/lib/purchaseOrders/draftEdit";
@@ -257,7 +259,7 @@ function assertValidObjectId(id: string, label = "ID"): void {
 function normalizePaymentTermsMonths(
   value: PurchaseOrderPaymentTermsMonths | null | undefined
 ): PurchaseOrderPaymentTermsMonths | null {
-  if (value === 3 || value === 6) return value;
+  if (value === 3 || value === 6 || value === "weekly") return value;
   return null;
 }
 
@@ -328,10 +330,12 @@ export async function createPurchaseOrder(
   const branchId = user ? resolveBranchIdForCreate(user, input.branchId) : (input.branchId ?? null);
 
   const poNumber = await generatePONumber();
-  const pricing = computePurchaseOrderTotals(
-    lineItemsSubtotal(items),
-    input.discountPercent ?? 0
-  );
+  const discountPercent = await resolvePurchaseOrderDiscountPercent({
+    organizationId: input.organizationId,
+    requestedPercent: input.discountPercent,
+    user,
+  });
+  const pricing = computePurchaseOrderTotals(lineItemsSubtotal(items), discountPercent);
 
   const po = await PurchaseOrder.create({
     organizationId: input.organizationId,
@@ -438,11 +442,30 @@ export async function updatePurchaseOrder(
     );
   }
 
-  if (normalizedItems !== undefined || input.discountPercent !== undefined) {
-    const discountPercent =
-      input.discountPercent !== undefined
-        ? input.discountPercent
-        : Number(po.discountPercent ?? 0);
+  const orgChanged =
+    input.organizationId !== undefined &&
+    String(input.organizationId) !== refEntityId(po.organizationId);
+  const shouldRecalcPricing =
+    normalizedItems !== undefined ||
+    input.discountPercent !== undefined ||
+    orgChanged;
+
+  if (shouldRecalcPricing) {
+    const effectiveOrgId = String(
+      (updates.organizationId as string | undefined) ?? refEntityId(po.organizationId)
+    );
+    const discountPercent = await resolvePurchaseOrderDiscountPercent({
+      organizationId: effectiveOrgId,
+      requestedPercent: input.discountPercent,
+      existingPercent:
+        user &&
+        canSetPurchaseOrderDiscount(user) &&
+        input.discountPercent === undefined &&
+        !orgChanged
+          ? Number(po.discountPercent ?? 0)
+          : undefined,
+      user,
+    });
     const lineSubtotal = normalizedItems
       ? lineItemsSubtotal(normalizedItems)
       : Number(po.subtotal ?? 0);
@@ -458,6 +481,53 @@ export async function updatePurchaseOrder(
       user,
       fromStatus: po.status,
       toStatus: po.status,
+    });
+  }
+
+  return updated;
+}
+
+export async function updatePurchaseOrderDiscount(
+  poId: string,
+  discountPercent: number,
+  user: SessionUser
+) {
+  if (!canSetPurchaseOrderDiscount(user)) {
+    throw new Error("Only administrators can set purchase order discounts");
+  }
+
+  await connectDB();
+  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  if (!po) throw new Error("Purchase order not found");
+  if (!canUserAccessPurchaseOrder(po, user)) {
+    throw new Error("Purchase order not found");
+  }
+  if (po.status !== "draft" && po.status !== "submitted") {
+    throw new Error("Discount can only be changed on draft or submitted purchase orders");
+  }
+
+  const orgId = refEntityId(po.organizationId);
+  if (!orgId) throw new Error("Organization not found");
+
+  const resolved = await resolvePurchaseOrderDiscountPercent({
+    organizationId: orgId,
+    requestedPercent: discountPercent,
+    user,
+  });
+
+  const updates: Record<string, unknown> = {};
+  applyPricingToUpdates(updates, Number(po.subtotal ?? 0), resolved);
+
+  const updated = await PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+
+  if (updated) {
+    await recordPurchaseOrderAudit({
+      purchaseOrderId: poId,
+      action: "updated",
+      user,
+      fromStatus: po.status,
+      toStatus: po.status,
+      metadata: { discountPercent: resolved },
     });
   }
 

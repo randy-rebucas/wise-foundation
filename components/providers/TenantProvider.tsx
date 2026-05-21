@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext } from "react";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
+import { DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 import { formatCurrency, formatDateInTimezone, formatDateTimeInTimezone } from "@/lib/utils";
 
 export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
@@ -12,6 +13,7 @@ export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
   memberDefaultDiscountPercent: 10,
   defaultLowStockThreshold: 10,
   receiptFooter: "",
+  purchaseOrderDiscountByOrgType: { ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE },
   imageUploadEnabled: true,
 };
 

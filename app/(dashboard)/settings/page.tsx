@@ -38,6 +38,18 @@ import {
 import { APP_TIMEZONE_OPTIONS } from "@/lib/constants/timezones";
 import { isValidCurrencyCode, isValidIanaTimezone } from "@/lib/utils/intlValidation";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
+  PO_DISCOUNT_ORG_TYPES,
+  type PurchaseOrderDiscountByOrgType,
+} from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
+
+const PO_DISCOUNT_ORG_TYPE_LABELS: Record<(typeof PO_DISCOUNT_ORG_TYPES)[number], string> = {
+  distributor: "Distributor",
+  franchise: "Franchise",
+  partner: "Partner",
+  headquarters: "Headquarters",
+};
 
 interface MeUser {
   name: string;
@@ -246,6 +258,9 @@ export default function SettingsPage() {
     defaultLowStockThreshold: 10,
     receiptFooter: "",
     marketplaceFulfillmentBranchId: "",
+    purchaseOrderDiscountByOrgType: {
+      ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
+    } as PurchaseOrderDiscountByOrgType,
   });
 
   useEffect(() => {
@@ -260,6 +275,10 @@ export default function SettingsPage() {
         defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
         receiptFooter: appSettings.receiptFooter,
         marketplaceFulfillmentBranchId: appSettings.marketplaceFulfillmentBranchId ?? "",
+        purchaseOrderDiscountByOrgType: {
+          ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
+          ...appSettings.purchaseOrderDiscountByOrgType,
+        },
       });
     });
   }, [appSettings]);
@@ -278,13 +297,18 @@ export default function SettingsPage() {
           defaultLowStockThreshold: Number(appForm.defaultLowStockThreshold),
           receiptFooter: appForm.receiptFooter.trim(),
           marketplaceFulfillmentBranchId: appForm.marketplaceFulfillmentBranchId || "",
+          purchaseOrderDiscountByOrgType: appForm.purchaseOrderDiscountByOrgType,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       return data.data as AdminAppSettings;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData(["app-settings"], {
+        ...data,
+        marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
+      });
       toast({ title: "Application settings saved" });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
       router.refresh();
@@ -834,6 +858,44 @@ export default function SettingsPage() {
                         }
                       />
                       <p className="text-xs text-muted-foreground">Pre-filled when registering a new member.</p>
+                    </div>
+                    <div className="space-y-3 sm:col-span-2">
+                      <div>
+                        <p className="text-sm font-medium">Purchase order discounts by organization type</p>
+                        <p className="text-xs text-muted-foreground">
+                          Auto-applied when a purchase order organization is selected. Only administrators
+                          can override on individual orders.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {PO_DISCOUNT_ORG_TYPES.map((orgType) => (
+                          <div key={orgType} className="space-y-2">
+                            <Label htmlFor={`po-disc-${orgType}`}>
+                              {PO_DISCOUNT_ORG_TYPE_LABELS[orgType]} %
+                            </Label>
+                            <Input
+                              id={`po-disc-${orgType}`}
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              value={appForm.purchaseOrderDiscountByOrgType[orgType]}
+                              onChange={(e) => {
+                                const n = parseFloat(e.target.value);
+                                setAppForm((f) => ({
+                                  ...f,
+                                  purchaseOrderDiscountByOrgType: {
+                                    ...f.purchaseOrderDiscountByOrgType,
+                                    [orgType]: Number.isFinite(n)
+                                      ? Math.min(100, Math.max(0, n))
+                                      : 0,
+                                  },
+                                }));
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lowStock">Default low-stock threshold</Label>
