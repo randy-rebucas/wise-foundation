@@ -86,6 +86,7 @@ export function PurchaseOrderForm({
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
   const canSetDiscount = session?.user?.role === "ADMIN";
   const prevOrgIdRef = useRef<string | null>(null);
+  const variantLoadSeqRef = useRef<Map<number, number>>(new Map());
   const lineKeyRef = useRef(1);
   const nextLineKey = useCallback(
     () => `po-line-${++lineKeyRef.current}`,
@@ -219,7 +220,9 @@ export function PurchaseOrderForm({
             const active = ((vJson.data ?? []) as ProductVariantOption[]).filter(
               (v) => v.isActive !== false
             );
-            if (active.length > 0) variants = active;
+            if (active.length > 0) {
+              variants = active.map((v) => ({ ...v, _id: String(v._id) }));
+            }
           }
         }
         const variantIdRaw = item.variantId;
@@ -241,8 +244,8 @@ export function PurchaseOrderForm({
           sku: item.sku,
           variantId,
           variants,
-          quantity: item.quantity,
-          unitCost: item.unitCost,
+          quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+          unitCost: Number.isFinite(Number(item.unitCost)) ? Number(item.unitCost) : 0,
         });
       }
       setPOItems(
@@ -445,61 +448,135 @@ export function PurchaseOrderForm({
     );
   }
 
+  function nextVariantLoadSeq(index: number) {
+    const next = (variantLoadSeqRef.current.get(index) ?? 0) + 1;
+    variantLoadSeqRef.current.set(index, next);
+    return next;
+  }
+
+  function isStaleVariantLoad(index: number, seq: number) {
+    return variantLoadSeqRef.current.get(index) !== seq;
+  }
+
   function selectPOProductById(index: number, productId: string) {
-    const p = products.find((x) => x._id === productId);
+    const p = products.find((x) => String(x._id) === String(productId));
     if (!p) return;
     void selectPOProduct(index, p);
   }
 
   async function selectPOProduct(index: number, p: ProductHit) {
-    patchPOItem(index, {
-      productId: p._id,
-      productName: p.name,
-      baseProductName: p.name,
-      sku: p.sku,
-      unitCost: defaultProcurementUnitCost(p.retailPrice),
-      variantId: undefined,
-      variants: undefined,
-      variantsLoading: true,
-    });
+    const seq = nextVariantLoadSeq(index);
+    const productId = String(p._id);
+    const retailPrice = Number(p.retailPrice) || 0;
+    const baseUnitCost = defaultProcurementUnitCost(retailPrice);
+
+    setPOItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              productId,
+              productName: p.name,
+              baseProductName: p.name,
+              sku: p.sku,
+              variantId: undefined,
+              variants: undefined,
+              variantsLoading: true,
+              quantity: 1,
+              unitCost: baseUnitCost,
+            }
+          : item
+      )
+    );
 
     try {
-      const res = await fetch(`/api/products/${p._id}/variants`);
+      const res = await fetch(`/api/products/${productId}/variants`);
       const json = await res.json();
+      if (isStaleVariantLoad(index, seq)) return;
       if (!json.success) throw new Error(json.error ?? "Failed to load variants");
       const all = (json.data ?? []) as ProductVariantOption[];
-      const active = all.filter((v) => v.isActive !== false);
+      const active = all
+        .filter((v) => v.isActive !== false)
+        .map((v) => ({ ...v, _id: String(v._id) }));
 
-      if (active.length > 0) {
-        patchPOItem(index, {
-          variants: active,
-          variantsLoading: false,
-          variantId: undefined,
-          sku: "",
-          unitCost: 0,
-        });
-      } else {
-        patchPOItem(index, {
-          variants: [],
-          variantsLoading: false,
-        });
-      }
+      setPOItems((prev) =>
+        prev.map((item, i) => {
+          if (i !== index) return item;
+
+          if (active.length === 0) {
+            return {
+              ...item,
+              variants: [],
+              variantsLoading: false,
+              sku: p.sku,
+              quantity: 1,
+              unitCost: defaultProcurementUnitCost(retailPrice),
+            };
+          }
+
+          if (active.length === 1) {
+            const variant = active[0]!;
+            return {
+              ...item,
+              variants: active,
+              variantsLoading: false,
+              variantId: variant._id,
+              productName: `${p.name} — ${variant.name}`,
+              sku: variant.sku,
+              quantity: 1,
+              unitCost: defaultProcurementUnitCost(Number(variant.retailPrice) || 0),
+            };
+          }
+
+          return {
+            ...item,
+            variants: active,
+            variantsLoading: false,
+            variantId: undefined,
+            productName: p.name,
+            baseProductName: p.name,
+            sku: "",
+            quantity: 1,
+            unitCost: 0,
+          };
+        })
+      );
     } catch {
-      patchPOItem(index, { variants: [], variantsLoading: false });
+      if (isStaleVariantLoad(index, seq)) return;
+      setPOItems((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                variants: [],
+                variantsLoading: false,
+                sku: p.sku,
+                quantity: 1,
+                unitCost: defaultProcurementUnitCost(retailPrice),
+              }
+            : item
+        )
+      );
     }
   }
 
   function selectPOVariant(index: number, variantId: string) {
-    const item = poItems[index];
-    const variant = item?.variants?.find((v) => v._id === variantId);
-    if (!item || !variant) return;
-    const baseName = item.baseProductName ?? item.productName;
-    patchPOItem(index, {
-      variantId: variant._id,
-      productName: `${baseName} — ${variant.name}`,
-      sku: variant.sku,
-      unitCost: defaultProcurementUnitCost(variant.retailPrice),
-    });
+    const normalizedVariantId = String(variantId);
+    setPOItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        const variant = item.variants?.find((v) => String(v._id) === normalizedVariantId);
+        if (!variant) return item;
+        const baseName = item.baseProductName ?? item.productName;
+        return {
+          ...item,
+          variantId: String(variant._id),
+          productName: `${baseName} — ${variant.name}`,
+          sku: variant.sku,
+          unitCost: defaultProcurementUnitCost(Number(variant.retailPrice) || 0),
+        };
+      })
+    );
   }
 
   function updateItem(index: number, field: keyof POItem, value: string | number) {
@@ -778,7 +855,7 @@ export function PurchaseOrderForm({
                       min={0}
                       step="0.01"
                       className="h-8 text-sm"
-                      value={item.unitCost}
+                      value={Number.isFinite(item.unitCost) ? item.unitCost : 0}
                       onChange={(e) =>
                         updateItem(index, "unitCost", parseFloat(e.target.value) || 0)
                       }
@@ -790,7 +867,7 @@ export function PurchaseOrderForm({
                       type="number"
                       min={1}
                       className="h-8 text-sm"
-                      value={item.quantity}
+                      value={Number.isFinite(item.quantity) ? item.quantity : 1}
                       onChange={(e) =>
                         updateItem(index, "quantity", parseInt(e.target.value, 10) || 1)
                       }
@@ -805,9 +882,14 @@ export function PurchaseOrderForm({
                   Loading variants…
                 </div>
               )}
-              {item.variants && item.variants.length > 0 && (
+              {item.variants && item.variants.length > 1 && (
                 <div className="space-y-1">
                   <Label className="text-xs">Variant *</Label>
+                  {!item.variantId && (
+                    <p className="text-[11px] text-amber-700">
+                      Select a variant to apply unit cost and SKU.
+                    </p>
+                  )}
                   <Select
                     value={item.variantId ?? ""}
                     onValueChange={(vId) => selectPOVariant(index, vId)}
@@ -817,7 +899,7 @@ export function PurchaseOrderForm({
                     </SelectTrigger>
                     <SelectContent>
                       {item.variants.map((v) => (
-                        <SelectItem key={v._id} value={v._id}>
+                        <SelectItem key={String(v._id)} value={String(v._id)}>
                           {v.name} ({v.sku})
                         </SelectItem>
                       ))}
