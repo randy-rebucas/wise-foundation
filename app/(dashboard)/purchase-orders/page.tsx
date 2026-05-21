@@ -16,6 +16,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Copy,
   ClipboardCheck,
   Clock,
   CheckCircle,
@@ -116,6 +117,100 @@ export default function PurchaseOrdersPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
     onError: (err: Error) =>
       toast({ variant: "destructive", title: "Status update failed", description: err.message }),
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const getRes = await fetch(`/api/purchase-orders/${id}`);
+      const getJson = await getRes.json();
+      if (!getRes.ok || !getJson.success) {
+        throw new Error(getJson.error ?? `Failed to load purchase order (${getRes.status})`);
+      }
+      const po = getJson.data as {
+        organizationId?: string | { _id: string };
+        title?: string;
+        paymentTermsMonths?: 3 | 6 | "weekly" | null;
+        discountPercent?: number;
+        expectedDeliveryDate?: string;
+        notes?: string;
+        items?: Array<{
+          productId?: string | { _id: string };
+          variantId?: string | { _id: string } | null;
+          productName?: string;
+          sku?: string;
+          quantity?: number;
+          unitCost?: number;
+        }>;
+      };
+
+      const resolveId = (value: string | { _id: string } | null | undefined) => {
+        if (!value) return "";
+        return typeof value === "object" ? String(value._id) : String(value);
+      };
+
+      const organizationId = resolveId(po.organizationId);
+      if (!organizationId) throw new Error("Purchase order has no organization");
+
+      const items = (po.items ?? [])
+        .map((item) => {
+          const productId = resolveId(item.productId);
+          if (!productId || !item.productName || !item.sku) return null;
+          const variantId = resolveId(item.variantId ?? undefined);
+          return {
+            productId,
+            variantId: variantId || undefined,
+            productName: item.productName,
+            sku: item.sku,
+            quantity: item.quantity ?? 1,
+            unitCost: item.unitCost ?? 0,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+
+      if (items.length === 0) {
+        throw new Error("Purchase order has no line items to duplicate");
+      }
+
+      const titleBase = po.title?.trim();
+      const title = titleBase ? `${titleBase} (Copy)` : undefined;
+
+      const postRes = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationId,
+          title,
+          items,
+          paymentTermsMonths: po.paymentTermsMonths ?? null,
+          discountPercent: po.discountPercent,
+          expectedDeliveryDate: po.expectedDeliveryDate
+            ? new Date(po.expectedDeliveryDate).toISOString().slice(0, 10)
+            : undefined,
+          notes: po.notes,
+        }),
+      });
+      const postJson = await postRes.json();
+      if (!postRes.ok || !postJson.success) {
+        throw new Error(postJson.error ?? `Failed to duplicate purchase order (${postRes.status})`);
+      }
+      return postJson.data as { _id: string; poNumber?: string };
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+      toast({
+        title: "Purchase order duplicated",
+        description: created.poNumber
+          ? `Draft ${created.poNumber} — you can edit before submitting.`
+          : "Opening draft for editing.",
+      });
+      router.push(`/purchase-orders/${created._id}/edit`);
+    },
+    onError: (err: Error) =>
+      toast({
+        variant: "destructive",
+        title: "Duplicate failed",
+        description: err.message,
+      }),
   });
 
   const deleteMutation = useMutation({
@@ -237,6 +332,20 @@ export default function PurchaseOrdersPage() {
       label: "",
       render: (o: PurchaseOrder) => (
         <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Duplicate as new draft"
+            aria-label="Duplicate as new draft"
+            disabled={duplicateMutation.isPending}
+            onClick={() => duplicateMutation.mutate(o._id)}
+          >
+            {duplicateMutation.isPending && duplicateMutation.variables === o._id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
           {o.status === "draft" && (
             <>
               <Button variant="ghost" size="icon" title="Edit purchase order" asChild>

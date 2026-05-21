@@ -74,7 +74,8 @@ export function AppBrand({
   const appName = appNameProp ?? tenant.appName;
   const appTagline = appTaglineProp ?? tenant.appTagline;
   const styles = THEME_STYLES[theme];
-  const useLogoOrTextNav = theme === "sidebar" || theme === "dashboard-mobile";
+  const useLogoOrTextNav =
+    theme === "sidebar" || theme === "dashboard-mobile" || theme === "marketplace";
   const showLogoOnly = useLogoOrTextNav && hasCustomAppLogo(tenant.appLogoUrl);
   const showNameAndTagline = useLogoOrTextNav && !hasCustomAppLogo(tenant.appLogoUrl);
 

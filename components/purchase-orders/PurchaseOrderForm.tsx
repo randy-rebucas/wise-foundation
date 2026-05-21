@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
-import { GripVertical, Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
 import {
   defaultPOItem,
   type Organization,
@@ -516,6 +516,21 @@ export function PurchaseOrderForm({
     setPOItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  function duplicateItem(index: number) {
+    setPOItems((prev) => {
+      const source = prev[index];
+      if (!source) return prev;
+      const copy: POItem = {
+        ...source,
+        clientKey: nextLineKey(),
+        variants: source.variants ? [...source.variants] : source.variants,
+      };
+      const next = [...prev];
+      next.splice(index + 1, 0, copy);
+      return next;
+    });
+  }
+
   function reorderItems(fromIndex: number, toIndex: number) {
     setPOItems((prev) => reorderGalleryItems(prev, fromIndex, toIndex));
   }
@@ -814,17 +829,34 @@ export function PurchaseOrderForm({
                 <span className="text-xs text-muted-foreground">
                   Subtotal: {money(item.quantity * item.unitCost)}
                 </span>
-                {poItems.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-destructive"
-                    onClick={() => removeItem(index)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                )}
+                <div className="flex items-center gap-0.5">
+                  {item.productId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      title="Duplicate line"
+                      aria-label="Duplicate line"
+                      onClick={() => duplicateItem(index)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  )}
+                  {poItems.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive"
+                      title="Remove line"
+                      aria-label="Remove line"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
