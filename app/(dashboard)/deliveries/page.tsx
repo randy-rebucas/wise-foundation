@@ -44,7 +44,10 @@ export default function DeliveriesPage() {
   const formatDate = useFormatDate();
   const { data: session } = useSession();
   const isOrgViewer = session?.user?.role === "ORG_ADMIN";
-  const canFulfill = session?.user?.permissions?.includes("manage:inventory") ?? false;
+  const canFulfillInventory =
+    (session?.user?.role === "ADMIN") ||
+    (session?.user?.permissions?.includes("manage:inventory") ?? false);
+  const canReceiveAsOrg = session?.user?.role === "ORG_ADMIN";
 
   const [statusFilter, setStatusFilter] = useState<"approved" | "received">("approved");
   const [page, setPage] = useState(1);
@@ -136,11 +139,11 @@ export default function DeliveriesPage() {
       label: "",
       render: (o: DeliveryOrder) => (
         <div className="flex justify-end gap-1">
-          {o.status === "approved" && canFulfill && (
+          {o.status === "approved" && (canFulfillInventory || canReceiveAsOrg) && (
             <Button variant="default" size="sm" className="h-8 text-xs" asChild>
               <Link href={`/purchase-orders/${o._id}`}>
                 <PackageCheck className="h-3 w-3 mr-1" />
-                Fulfill
+                {canReceiveAsOrg && !canFulfillInventory ? "Receive" : "Fulfill"}
               </Link>
             </Button>
           )}

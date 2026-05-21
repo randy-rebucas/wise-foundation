@@ -1,5 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { withPermission } from "@/lib/middleware/withPermission";
+import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import { getPurchaseOrderByIdForUser, receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
 import { receivePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
@@ -17,7 +17,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
     }
 
     const po = await receivePurchaseOrder(id, req.user, parsed.data);
-    return successResponse(po, "Purchase order received and stock updated");
+    return successResponse(po, "Purchase order received with signature");
   } catch (error) {
     console.error("[POST /api/purchase-orders/[id]/receive]", error);
     if (error instanceof Error) return errorResponse(error.message, 500);
@@ -25,4 +25,6 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
-export const POST = withStaffAuth(withPermission("manage:inventory")(postHandler));
+export const POST = withStaffAuth(
+  withAnyPermission("manage:inventory", "submit:org_orders")(postHandler)
+);

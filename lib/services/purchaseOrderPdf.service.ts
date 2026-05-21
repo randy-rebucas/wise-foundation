@@ -49,6 +49,11 @@ type PoPdfRow = {
     signedAt: Date | string;
     imageDataUrl: string;
   } | null;
+  receivedSignature?: {
+    name: string;
+    signedAt: Date | string;
+    imageDataUrl: string;
+  } | null;
   items: {
     productName: string;
     sku: string;
@@ -563,36 +568,59 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
 
   const hasSubmitted = !!po.submittedSignature;
   const hasApproved = !!po.approvedSignature;
+  const hasReceived = !!po.receivedSignature;
+  const signatureCount = [hasSubmitted, hasApproved, hasReceived].filter(Boolean).length;
 
-  if (hasSubmitted || hasApproved) {
+  if (signatureCount > 0) {
     if (rowY > doc.page.height - doc.page.margins.bottom - 120) {
       doc.addPage();
       rowY = doc.page.margins.top;
     }
     doc.fontSize(10).fillColor("#1e3157").text("Digital signatures", marginLeft, rowY);
     rowY += 18;
-    const blockWidth = (pageWidth - 16) / 2;
+    const gap = 16;
+    const blockWidth =
+      signatureCount >= 3
+        ? (pageWidth - gap * 2) / 3
+        : (pageWidth - gap) / Math.max(signatureCount, 1);
+    let blockX = marginLeft;
     if (hasSubmitted && po.submittedSignature) {
       drawSignatureBlock(
         doc,
         "Submitted by",
         po.submittedSignature,
-        marginLeft,
+        blockX,
         rowY,
         blockWidth,
         settings.timezone
       );
+      blockX += blockWidth + gap;
     }
     if (hasApproved && po.approvedSignature) {
       drawSignatureBlock(
         doc,
         "Approved by",
         po.approvedSignature,
-        marginLeft + blockWidth + 16,
+        blockX,
         rowY,
         blockWidth,
         settings.timezone
       );
+      blockX += blockWidth + gap;
+    }
+    if (hasReceived && po.receivedSignature) {
+      drawSignatureBlock(
+        doc,
+        "Received by",
+        po.receivedSignature,
+        blockX,
+        rowY,
+        blockWidth,
+        settings.timezone
+      );
+    }
+    if (signatureCount >= 3) {
+      rowY += 88;
     }
   }
 

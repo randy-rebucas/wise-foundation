@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
-import { assertValidSignatureDataUrl } from "@/lib/utils/signatureDataUrl";
 import type { SignPurchaseOrderInput } from "@/lib/validations/purchaseOrder.schema";
+import { buildPurchaseOrderSignatureEmbed } from "@/lib/purchaseOrders/signatureEmbed";
 import { getPurchaseOrderById } from "@/lib/services/purchaseOrder.service";
 import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
 import { recordPurchaseOrderAudit } from "@/lib/services/purchaseOrderAudit.service";
@@ -18,7 +18,6 @@ export async function signPurchaseOrder(
   input: SignPurchaseOrderInput
 ) {
   await connectDB();
-  assertValidSignatureDataUrl(input.signatureDataUrl);
 
   const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
   if (!po) throw new Error("Purchase order not found");
@@ -26,12 +25,11 @@ export async function signPurchaseOrder(
     throw new Error("Purchase order not found");
   }
 
-  const signature = {
-    name: input.signedByName.trim(),
-    userId: new mongoose.Types.ObjectId(user.id),
-    imageDataUrl: input.signatureDataUrl.trim(),
-    signedAt: new Date(),
-  };
+  const signature = buildPurchaseOrderSignatureEmbed(
+    user,
+    input.signedByName,
+    input.signatureDataUrl
+  );
 
   if (input.role === "submit") {
     if (!isOrgPurchaseOrderSubmitter(user) && !canApprovePurchaseOrders(user)) {

@@ -69,7 +69,9 @@ export default function PurchaseOrdersPage() {
   const router = useRouter();
   const isPlatformAdmin = session?.user?.role === "ADMIN";
   const isOrgSubmitter = session?.user?.role === "ORG_ADMIN";
-  const canFulfill = session?.user?.permissions?.includes("manage:inventory") ?? false;
+  const canFulfillInventory =
+    isPlatformAdmin || (session?.user?.permissions?.includes("manage:inventory") ?? false);
+  const canReceiveAsOrg = isOrgSubmitter;
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -204,16 +206,17 @@ export default function PurchaseOrdersPage() {
                 <Link href={`/purchase-orders/${o._id}?sign=approve`}>Sign & Approve</Link>
               </Button>
             )}
-            {next && !showSubmit && !showApprove && canFulfill && o.status === "approved" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-xs"
-                asChild
-              >
-                <Link href={`/purchase-orders/${o._id}`}>Fulfill</Link>
-              </Button>
-            )}
+            {next &&
+              !showSubmit &&
+              !showApprove &&
+              o.status === "approved" &&
+              (canFulfillInventory || canReceiveAsOrg) && (
+                <Button variant="outline" size="sm" className="h-6 text-xs" asChild>
+                  <Link href={`/purchase-orders/${o._id}`}>
+                    {canReceiveAsOrg && !canFulfillInventory ? "Confirm delivery" : "Fulfill"}
+                  </Link>
+                </Button>
+              )}
             {(showCancelDraft || showCancelSubmitted) && (
               <Button
                 variant="ghost"

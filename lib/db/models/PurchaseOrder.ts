@@ -30,6 +30,7 @@ export interface IPurchaseOrder extends Document {
   declineReason?: string;
   submittedSignature?: IPurchaseOrderSignatureEmbed | null;
   approvedSignature?: IPurchaseOrderSignatureEmbed | null;
+  receivedSignature?: IPurchaseOrderSignatureEmbed | null;
   receivedBy?: Types.ObjectId | null;
   receivedAt?: Date | null;
   createdAt: Date;
@@ -85,6 +86,7 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
     declineReason: { type: String, maxlength: 500 },
     submittedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     approvedSignature: { type: PurchaseOrderSignatureSchema, default: null },
+    receivedSignature: { type: PurchaseOrderSignatureSchema, default: null },
     receivedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     receivedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },

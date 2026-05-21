@@ -1,4 +1,6 @@
 import { hasPermission, isPlatformAdmin } from "@/lib/permissions";
+import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
+import { refEntityId } from "@/lib/purchaseOrders/entityId";
 import type { SessionUser } from "@/types";
 
 /** HQ / branch staff — full purchase order operations. */
@@ -40,4 +42,21 @@ export function canViewDeliveries(user: SessionUser): boolean {
 
 export function canFulfillDeliveries(user: SessionUser): boolean {
   return canManagePurchaseOrdersInventory(user);
+}
+
+/** Receive approved PO: org admin for org deliveries; inventory staff for branch POs. */
+export function canReceivePurchaseOrder(
+  user: SessionUser,
+  po: { organizationId?: unknown; branchId?: unknown }
+): boolean {
+  if (!canUserAccessPurchaseOrder(po, user)) return false;
+  const branchId = refEntityId(po.branchId);
+  if (branchId) {
+    return canManagePurchaseOrdersInventory(user) && !isOrgPurchaseOrderSubmitter(user);
+  }
+  return (
+    isOrgPurchaseOrderSubmitter(user) &&
+    !!user.organizationId &&
+    refEntityId(po.organizationId) === String(user.organizationId)
+  );
 }

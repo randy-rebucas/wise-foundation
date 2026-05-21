@@ -15,10 +15,12 @@ import { hasPermission } from "@/lib/permissions";
 import {
   canApprovePurchaseOrders,
   canManagePurchaseOrdersInventory,
+  canReceivePurchaseOrder,
   canSetPurchaseOrderDiscount,
   canSubmitOrgPurchaseOrders,
   isOrgPurchaseOrderSubmitter,
 } from "@/lib/permissions/purchaseOrders";
+import { buildPurchaseOrderSignatureEmbed } from "@/lib/purchaseOrders/signatureEmbed";
 import { resolvePurchaseOrderDiscountPercent } from "@/lib/purchaseOrders/discount.server";
 import { refEntityId } from "@/lib/purchaseOrders/entityId";
 import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
@@ -686,14 +688,15 @@ export async function receivePurchaseOrder(
   user: SessionUser,
   input: ReceivePurchaseOrderInput
 ) {
-  if (!canManagePurchaseOrdersInventory(user)) {
-    throw new Error("Only operations staff can fulfill purchase orders");
-  }
-
   await connectDB();
   const defaultLowStockThreshold = await getDefaultLowStockThreshold();
   const session = await mongoose.startSession();
   const userId = user.id;
+  const receivedSignature = buildPurchaseOrderSignatureEmbed(
+    user,
+    input.signedByName,
+    input.signatureDataUrl
+  );
 
   try {
     session.startTransaction();
@@ -704,6 +707,9 @@ export async function receivePurchaseOrder(
     if (!po) throw new Error("Purchase order not found");
     if (!canUserAccessPurchaseOrder(po, user)) {
       throw new Error("Purchase order not found");
+    }
+    if (!canReceivePurchaseOrder(user, po)) {
+      throw new Error("You cannot receive this purchase order");
     }
     if (po.status !== "approved") throw new Error("Only approved purchase orders can be received");
 
@@ -801,7 +807,14 @@ export async function receivePurchaseOrder(
 
     await PurchaseOrder.findByIdAndUpdate(
       poId,
-      { $set: { status: "received", receivedBy: userId, receivedAt: new Date() } },
+      {
+        $set: {
+          status: "received",
+          receivedBy: userId,
+          receivedAt: new Date(),
+          receivedSignature,
+        },
+      },
       { session }
     );
 
@@ -813,6 +826,7 @@ export async function receivePurchaseOrder(
       user,
       fromStatus: "approved",
       toStatus: "received",
+      performedByName: input.signedByName,
     });
 
     return getPurchaseOrderById(poId);

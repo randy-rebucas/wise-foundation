@@ -29,6 +29,9 @@ import {
   PenLine,
 } from "lucide-react";
 import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
+import { PurchaseOrderReceiveDialog } from "@/components/purchase-orders/PurchaseOrderReceiveDialog";
+import { canReceivePurchaseOrder } from "@/lib/permissions/purchaseOrders";
+import type { SessionUser } from "@/types";
 import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
 import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
 import { useFormatCurrency, useFormatDate, useFormatDateTime } from "@/components/providers/TenantProvider";
@@ -54,6 +57,7 @@ interface PurchaseOrderDetail {
   _id: string;
   poNumber: string;
   title?: string;
+  branchId?: string | { _id: string; name?: string } | null;
   status: "draft" | "submitted" | "approved" | "declined" | "received" | "cancelled";
   organizationId?: {
     name: string;
@@ -88,6 +92,11 @@ interface PurchaseOrderDetail {
     signedAt: string;
     imageDataUrl: string;
   } | null;
+  receivedSignature?: {
+    name: string;
+    signedAt: string;
+    imageDataUrl: string;
+  } | null;
   items: POItemDetail[];
   auditLogs?: {
     _id: string;
@@ -108,7 +117,7 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
   approved: "Approved",
   declined: "Declined",
   cancelled: "Cancelled",
-  received: "Marked fulfilled",
+  received: "Received with signature",
   status_changed: "Status changed",
 };
 
@@ -143,6 +152,23 @@ function PageShell({ children }: { children: ReactNode }) {
   return <div className="mx-auto w-full max-w-4xl px-4 pb-8 sm:px-6">{children}</div>;
 }
 
+function sessionUserFromSession(session: ReturnType<typeof useSession>["data"]): SessionUser | null {
+  const u = session?.user;
+  if (!u?.id) return null;
+  return {
+    id: u.id,
+    name: u.name ?? "",
+    email: u.email ?? "",
+    role: u.role as SessionUser["role"],
+    branchIds: u.branchIds ?? [],
+    organizationId: u.organizationId,
+    organizationType: u.organizationType,
+    organizationCapabilities: u.organizationCapabilities,
+    permissions: u.permissions ?? [],
+    image: u.image,
+  };
+}
+
 export default function PurchaseOrderDetailPage() {
   const money = useFormatCurrency();
   const formatDate = useFormatDate();
@@ -156,13 +182,11 @@ export default function PurchaseOrderDetailPage() {
   const { data: session } = useSession();
   const isPlatformAdmin = session?.user?.role === "ADMIN";
   const isOrgSubmitter = session?.user?.role === "ORG_ADMIN";
-  const canFulfill =
-    isPlatformAdmin || (session?.user?.permissions?.includes("manage:inventory") ?? false);
+  const sessionUser = sessionUserFromSession(session);
 
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
-  const [receivedQtys, setReceivedQtys] = useState<Record<string, number>>({});
   const [signOpen, setSignOpen] = useState(false);
   const [signRole, setSignRole] = useState<PurchaseOrderSignRole>("submit");
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -289,39 +313,22 @@ export default function PurchaseOrderDetailPage() {
       toast({ variant: "destructive", title: "Decline failed", description: err.message }),
   });
 
-  const receiveMutation = useMutation({
-    mutationFn: async () => {
-      if (!po) return;
-      const items = po.items.map((item) => ({
-        itemId: item._id,
-        receivedQuantity: receivedQtys[item._id] ?? item.quantity,
-      }));
-      const res = await fetch(`/api/purchase-orders/${id}/receive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? `Receive failed (${res.status})`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
-      queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["deliveries"] });
-      setReceiveOpen(false);
-      toast({ title: "Purchase order fulfilled", description: "Inventory has been updated." });
-    },
-    onError: (err: Error) =>
-      toast({ variant: "destructive", title: "Fulfillment failed", description: err.message }),
-  });
-
-  function openReceive() {
-    if (!po) return;
-    const defaults: Record<string, number> = {};
-    po.items.forEach((item) => { defaults[item._id] = item.quantity; });
-    setReceivedQtys(defaults);
-    setReceiveOpen(true);
+  function handleReceiveSuccess() {
+    queryClient.invalidateQueries({ queryKey: ["purchase-order", id] });
+    queryClient.invalidateQueries({ queryKey: ["purchase-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["deliveries"] });
+    toast({
+      title: po?.branchId ? "Purchase order fulfilled" : "Delivery confirmed",
+      description: "Inventory has been updated.",
+    });
   }
+
+  const canReceive =
+    !!po &&
+    !!sessionUser &&
+    po.status === "approved" &&
+    canReceivePurchaseOrder(sessionUser, po);
+  const isBranchPo = !!po?.branchId;
 
   if (!id) {
     return (
@@ -511,10 +518,10 @@ export default function PurchaseOrderDetailPage() {
                   </Button>
                 </>
               )}
-              {po.status === "approved" && canFulfill && (
-                <Button size="sm" onClick={openReceive}>
+              {canReceive && (
+                <Button size="sm" onClick={() => setReceiveOpen(true)}>
                   <PackageCheck className="h-4 w-4 mr-2" />
-                  Mark Fulfilled
+                  {isBranchPo ? "Mark fulfilled" : "Confirm delivery"}
                 </Button>
               )}
               {po.status === "declined" && (isOrgSubmitter || isPlatformAdmin) && (
@@ -597,8 +604,8 @@ export default function PurchaseOrderDetailPage() {
               </div>
             )}
 
-          {(po.submittedSignature || po.approvedSignature) && (
-            <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2">
+          {(po.submittedSignature || po.approvedSignature || po.receivedSignature) && (
+            <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
               {po.submittedSignature ? (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -630,6 +637,23 @@ export default function PurchaseOrderDetailPage() {
                   <p className="text-sm font-medium">{po.approvedSignature.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {dateTime(po.approvedSignature.signedAt)}
+                  </p>
+                </div>
+              ) : null}
+              {po.receivedSignature ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Received signature
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={po.receivedSignature.imageDataUrl}
+                    alt={`Signature of ${po.receivedSignature.name}`}
+                    className="h-16 max-w-full object-contain rounded border bg-white"
+                  />
+                  <p className="text-sm font-medium">{po.receivedSignature.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dateTime(po.receivedSignature.signedAt)}
                   </p>
                 </div>
               ) : null}
@@ -727,9 +751,11 @@ export default function PurchaseOrderDetailPage() {
                   ) : null}
                 </DetailField>
               ) : null}
-              {po.receivedBy ? (
-                <DetailField label="Fulfilled by">
-                  <p className="font-medium">{po.receivedBy.name}</p>
+              {po.receivedSignature || po.receivedBy ? (
+                <DetailField label={po.receivedSignature ? "Received by" : "Fulfilled by"}>
+                  <p className="font-medium">
+                    {po.receivedSignature?.name ?? po.receivedBy?.name}
+                  </p>
                   {po.receivedAt ? (
                     <p className="text-muted-foreground">{dateTime(po.receivedAt)}</p>
                   ) : null}
@@ -834,61 +860,16 @@ export default function PurchaseOrderDetailPage() {
         </div>
       </PageShell>
 
-      {/* Fulfill Dialog */}
-      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PackageCheck className="h-5 w-5" />
-              Mark as Fulfilled — {po.poNumber}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Enter the quantity fulfilled for each item for{" "}
-              <strong>{po.organizationId?.name}</strong>.
-            </p>
-            <div className="border rounded-lg divide-y">
-              {po.items.map((item) => (
-                <div key={item._id} className="flex items-center justify-between p-3 gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.productName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.sku} · Ordered: {item.quantity}
-                    </p>
-                  </div>
-                  <div className="w-24 space-y-1">
-                    <Label className="text-xs">Fulfilled</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={item.quantity}
-                      className="h-8 text-sm"
-                      value={receivedQtys[item._id] ?? item.quantity}
-                      onChange={(e) =>
-                        setReceivedQtys((prev) => ({
-                          ...prev,
-                          [item._id]: parseInt(e.target.value) || 0,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReceiveOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => receiveMutation.mutate()} disabled={receiveMutation.isPending}>
-              {receiveMutation.isPending ? "Processing..." : "Confirm Fulfillment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PurchaseOrderReceiveDialog
+        open={receiveOpen}
+        onOpenChange={setReceiveOpen}
+        poId={id}
+        poNumber={po.poNumber}
+        organizationName={po.organizationId?.name}
+        items={po.items}
+        isBranchPo={isBranchPo}
+        onSuccess={handleReceiveSuccess}
+      />
 
       <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
         <DialogContent className="max-w-md">
