@@ -141,8 +141,8 @@ function buildItemTableColumns(tableLeft: number, tableWidth: number): PdfTableC
   const defs: Omit<PdfTableColumn, "x">[] = [
     { label: "Product", width: wProduct, align: "left" },
     { label: "SKU", width: wSku, align: "left" },
-    { label: "Qty", width: wQty, align: "right" },
     { label: "Unit", width: wUnit, align: "right" },
+    { label: "Qty", width: wQty, align: "right" },
     { label: "Total", width: wLine, align: "right" },
   ];
   let x = tableLeft;
@@ -479,8 +479,8 @@ export async function buildPurchaseOrderPdf(poId: string): Promise<Buffer> {
     const values = [
       txt(item.productName ?? ""),
       txt(item.sku ?? ""),
-      String(item.quantity ?? 0),
       money(item.unitCost ?? 0),
+      String(item.quantity ?? 0),
       money(item.total ?? 0),
     ];
     const nextRowHeight = measureRowHeight(doc, columns, values);

@@ -743,11 +743,11 @@ export default function PurchaseOrderDetailPage() {
                 <thead className="border-b bg-muted/60">
                   <tr>
                     <th className="px-4 py-2.5 text-left font-medium">Product</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Unit cost</th>
                     {showFulfilledColumn ? (
                       <th className="px-4 py-2.5 text-right font-medium">Fulfilled</th>
                     ) : null}
-                    <th className="px-4 py-2.5 text-right font-medium">Unit cost</th>
+                    <th className="px-4 py-2.5 text-right font-medium">Qty</th>
                     <th className="px-4 py-2.5 text-right font-medium">Total</th>
                   </tr>
                 </thead>
@@ -758,13 +758,13 @@ export default function PurchaseOrderDetailPage() {
                         <p className="font-medium">{item.productName}</p>
                         <p className="text-xs text-muted-foreground">{item.sku}</p>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td>
                       {showFulfilledColumn ? (
                         <td className="px-4 py-3 text-right tabular-nums">
                           <span className="font-medium text-green-600">{item.receivedQuantity}</span>
                         </td>
                       ) : null}
-                      <td className="px-4 py-3 text-right tabular-nums">{money(item.unitCost)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{item.quantity}</td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums">
                         {money(item.total)}
                       </td>
