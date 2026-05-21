@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AppLogo, type AppLogoSize } from "@/components/branding/AppLogo";
 import { useTenant } from "@/components/providers/TenantProvider";
-import { APP_LOGO_SRC } from "@/lib/constants/branding";
+import { hasCustomAppLogo } from "@/lib/constants/branding";
 import { cn } from "@/lib/utils";
 
 export type AppBrandTheme =
@@ -74,19 +74,28 @@ export function AppBrand({
   const appName = appNameProp ?? tenant.appName;
   const appTagline = appTaglineProp ?? tenant.appTagline;
   const styles = THEME_STYLES[theme];
-  const showText = !APP_LOGO_SRC;
+  const useLogoOrTextNav = theme === "sidebar" || theme === "dashboard-mobile";
+  const showLogoOnly = useLogoOrTextNav && hasCustomAppLogo(tenant.appLogoUrl);
+  const showNameAndTagline = useLogoOrTextNav && !hasCustomAppLogo(tenant.appLogoUrl);
 
-  const inner = (
+  const inner = showLogoOnly ? (
+    <AppLogo size={styles.logoSize} priority={priority} />
+  ) : showNameAndTagline ? (
+    <div className="min-w-0">
+      <p className={styles.name}>{appName}</p>
+      {showTagline && appTagline ? (
+        <p className={styles.tagline}>{appTagline}</p>
+      ) : null}
+    </div>
+  ) : (
     <>
       <AppLogo size={styles.logoSize} priority={priority} />
-      {showText ? (
-        <div className="min-w-0">
-          <p className={styles.name}>{appName}</p>
-          {showTagline && appTagline ? (
-            <p className={styles.tagline}>{appTagline}</p>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="min-w-0">
+        <p className={styles.name}>{appName}</p>
+        {showTagline && appTagline ? (
+          <p className={styles.tagline}>{appTagline}</p>
+        ) : null}
+      </div>
     </>
   );
 

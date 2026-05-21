@@ -4,6 +4,8 @@ import type { PurchaseOrderDiscountByOrgType } from "@/lib/purchaseOrders/orgTyp
 export interface PublicAppSettings {
   appName: string;
   appTagline: string;
+  /** Custom logo URL; empty string means use bundled default. */
+  appLogoUrl: string;
   currency: string;
   timezone: string;
   memberDefaultDiscountPercent: number;

@@ -4,6 +4,7 @@ import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
+import { maybeRemoveReplacedAppLogo } from "@/lib/services/appLogo.service";
 import {
   DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
   normalizePurchaseOrderDiscountByOrgType,
@@ -13,6 +14,7 @@ import {
 const DEFAULTS: PublicAppSettings = {
   appName: "Glowish",
   appTagline: "POS & online store",
+  appLogoUrl: "",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,
@@ -26,6 +28,7 @@ export function toPublicAppSettings(
   doc: {
     appName?: string;
     appTagline?: string;
+    appLogoUrl?: string;
     currency?: string;
     timezone?: string;
     memberDefaultDiscountPercent?: number;
@@ -40,6 +43,7 @@ export function toPublicAppSettings(
   return {
     appName: doc.appName ?? DEFAULTS.appName,
     appTagline: doc.appTagline ?? DEFAULTS.appTagline,
+    appLogoUrl: doc.appLogoUrl?.trim() ?? DEFAULTS.appLogoUrl,
     currency: doc.currency ?? DEFAULTS.currency,
     timezone: doc.timezone ?? DEFAULTS.timezone,
     memberDefaultDiscountPercent:
@@ -89,6 +93,15 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
   const { marketplaceFulfillmentBranchId, purchaseOrderDiscountByOrgType, ...rest } =
     updates;
   const set: Record<string, unknown> = { ...rest };
+
+  if (rest.appLogoUrl !== undefined) {
+    const next = String(rest.appLogoUrl).trim();
+    const prev = existing.appLogoUrl?.trim() ?? "";
+    if (prev && prev !== next) {
+      await maybeRemoveReplacedAppLogo(prev);
+    }
+    set.appLogoUrl = next;
+  }
 
   if (purchaseOrderDiscountByOrgType !== undefined) {
     const normalized = normalizePurchaseOrderDiscountByOrgType(

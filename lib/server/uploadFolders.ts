@@ -29,3 +29,7 @@ export function getMediaLibraryFolder(): string {
 export function getProductCatalogFolder(): string {
   return `${getUploadRootFolder()}/products/catalog`;
 }
+
+export function getBrandingFolder(): string {
+  return `${getUploadRootFolder()}/branding`;
+}

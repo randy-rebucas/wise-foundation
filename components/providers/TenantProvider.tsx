@@ -8,6 +8,7 @@ import { formatCurrency, formatDateInTimezone, formatDateTimeInTimezone } from "
 export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
   appName: "Glowish",
   appTagline: "POS & online store",
+  appLogoUrl: "",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,

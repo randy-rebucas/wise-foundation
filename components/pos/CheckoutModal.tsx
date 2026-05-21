@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { APP_LOGO_SRC } from "@/lib/constants/branding";
+import { resolveAppLogoSrc } from "@/lib/constants/branding";
 import { useCartStore } from "@/store/cartStore";
 import {
   Dialog,
@@ -59,6 +59,7 @@ function printReceipt(
     formatMoney: (n: number) => string;
     whenLabel: string;
     receiptFooter: string;
+    logoSrc: string;
   }
 ) {
   const w = window.open("", "_blank", "width=400,height=600");
@@ -91,7 +92,7 @@ function printReceipt(
     .change{color:#16a34a;font-weight:bold}
     @media print{button{display:none}}
   </style></head><body>
-  <img class="logo" src="${typeof window !== "undefined" ? window.location.origin : ""}${APP_LOGO_SRC}" alt="" />
+  <img class="logo" src="${print.logoSrc.startsWith("http") ? print.logoSrc : `${typeof window !== "undefined" ? window.location.origin : ""}${print.logoSrc}`}" alt="" />
   <h2>${print.storeTitle}</h2>
   <p>${print.whenLabel}</p>
   <p>Order: <strong>${result.orderNumber}</strong></p>
@@ -119,7 +120,8 @@ function printReceipt(
 export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   const formatMoney = useFormatCurrency();
   const formatWhen = useFormatDateTime();
-  const { appName, receiptFooter } = useTenant();
+  const { appName, appLogoUrl, receiptFooter } = useTenant();
+  const logoSrc = resolveAppLogoSrc(appLogoUrl);
   const { items, memberId, memberName, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
     useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -225,6 +227,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
                     formatMoney,
                     whenLabel: formatWhen(new Date()),
                     receiptFooter,
+                    logoSrc,
                   })
                 }
               >

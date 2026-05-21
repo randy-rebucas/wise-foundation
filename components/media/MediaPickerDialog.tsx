@@ -22,6 +22,9 @@ interface MediaPickerDialogProps {
   selectedUrls: string[];
   maxPick: number;
   onConfirm: (urls: string[]) => void;
+  title?: string;
+  confirmLabel?: string;
+  emptyMessage?: string;
 }
 
 export function MediaPickerDialog({
@@ -30,6 +33,9 @@ export function MediaPickerDialog({
   selectedUrls,
   maxPick,
   onConfirm,
+  title = "Choose from media library",
+  confirmLabel = "Add selected",
+  emptyMessage,
 }: MediaPickerDialogProps) {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
@@ -67,7 +73,7 @@ export function MediaPickerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>Choose from media library</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <div className="relative">
@@ -93,7 +99,7 @@ export function MediaPickerDialog({
             <p className="text-sm text-muted-foreground py-8 text-center">
               {debouncedSearch
                 ? `No results for "${debouncedSearch}".`
-                : "No media yet. Upload files on the Media page first."}
+                : (emptyMessage ?? "No media yet. Upload files on the Media page first.")}
             </p>
           ) : (
             <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
@@ -147,7 +153,7 @@ export function MediaPickerDialog({
               onOpenChange(false);
             }}
           >
-            Add selected
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

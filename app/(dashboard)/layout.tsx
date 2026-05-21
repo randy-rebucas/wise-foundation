@@ -49,6 +49,7 @@ export default async function DashboardLayout({ children }: Props) {
     tenantSettings = {
       appName: "Glowish",
       appTagline: "POS & online store",
+      appLogoUrl: "",
       currency: "PHP",
       timezone: "Asia/Manila",
       memberDefaultDiscountPercent: 10,

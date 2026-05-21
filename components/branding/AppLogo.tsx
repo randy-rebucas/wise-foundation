@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
-import { APP_LOGO_ALT, APP_LOGO_SRC } from "@/lib/constants/branding";
+import { useTenant } from "@/components/providers/TenantProvider";
+import { APP_LOGO_ALT, resolveAppLogoSrc } from "@/lib/constants/branding";
 import { cn } from "@/lib/utils";
 
 const LOGO_SIZES = {
@@ -19,20 +22,35 @@ export interface AppLogoProps {
   /** When true, loads eagerly without emitting a preload link. */
   priority?: boolean;
   alt?: string;
+  /** Override tenant logo URL (e.g. settings preview). */
+  logoSrc?: string;
 }
 
-export function AppLogo({ size = "md", className, priority, alt = APP_LOGO_ALT }: AppLogoProps) {
+export function AppLogo({
+  size = "md",
+  className,
+  priority,
+  alt: altProp,
+  logoSrc: logoSrcProp,
+}: AppLogoProps) {
+  const tenant = useTenant();
   const { className: box, px } = LOGO_SIZES[size];
+  const src = resolveAppLogoSrc(logoSrcProp ?? tenant.appLogoUrl);
+  const alt = altProp ?? tenant.appName ?? APP_LOGO_ALT;
+  const isRemote = src.startsWith("http://") || src.startsWith("https://");
 
   return (
     <span className={cn("relative inline-block shrink-0", box, className)}>
       <Image
-        src={APP_LOGO_SRC}
+        key={src}
+        src={src}
         alt={alt}
         fill
         className="object-contain"
         sizes={`${px}px`}
         loading={priority ? "eager" : undefined}
+        priority={priority}
+        unoptimized={!isRemote && src.startsWith("/uploads/")}
       />
     </span>
   );

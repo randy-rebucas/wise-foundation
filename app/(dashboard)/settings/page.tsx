@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,13 @@ import {
   Globe2,
   RefreshCw,
   Images,
+  Upload,
+  Trash2,
 } from "lucide-react";
+import { AppLogo } from "@/components/branding/AppLogo";
+import { MediaPickerDialog } from "@/components/media/MediaPickerDialog";
+import { resolveAppLogoSrc } from "@/lib/constants/branding";
+import { IMAGE_UPLOAD_ACCEPT } from "@/lib/constants/gallery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { AdminAppSettings } from "@/lib/types/appSettings";
@@ -310,6 +316,72 @@ export default function SettingsPage() {
         marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
       });
       toast({ title: "Application settings saved" });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      router.refresh();
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+
+  const logoUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/settings/app/logo", { method: "POST", body: form });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Logo upload failed");
+      return data.data as AdminAppSettings;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["app-settings"], {
+        ...data,
+        marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
+      });
+      toast({ title: "Logo updated" });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      router.refresh();
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const logoFromLibraryMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const res = await fetch("/api/settings/app", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appLogoUrl: url }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Could not set logo");
+      return data.data as AdminAppSettings;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["app-settings"], {
+        ...data,
+        marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
+      });
+      toast({ title: "Logo updated from media library" });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      router.refresh();
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const logoRemoveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/settings/app/logo", { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Could not remove logo");
+      return data.data as AdminAppSettings;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["app-settings"], {
+        ...data,
+        marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
+      });
+      toast({ title: "Logo reset to default" });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
       router.refresh();
     },
@@ -780,6 +852,110 @@ export default function SettingsPage() {
                     </div>
                   ) : (
                   <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-3 sm:col-span-2 rounded-lg border bg-muted/30 p-4">
+                      <div>
+                        <Label>Application logo</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Shown in the sidebar, login, marketplace header, receipts, and across the
+                          app. Upload a file or pick an image from the media library (PNG or JPEG
+                          recommended, square, at least 256×256).
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4">
+                        <AppLogo
+                          size="lg"
+                          logoSrc={resolveAppLogoSrc(appSettings?.appLogoUrl)}
+                        />
+                        <div className="flex flex-col gap-2">
+                          <input
+                            ref={logoInputRef}
+                            type="file"
+                            accept={IMAGE_UPLOAD_ACCEPT}
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) logoUploadMutation.mutate(file);
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={
+                              !appSettings?.imageUploadEnabled ||
+                              logoUploadMutation.isPending ||
+                              logoFromLibraryMutation.isPending ||
+                              logoRemoveMutation.isPending
+                            }
+                            onClick={() => logoInputRef.current?.click()}
+                          >
+                            {logoUploadMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 mr-2" />
+                            )}
+                            Upload logo
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={
+                              logoUploadMutation.isPending ||
+                              logoFromLibraryMutation.isPending ||
+                              logoRemoveMutation.isPending
+                            }
+                            onClick={() => setLogoPickerOpen(true)}
+                          >
+                            {logoFromLibraryMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Images className="h-4 w-4 mr-2" />
+                            )}
+                            Media library
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              logoUploadMutation.isPending ||
+                              logoFromLibraryMutation.isPending ||
+                              logoRemoveMutation.isPending ||
+                              !appSettings?.appLogoUrl?.trim()
+                            }
+                            onClick={() => logoRemoveMutation.mutate()}
+                          >
+                            {logoRemoveMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            Use default logo
+                          </Button>
+                          {!appSettings?.imageUploadEnabled ? (
+                            <p className="text-xs text-destructive max-w-xs">
+                              Image upload is not configured. Set up Cloudinary or local uploads
+                              first.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <MediaPickerDialog
+                        open={logoPickerOpen}
+                        onOpenChange={setLogoPickerOpen}
+                        selectedUrls={[]}
+                        maxPick={1}
+                        title="Choose application logo"
+                        confirmLabel="Use as logo"
+                        emptyMessage="No media yet. Upload images on the Media page, then return here."
+                        onConfirm={(urls) => {
+                          const url = urls[0]?.trim();
+                          if (url) logoFromLibraryMutation.mutate(url);
+                        }}
+                      />
+                    </div>
                     <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="appName">Application name</Label>
                       <Input
