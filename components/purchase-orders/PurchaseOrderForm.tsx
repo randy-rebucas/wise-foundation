@@ -772,18 +772,6 @@ export function PurchaseOrderForm({
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <div>
-                    <Label className="text-xs">Qty</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      className="h-8 text-sm"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        updateItem(index, "quantity", parseInt(e.target.value, 10) || 1)
-                      }
-                    />
-                  </div>
-                  <div>
                     <Label className="text-xs">Unit cost</Label>
                     <Input
                       type="number"
@@ -793,6 +781,18 @@ export function PurchaseOrderForm({
                       value={item.unitCost}
                       onChange={(e) =>
                         updateItem(index, "unitCost", parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Qty</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      className="h-8 text-sm"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(index, "quantity", parseInt(e.target.value, 10) || 1)
                       }
                     />
                   </div>
