@@ -1,15 +1,12 @@
-"use client";
+import type { Metadata } from "next";
+import { AccountLayoutClient } from "@/components/marketplace/account/AccountLayoutClient";
+import { ROBOTS_NOINDEX } from "@/lib/seo/site";
 
-import { usePathname } from "next/navigation";
-import { AccountShell } from "@/components/marketplace/account/AccountShell";
+export const metadata: Metadata = {
+  title: "Account",
+  robots: ROBOTS_NOINDEX,
+};
 
 export default function AccountLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isAuthPage = pathname === "/account/login" || pathname === "/account/register";
-
-  if (isAuthPage) {
-    return <>{children}</>;
-  }
-
-  return <AccountShell>{children}</AccountShell>;
+  return <AccountLayoutClient>{children}</AccountLayoutClient>;
 }

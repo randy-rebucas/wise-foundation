@@ -6,6 +6,10 @@ export interface PublicAppSettings {
   appTagline: string;
   /** Custom logo URL; empty string means use bundled default. */
   appLogoUrl: string;
+  /** Default meta description for storefront pages (search / social). */
+  seoDefaultDescription: string;
+  /** Default Open Graph image URL; empty uses logo or bundled default. */
+  seoOgImageUrl: string;
   currency: string;
   timezone: string;
   memberDefaultDiscountPercent: number;

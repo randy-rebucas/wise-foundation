@@ -12,6 +12,8 @@ export const patchAppSettingsSchema = z.object({
   appName: z.string().min(1).max(100).optional(),
   appTagline: z.string().max(120).optional(),
   appLogoUrl: z.union([z.string().max(2048), z.literal("")]).optional(),
+  seoDefaultDescription: z.string().max(160).optional(),
+  seoOgImageUrl: z.union([z.string().max(2048), z.literal("")]).optional(),
   currency: z.string().min(3).max(10).optional(),
   timezone: z.string().min(1).max(64).optional(),
   memberDefaultDiscountPercent: z.number().min(0).max(100).optional(),

@@ -15,6 +15,8 @@ const DEFAULTS: PublicAppSettings = {
   appName: "Glowish",
   appTagline: "POS & online store",
   appLogoUrl: "",
+  seoDefaultDescription: "",
+  seoOgImageUrl: "",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,
@@ -29,6 +31,8 @@ export function toPublicAppSettings(
     appName?: string;
     appTagline?: string;
     appLogoUrl?: string;
+    seoDefaultDescription?: string;
+    seoOgImageUrl?: string;
     currency?: string;
     timezone?: string;
     memberDefaultDiscountPercent?: number;
@@ -44,6 +48,8 @@ export function toPublicAppSettings(
     appName: doc.appName ?? DEFAULTS.appName,
     appTagline: doc.appTagline ?? DEFAULTS.appTagline,
     appLogoUrl: doc.appLogoUrl?.trim() ?? DEFAULTS.appLogoUrl,
+    seoDefaultDescription: doc.seoDefaultDescription?.trim() ?? DEFAULTS.seoDefaultDescription,
+    seoOgImageUrl: doc.seoOgImageUrl?.trim() ?? DEFAULTS.seoOgImageUrl,
     currency: doc.currency ?? DEFAULTS.currency,
     timezone: doc.timezone ?? DEFAULTS.timezone,
     memberDefaultDiscountPercent:
@@ -101,6 +107,14 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
       await maybeRemoveReplacedAppLogo(prev);
     }
     set.appLogoUrl = next;
+  }
+
+  if (rest.seoOgImageUrl !== undefined) {
+    set.seoOgImageUrl = String(rest.seoOgImageUrl).trim();
+  }
+
+  if (rest.seoDefaultDescription !== undefined) {
+    set.seoDefaultDescription = String(rest.seoDefaultDescription).trim();
   }
 
   if (purchaseOrderDiscountByOrgType !== undefined) {

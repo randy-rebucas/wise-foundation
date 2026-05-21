@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Great_Vibes, Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import { APP_LOGO_SRC } from "@/lib/constants/branding";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { buildRootMetadata } from "@/lib/seo/site";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
@@ -30,14 +32,16 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Glowish",
-  description: "Glowish — point of sale, inventory, and online storefront for retail teams.",
-  icons: {
-    icon: APP_LOGO_SRC,
-    apple: APP_LOGO_SRC,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return {
+    ...buildRootMetadata(settings),
+    icons: {
+      icon: APP_LOGO_SRC,
+      apple: APP_LOGO_SRC,
+    },
+  };
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

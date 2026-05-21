@@ -24,7 +24,10 @@ export default async function ProductSlugLayout({ children, params }: Props) {
     notFound();
   }
 
-  const jsonLd = await buildProductJsonLdScript(product);
+  const stock = product.hasVariants
+    ? product.variants.reduce((sum, v) => sum + v.stock, 0)
+    : product.baseStock;
+  const jsonLd = await buildProductJsonLdScript(product, stock);
 
   return (
     <>

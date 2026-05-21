@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
@@ -5,6 +6,11 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
+import { ROBOTS_NOINDEX } from "@/lib/seo/site";
+
+export const metadata: Metadata = {
+  robots: ROBOTS_NOINDEX,
+};
 
 const BLOCKED_ROLES = ["MEMBER", "CUSTOMER"];
 
@@ -50,6 +56,8 @@ export default async function DashboardLayout({ children }: Props) {
       appName: "Glowish",
       appTagline: "POS & online store",
       appLogoUrl: "",
+      seoDefaultDescription: "",
+      seoOgImageUrl: "",
       currency: "PHP",
       timezone: "Asia/Manila",
       memberDefaultDiscountPercent: 10,

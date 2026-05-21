@@ -258,6 +258,8 @@ export default function SettingsPage() {
   const [appForm, setAppForm] = useState({
     appName: "",
     appTagline: "",
+    seoDefaultDescription: "",
+    seoOgImageUrl: "",
     currency: "PHP",
     timezone: "Asia/Manila",
     memberDefaultDiscountPercent: 10,
@@ -275,6 +277,8 @@ export default function SettingsPage() {
       setAppForm({
         appName: appSettings.appName,
         appTagline: appSettings.appTagline,
+        seoDefaultDescription: appSettings.seoDefaultDescription ?? "",
+        seoOgImageUrl: appSettings.seoOgImageUrl ?? "",
         currency: appSettings.currency,
         timezone: appSettings.timezone,
         memberDefaultDiscountPercent: appSettings.memberDefaultDiscountPercent,
@@ -297,6 +301,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           appName: appForm.appName.trim(),
           appTagline: appForm.appTagline.trim(),
+          seoDefaultDescription: appForm.seoDefaultDescription.trim(),
+          seoOgImageUrl: appForm.seoOgImageUrl.trim(),
           currency: appForm.currency.trim().toUpperCase(),
           timezone: appForm.timezone.trim(),
           memberDefaultDiscountPercent: Number(appForm.memberDefaultDiscountPercent),
@@ -324,6 +330,7 @@ export default function SettingsPage() {
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const [ogImagePickerOpen, setOgImagePickerOpen] = useState(false);
 
   const logoUploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -973,6 +980,84 @@ export default function SettingsPage() {
                         value={appForm.appTagline}
                         onChange={(e) => setAppForm((f) => ({ ...f, appTagline: e.target.value }))}
                         placeholder="POS & online store"
+                      />
+                    </div>
+                    <div className="space-y-3 sm:col-span-2 rounded-lg border bg-muted/40 p-4">
+                      <div>
+                        <p className="text-sm font-medium">Storefront SEO</p>
+                        <p className="text-xs text-muted-foreground">
+                          Default meta description and social preview image for the public shop.
+                          Product pages can override with per-product SEO fields.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="seoDefaultDescription">Default meta description</Label>
+                        <Input
+                          id="seoDefaultDescription"
+                          value={appForm.seoDefaultDescription}
+                          onChange={(e) =>
+                            setAppForm((f) => ({ ...f, seoDefaultDescription: e.target.value }))
+                          }
+                          placeholder="Short description for search results and social sharing"
+                          maxLength={160}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {appForm.seoDefaultDescription.length}/160 · Falls back to tagline when empty.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Default social image (Open Graph)</Label>
+                        <div className="flex flex-wrap items-start gap-4">
+                          {appForm.seoOgImageUrl.trim() ? (
+                            <div className="relative h-20 w-32 overflow-hidden rounded-md border bg-background">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={appForm.seoOgImageUrl}
+                                alt="OG preview"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground py-2">
+                              No image set — uses application logo.
+                            </p>
+                          )}
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              disabled={!appSettings?.imageUploadEnabled}
+                              onClick={() => setOgImagePickerOpen(true)}
+                            >
+                              <Images className="h-4 w-4 mr-2" />
+                              Choose from media
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={!appForm.seoOgImageUrl.trim()}
+                              onClick={() => setAppForm((f) => ({ ...f, seoOgImageUrl: "" }))}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Clear image
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      <MediaPickerDialog
+                        open={ogImagePickerOpen}
+                        onOpenChange={setOgImagePickerOpen}
+                        selectedUrls={appForm.seoOgImageUrl.trim() ? [appForm.seoOgImageUrl] : []}
+                        maxPick={1}
+                        title="Choose default social image"
+                        confirmLabel="Use image"
+                        emptyMessage="No media yet. Upload images on the Media page, then return here."
+                        onConfirm={(urls) => {
+                          const url = urls[0]?.trim();
+                          if (url) setAppForm((f) => ({ ...f, seoOgImageUrl: url }));
+                        }}
                       />
                     </div>
                     <div className="space-y-2">

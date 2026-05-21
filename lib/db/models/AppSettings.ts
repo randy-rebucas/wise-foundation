@@ -9,6 +9,10 @@ export interface IAppSettings extends Document {
   appTagline: string;
   /** Custom logo URL (Cloudinary or /uploads). Empty uses default /logo.png. */
   appLogoUrl: string;
+  /** Default meta description for storefront SEO (max 160). */
+  seoDefaultDescription: string;
+  /** Default Open Graph / Twitter image URL. */
+  seoOgImageUrl: string;
   currency: string;
   timezone: string;
   setupCompleted: boolean;
@@ -44,6 +48,8 @@ const AppSettingsSchema = new Schema<IAppSettings>(
     appName: { type: String, required: true, default: "Glowish" },
     appTagline: { type: String, default: "POS & online store" },
     appLogoUrl: { type: String, default: "" },
+    seoDefaultDescription: { type: String, default: "", maxlength: 160 },
+    seoOgImageUrl: { type: String, default: "" },
     currency: { type: String, required: true, default: "PHP" },
     timezone: { type: String, required: true, default: "Asia/Manila" },
     setupCompleted: { type: Boolean, default: false },

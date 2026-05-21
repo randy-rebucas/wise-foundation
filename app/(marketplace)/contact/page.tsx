@@ -1,4 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { buildPageMetadata } from "@/lib/seo/site";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return buildPageMetadata({
+    title: "Contact",
+    description: `Contact ${settings.appName} — questions, orders, and support.`,
+    path: "/contact",
+    settings,
+  });
+}
 import {
   Clock,
   Heart,

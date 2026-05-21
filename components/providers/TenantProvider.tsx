@@ -9,6 +9,8 @@ export const DEFAULT_PUBLIC_APP_SETTINGS: PublicAppSettings = {
   appName: "Glowish",
   appTagline: "POS & online store",
   appLogoUrl: "",
+  seoDefaultDescription: "",
+  seoOgImageUrl: "",
   currency: "PHP",
   timezone: "Asia/Manila",
   memberDefaultDiscountPercent: 10,

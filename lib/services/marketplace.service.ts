@@ -206,6 +206,20 @@ const listedFilter: Record<string, unknown> = {
   $or: [{ marketplaceListed: true }, { marketplaceListed: { $exists: false } }],
 };
 
+export async function listMarketplaceProductSlugs(): Promise<
+  { slug: string; updatedAt?: Date }[]
+> {
+  await connectDB();
+  const rows = await Product.find(listedFilter)
+    .select("slug updatedAt")
+    .sort({ updatedAt: -1 })
+    .lean();
+  return rows.map((row) => ({
+    slug: row.slug,
+    updatedAt: row.updatedAt,
+  }));
+}
+
 export async function getMarketplaceFulfillmentContext(): Promise<{
   branchId: Types.ObjectId;
   organizationId: Types.ObjectId | null;

@@ -1,4 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { buildPageMetadata } from "@/lib/seo/site";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return buildPageMetadata({
+    title: "Reviews",
+    description: `Read customer reviews and ratings for ${settings.appName} products.`,
+    path: "/reviews",
+    settings,
+  });
+}
 import { BadgeCheck, Heart, Leaf, MessageCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PublicReviewsList } from "@/components/marketplace/PublicReviewsList";

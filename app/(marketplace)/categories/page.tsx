@@ -1,4 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { buildPageMetadata } from "@/lib/seo/site";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return buildPageMetadata({
+    title: "Categories",
+    description: `Browse products by category at ${settings.appName}.`,
+    path: "/categories",
+    settings,
+  });
+}
 import {
   ArrowRight,
   Beaker,
