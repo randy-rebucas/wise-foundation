@@ -23,6 +23,8 @@ export interface ProductVariantOption {
 }
 
 export interface POItem {
+  /** Stable React key for list reordering (client-only). */
+  clientKey?: string;
   productId: string;
   productName: string;
   baseProductName?: string;

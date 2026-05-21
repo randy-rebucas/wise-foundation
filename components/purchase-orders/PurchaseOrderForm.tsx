@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type DragEvent } from "react";
 import { useTenant } from "@/components/providers/TenantProvider";
 import { getPurchaseOrderDiscountForOrgType } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 import { useSession } from "next-auth/react";
@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
-import { Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
+import { GripVertical, Loader2, ListChecks, Plus, Trash2 } from "lucide-react";
 import {
   defaultPOItem,
   type Organization,
@@ -31,6 +31,7 @@ import {
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
 import { computePurchaseOrderTotals } from "@/lib/utils/purchaseOrderTotals";
 import { cn } from "@/lib/utils";
+import { reorderGalleryItems } from "@/lib/utils/gallery";
 
 function toDateInputValue(iso?: string | null): string {
   if (!iso) return "";
@@ -50,8 +51,12 @@ export type PurchaseOrderFormProps = {
   applyCatalogTemplateOnMount?: boolean;
 };
 
-function catalogLineToPoItem(line: PurchaseOrderCatalogTemplate["items"][number]): POItem {
+function catalogLineToPoItem(
+  line: PurchaseOrderCatalogTemplate["items"][number],
+  clientKey: string
+): POItem {
   return {
+    clientKey,
     productId: line.productId,
     productName: line.productName,
     baseProductName: line.baseProductName,
@@ -81,6 +86,21 @@ export function PurchaseOrderForm({
   const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
   const canSetDiscount = session?.user?.role === "ADMIN";
   const prevOrgIdRef = useRef<string | null>(null);
+  const lineKeyRef = useRef(1);
+  const nextLineKey = useCallback(
+    () => `po-line-${++lineKeyRef.current}`,
+    []
+  );
+  const withLineKeys = useCallback(
+    (items: POItem[]) =>
+      items.map((item) => ({
+        ...item,
+        clientKey: item.clientKey ?? nextLineKey(),
+      })),
+    [nextLineKey]
+  );
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const sessionOrgId = session?.user?.organizationId
     ? String(session.user.organizationId)
     : "";
@@ -94,7 +114,9 @@ export function PurchaseOrderForm({
   const [paymentTerms, setPaymentTerms] = useState("");
   const [discountPercent, setDiscountPercent] = useState(0);
   const [poCreatedAt, setPoCreatedAt] = useState<string | undefined>();
-  const [poItems, setPOItems] = useState<POItem[]>([{ ...defaultPOItem }]);
+  const [poItems, setPOItems] = useState<POItem[]>(() => [
+    { ...defaultPOItem, clientKey: "po-line-1" },
+  ]);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [catalogApplied, setCatalogApplied] = useState(false);
 
@@ -223,7 +245,9 @@ export function PurchaseOrderForm({
           unitCost: item.unitCost,
         });
       }
-      setPOItems(loadedItems.length > 0 ? loadedItems : [{ ...defaultPOItem }]);
+      setPOItems(
+        withLineKeys(loadedItems.length > 0 ? loadedItems : [{ ...defaultPOItem }])
+      );
     } catch (err) {
       toast({
         variant: "destructive",
@@ -234,7 +258,7 @@ export function PurchaseOrderForm({
     } finally {
       setInitialLoading(false);
     }
-  }, [poId, toast, onCancel]);
+  }, [poId, toast, onCancel, withLineKeys]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -301,7 +325,11 @@ export function PurchaseOrderForm({
           return;
         }
 
-        setPOItems(template.items.map(catalogLineToPoItem));
+        setPOItems(
+          withLineKeys(
+            template.items.map((line) => catalogLineToPoItem(line, nextLineKey()))
+          )
+        );
         if (!poTitle.trim()) {
           setPoTitle(template.title);
         }
@@ -322,7 +350,7 @@ export function PurchaseOrderForm({
         setTemplateLoading(false);
       }
     },
-    [poItems, poTitle, toast]
+    [poItems, poTitle, toast, nextLineKey, withLineKeys]
   );
 
   const catalogMountStarted = useRef(false);
@@ -481,11 +509,41 @@ export function PurchaseOrderForm({
   }
 
   function addItem() {
-    setPOItems((prev) => [...prev, { ...defaultPOItem }]);
+    setPOItems((prev) => [...prev, { ...defaultPOItem, clientKey: nextLineKey() }]);
   }
 
   function removeItem(index: number) {
     setPOItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function reorderItems(fromIndex: number, toIndex: number) {
+    setPOItems((prev) => reorderGalleryItems(prev, fromIndex, toIndex));
+  }
+
+  function handleItemDragStart(index: number) {
+    setDragIndex(index);
+  }
+
+  function handleItemDragOver(e: DragEvent, index: number) {
+    e.preventDefault();
+    setDropIndex(index);
+  }
+
+  function handleItemDrop(e: DragEvent, index: number) {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+    reorderItems(dragIndex, index);
+    setDragIndex(null);
+    setDropIndex(null);
+  }
+
+  function handleItemDragEnd() {
+    setDragIndex(null);
+    setDropIndex(null);
   }
 
   const lineSubtotal = poItems.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
@@ -640,10 +698,42 @@ export function PurchaseOrderForm({
             Full catalog template applied — set quantities per line, then save as draft.
           </p>
         )}
+        {poItems.length > 1 && (
+          <p className="text-xs text-muted-foreground">Drag rows to reorder line items.</p>
+        )}
         <div className="border rounded-lg divide-y">
           {poItems.map((item, index) => (
-            <div key={index} className="p-3 space-y-2">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div
+              key={item.clientKey ?? index}
+              onDragOver={(e) => handleItemDragOver(e, index)}
+              onDrop={(e) => handleItemDrop(e, index)}
+              className={cn(
+                "p-3 space-y-2",
+                dragIndex === index && "opacity-50",
+                dropIndex === index &&
+                  dragIndex !== null &&
+                  dragIndex !== index &&
+                  "ring-2 ring-primary ring-inset bg-muted/30"
+              )}
+            >
+              <div className="flex gap-2">
+                {poItems.length > 1 && (
+                  <button
+                    type="button"
+                    draggable
+                    className="mt-5 flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-muted active:cursor-grabbing"
+                    title="Drag to reorder"
+                    aria-label={`Reorder line ${index + 1}`}
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      handleItemDragStart(index);
+                    }}
+                    onDragEnd={handleItemDragEnd}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </button>
+                )}
+                <div className="min-w-0 flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-xs">Product *</Label>
                   <Select
@@ -691,6 +781,7 @@ export function PurchaseOrderForm({
                       }
                     />
                   </div>
+                </div>
                 </div>
               </div>
               {item.variantsLoading && (
