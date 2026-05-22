@@ -252,6 +252,36 @@ export async function getCustomerReviews(userId: string): Promise<MarketplaceCus
   );
 }
 
+const REVIEWABLE_ORDER_STATUSES = ["delivered", "completed"] as const;
+
+async function customerPurchasedProductForReview(
+  userId: string,
+  productId: string
+): Promise<boolean> {
+  if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(productId)) {
+    return false;
+  }
+  const customerOid = new mongoose.Types.ObjectId(userId);
+  const productOid = new mongoose.Types.ObjectId(productId);
+  const orders = await Order.find({
+    type: "MARKETPLACE",
+    marketplaceCustomerUserId: customerOid,
+    deletedAt: null,
+    status: { $in: [...REVIEWABLE_ORDER_STATUSES] },
+  })
+    .select("_id")
+    .lean();
+  if (!orders.length) return false;
+  const orderIds = orders.map((o) => o._id);
+  const match = await OrderItem.findOne({
+    orderId: { $in: orderIds },
+    productId: productOid,
+  })
+    .select("_id")
+    .lean();
+  return !!match;
+}
+
 export async function addCustomerReview(
   userId: string,
   input: z.infer<typeof customerReviewSchema>
@@ -260,17 +290,28 @@ export async function addCustomerReview(
   const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
   if (!user) throw new Error("Account not found");
 
+  const canReview = await customerPurchasedProductForReview(userId, input.productId);
+  if (!canReview) {
+    throw new Error("You can only review products from a delivered order");
+  }
+
   const marketplace = ensureMarketplace(user.marketplace);
   const duplicate = marketplace.reviews.some(
     (r: MarketplaceCustomerReview) => r.productId === input.productId
   );
   if (duplicate) throw new Error("You have already reviewed this product");
 
+  let productSlug = input.productSlug;
+  if (!productSlug && mongoose.isValidObjectId(input.productId)) {
+    const product = await Product.findById(input.productId).select("slug").lean();
+    productSlug = product?.slug as string | undefined;
+  }
+
   marketplace.reviews.push({
     id: newId("rev"),
     productId: input.productId,
     productName: input.productName,
-    productSlug: input.productSlug,
+    productSlug,
     rating: input.rating,
     text: input.text.trim(),
     createdAt: new Date().toISOString(),
@@ -305,6 +346,7 @@ export type CustomerOrderDetail = {
   items: {
     productId: string;
     productName: string;
+    productSlug?: string;
     variantName?: string;
     sku: string;
     quantity: number;
@@ -344,11 +386,14 @@ export async function getMyMarketplaceOrderDetail(
   const productIds = lineItems.map((i) => i.productId as mongoose.Types.ObjectId);
   const products =
     productIds.length > 0
-      ? await Product.find({ _id: { $in: productIds }, deletedAt: null }).select("images").lean()
+      ? await Product.find({ _id: { $in: productIds }, deletedAt: null })
+          .select("images slug")
+          .lean()
       : [];
   const imageByProductId = new Map(
     products.map((p) => [String(p._id), (p.images?.[0] as string | undefined) ?? null])
   );
+  const slugByProductId = new Map(products.map((p) => [String(p._id), p.slug as string]));
 
   const ship = order.marketplaceShipping as CustomerOrderDetail["shipping"];
   const parts = ship ? [ship.line1, ship.city, ship.region].filter(Boolean) : [];
@@ -369,6 +414,7 @@ export async function getMyMarketplaceOrderDetail(
     items: lineItems.map((item) => ({
       productId: String(item.productId),
       productName: item.productName,
+      productSlug: slugByProductId.get(String(item.productId)),
       variantName: item.variantName ?? undefined,
       sku: item.sku,
       quantity: item.quantity,

@@ -21,7 +21,7 @@ const BranchSchema = new s({ name: String, code: { type: String, unique: true },
 const OrganizationSchema = new s({ name: String, type: { type: String, enum: ["distributor", "franchise", "partner"] }, parentOrganizationId: { type: oid, ref: "Organization", default: null }, settings: { canSellRetail: Boolean, canDistribute: Boolean, hasInventory: Boolean, commissionEnabled: Boolean, canSubmitOrders: Boolean }, contactPerson: String, email: String, phone: String, address: String, commissionRate: { type: Number, default: 10 }, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const UserSchema = new s({ name: String, email: { type: String, unique: true }, password: String, role: { type: String, enum: ["ADMIN", "ORG_ADMIN", "BRANCH_MANAGER", "STAFF", "INVENTORY_MANAGER", "MEMBER", "CUSTOMER"] }, branchIds: [{ type: oid, ref: "Branch" }], organizationId: { type: oid, ref: "Organization", default: null }, permissions: [String], isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const SupplierSchema = new s({ name: String, contactPerson: String, email: String, phone: String, address: String, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
-const ProductSchema = new s({ name: String, slug: String, description: String, category: { type: String, enum: ["homecare", "cosmetics", "wellness", "scent"] }, sku: { type: String, unique: true }, barcode: String, images: [String], retailPrice: Number, isActive: { type: Boolean, default: true }, tags: [String], deletedAt: { type: Date, default: null } }, { timestamps: true });
+const ProductSchema = new s({ name: String, slug: String, description: String, category: { type: String, enum: ["homecare", "cosmetics", "wellness", "scent"] }, sku: { type: String, unique: true }, barcode: String, images: [String], retailPrice: Number, isActive: { type: Boolean, default: true }, marketplaceListed: { type: Boolean, default: true }, tags: [String], deletedAt: { type: Date, default: null } }, { timestamps: true });
 const ProductVariantSchema = new s({ productId: { type: oid, ref: "Product", required: true }, name: String, sku: { type: String, unique: true }, barcode: String, retailPrice: Number, attributes: { type: Map, of: String }, isActive: { type: Boolean, default: true }, deletedAt: { type: Date, default: null } }, { timestamps: true });
 const InventorySchema = new s({ branchId: { type: oid, ref: "Branch" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, quantity: { type: Number, default: 0 }, reservedQuantity: { type: Number, default: 0 }, lowStockThreshold: { type: Number, default: 10 } }, { timestamps: true });
 const OrgInventorySchema = new s({ organizationId: { type: oid, ref: "Organization" }, productId: { type: oid, ref: "Product" }, variantId: { type: oid, ref: "ProductVariant", default: null }, quantity: { type: Number, default: 0 }, totalSold: { type: Number, default: 0 } }, { timestamps: true });
@@ -258,8 +258,34 @@ export async function runSeed(): Promise<void> {
     { name: "Midnight Oud Parfum",       category: "scent",     sku: "SC-003", retailPrice: 999,  tags: ["parfum", "oud"] },
   ];
 
+  const featuredImageByCategory: Record<string, string> = {
+    homecare:
+      "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=800&q=80",
+    cosmetics:
+      "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=800&q=80",
+    wellness:
+      "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=800&q=80",
+    scent:
+      "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80",
+  };
+  const featuredSkuByCategory: Record<string, string> = {
+    homecare: "HC-001",
+    cosmetics: "CS-001",
+    wellness: "WL-001",
+    scent: "SC-001",
+  };
+
   const products = await Product.insertMany(
-    productsData.map((p) => ({ ...p, slug: slug(p.name), images: [], isActive: true }))
+    productsData.map((p) => {
+      const isFeatured = featuredSkuByCategory[p.category] === p.sku;
+      return {
+        ...p,
+        slug: slug(p.name),
+        images: isFeatured ? [featuredImageByCategory[p.category]] : [],
+        isActive: true,
+        marketplaceListed: true,
+      };
+    })
   );
   console.log(`  ${products.length} products seeded`);
 

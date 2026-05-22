@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { getHeadOfficeBranchPublic } from "@/lib/services/branch.service";
+import { getMarketplaceCategorySampleImages } from "@/lib/services/marketplace.service";
 import { buildPageMetadata } from "@/lib/seo/site";
-import { MARKETPLACE_STOCK_IMAGES } from "@/lib/marketplace/stockImages";
+import {
+  pickCatalogImage,
+  pickHeroFloatImages,
+} from "@/lib/marketplace/categoryImages";
+import { MarketplaceFillImage } from "@/components/marketplace/MarketplaceFillImage";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { ContactForm } from "@/components/marketplace/ContactForm";
@@ -32,22 +36,10 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const HERO_FLOATS = [
-  {
-    image: MARKETPLACE_STOCK_IMAGES.cleanser,
-    label: "Skincare support",
-    position: "left-[6%] top-[22%] h-44 w-32 -rotate-6 sm:left-[12%] sm:h-48 sm:w-36",
-  },
-  {
-    image: MARKETPLACE_STOCK_IMAGES.serum,
-    label: "Product advice",
-    position: "left-[38%] top-[6%] h-52 w-36 sm:left-[40%] sm:h-56 sm:w-40",
-  },
-  {
-    image: MARKETPLACE_STOCK_IMAGES.collection,
-    label: "Order help",
-    position: "right-[6%] top-[28%] h-40 w-36 rotate-6 sm:right-[10%] sm:h-44 sm:w-40",
-  },
+const HERO_FLOAT_META = [
+  { label: "Skincare support", position: "left-[6%] top-[22%] h-44 w-32 -rotate-6 sm:left-[12%] sm:h-48 sm:w-36" },
+  { label: "Product advice", position: "left-[38%] top-[6%] h-52 w-36 sm:left-[40%] sm:h-56 sm:w-40" },
+  { label: "Order help", position: "right-[6%] top-[28%] h-40 w-36 rotate-6 sm:right-[10%] sm:h-44 sm:w-40" },
 ] as const;
 
 const heroHighlights = [
@@ -76,11 +68,15 @@ function mapsSearchUrl(address: string) {
 }
 
 export default async function ContactPage() {
-  const [settings, headOffice] = await Promise.all([
+  const [settings, headOffice, samples] = await Promise.all([
     getPublicAppSettings(),
     getHeadOfficeBranchPublic(),
+    getMarketplaceCategorySampleImages(),
   ]);
   const appName = settings.appName;
+  const heroImages = pickHeroFloatImages(samples, ["homecare", "wellness", "scent"]);
+  const heroFloats = HERO_FLOAT_META.map((meta, i) => ({ ...meta, image: heroImages[i] }));
+  const mapImage = pickCatalogImage(samples);
 
   const addressLine = headOffice?.address?.trim();
   const phoneLine = headOffice?.phone?.trim();
@@ -182,17 +178,15 @@ export default async function ContactPage() {
               <div className="absolute inset-x-[6%] bottom-8 h-20 rounded-[50%] bg-white/45 blur-2xl" />
               <div className="absolute left-[26%] top-[8%] h-60 w-60 rounded-full border border-white/55 bg-white/15" />
 
-              {HERO_FLOATS.map((card) => (
+              {heroFloats.map((card) => (
                 <div
                   key={card.label}
                   className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
                   <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[1.35rem]">
-                    <Image
+                    <MarketplaceFillImage
                       src={card.image}
-                      alt=""
-                      fill
-                      className="object-cover"
+                      alt={card.label}
                       sizes="(max-width: 768px) 140px, 180px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/55 via-transparent to-transparent" />
@@ -271,11 +265,9 @@ export default async function ContactPage() {
               </h2>
             </div>
             <div className="relative h-48 overflow-hidden rounded-2xl border border-white/65 sm:h-56">
-              <Image
-                src={MARKETPLACE_STOCK_IMAGES.lifestyle}
-                alt=""
-                fill
-                className="object-cover"
+              <MarketplaceFillImage
+                src={mapImage}
+                alt="Products from our shop"
                 sizes="(max-width: 1024px) 100vw, 400px"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/50 via-white/10 to-white/20" />

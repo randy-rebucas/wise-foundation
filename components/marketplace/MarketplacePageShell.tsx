@@ -9,7 +9,7 @@ type Props = {
   children: React.ReactNode;
   className?: string;
   innerClassName?: string;
-  gap?: "space-y-5" | "space-y-6" | "";
+  gap?: "space-y-5" | "space-y-6" | "space-y-8" | "";
 };
 
 export function MarketplacePageShell({

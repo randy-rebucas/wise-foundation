@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -14,9 +14,10 @@ import {
   Package,
   ShoppingBag,
   Sparkles,
-  Star,
   Trash2,
 } from "lucide-react";
+import { ProductRatingBadge } from "@/components/marketplace/reviews/ProductRatingBadge";
+import { useProductReviewSummaries } from "@/components/marketplace/reviews/useProductReviewSummaries";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,12 @@ import { Input } from "@/components/ui/input";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
+import { useCategorySampleImages } from "@/components/marketplace/useCategorySampleImages";
+import {
+  pickCatalogImage,
+  pickHeroFloatImages,
+} from "@/lib/marketplace/categoryImages";
+import { MARKETPLACE_STOCK_IMAGES } from "@/lib/marketplace/stockImages";
 
 import {
   MARKETPLACE_FREE_SHIPPING_THRESHOLD,
@@ -32,16 +39,6 @@ import {
 } from "@/lib/utils/marketplaceShipping";
 
 const FREE_SHIPPING_THRESHOLD = MARKETPLACE_FREE_SHIPPING_THRESHOLD;
-
-const STOCK_IMAGES = {
-  hero: [
-    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
-  ],
-  product:
-    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
-};
 
 type SuggestedProduct = {
   _id: string;
@@ -71,6 +68,23 @@ export default function MarketplaceCartPage() {
 
   const [suggestions, setSuggestions] = useState<SuggestedProduct[]>([]);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const suggestionIds = suggestions.map((p) => p._id);
+  const { summaries: suggestionReviewSummaries } = useProductReviewSummaries(suggestionIds);
+  const categorySamples = useCategorySampleImages();
+  const heroImages = useMemo(
+    () =>
+      categorySamples
+        ? pickHeroFloatImages(categorySamples, ["homecare", "wellness", "scent"])
+        : [
+            MARKETPLACE_STOCK_IMAGES.cleanser,
+            MARKETPLACE_STOCK_IMAGES.serum,
+            MARKETPLACE_STOCK_IMAGES.collection,
+          ],
+    [categorySamples]
+  );
+  const catalogFallback = categorySamples
+    ? pickCatalogImage(categorySamples)
+    : MARKETPLACE_STOCK_IMAGES.moisturizer;
 
   const loadSuggestions = useCallback(async () => {
     try {
@@ -101,7 +115,7 @@ export default function MarketplaceCartPage() {
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
 
   function lineImage(url: string | undefined) {
-    return url || STOCK_IMAGES.product;
+    return url || catalogFallback;
   }
 
   function addSuggestedToCart(product: SuggestedProduct) {
@@ -143,7 +157,7 @@ export default function MarketplaceCartPage() {
 
             <div className="relative min-h-[220px] lg:min-h-[260px]">
               <div className="absolute inset-x-[8%] bottom-8 h-20 rounded-[50%] bg-white/45 blur-2xl" />
-              {STOCK_IMAGES.hero.map((image, index) => {
+              {heroImages.map((image, index) => {
                 const positions = [
                   "left-[16%] top-[24%] h-40 w-32 rotate-[-5deg]",
                   "left-[42%] top-[5%] h-52 w-36",
@@ -365,7 +379,7 @@ export default function MarketplaceCartPage() {
                 >
                   {suggestions.map((product, index) => {
                     const imageUrl =
-                      product.images?.[0] || STOCK_IMAGES.product;
+                      product.images?.[0] || catalogFallback;
                     return (
                       <article
                         key={product._id}
@@ -394,14 +408,10 @@ export default function MarketplaceCartPage() {
                         <p className="mt-1 text-sm font-bold text-[#1e3157]">
                           {money(product.retailPrice)}
                         </p>
-                        <div className="mt-2 flex items-center gap-0.5 text-[#FBC02D]">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className="h-3 w-3 fill-current" />
-                          ))}
-                          <span className="ml-1 text-[0.65rem] text-[#2A4C6A]/60">
-                            ({Math.max(24, index * 17 + 48)})
-                          </span>
-                        </div>
+                        <ProductRatingBadge
+                          summary={suggestionReviewSummaries[product._id]}
+                          className="mt-2"
+                        />
                         <Button
                           type="button"
                           className="mt-3 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"

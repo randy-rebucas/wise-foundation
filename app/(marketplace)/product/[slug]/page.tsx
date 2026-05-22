@@ -33,6 +33,9 @@ import { buildMarketplaceGalleryImages } from "@/lib/products/galleryImages";
 import { resolveProductShortDescriptionMarkdown } from "@/lib/products/productCopy";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { ProductImageGallery } from "@/components/marketplace/ProductImageGallery";
+import { ProductReviewsSection } from "@/components/marketplace/reviews/ProductReviewsSection";
+import { ProductReviewSummary } from "@/components/marketplace/reviews/ProductReviewSummary";
+import { marketplaceCategoryLabel } from "@/lib/marketplace/categories";
 
 type Variant = {
   _id: string;
@@ -60,16 +63,9 @@ type Product = {
   variants: Variant[];
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  homecare: "Cleansers",
-  cosmetics: "Toners",
-  wellness: "Serums",
-  scent: "Moisturizers",
-};
-
 function categoryLabel(value?: string) {
   if (!value) return null;
-  return CATEGORY_LABELS[value] ?? value.replace(/_/g, " ");
+  return marketplaceCategoryLabel(value);
 }
 
 function ProductPageSkeleton() {
@@ -302,6 +298,7 @@ export default function MarketplaceProductPage() {
               <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold leading-tight text-[#1e3157] sm:text-4xl">
                 {data.name}
               </h1>
+              <ProductReviewSummary productId={data._id} />
               {selectedVariant ? (
                 <p className="mt-1 text-sm text-[#2A4C6A]/75">{selectedVariant.name}</p>
               ) : null}
@@ -431,6 +428,8 @@ export default function MarketplaceProductPage() {
           </div>
         </div>
       </article>
+
+      <ProductReviewsSection productId={data._id} productName={data.name} />
     </div>
   );
 }

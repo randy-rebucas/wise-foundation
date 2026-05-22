@@ -77,6 +77,7 @@ export default function AccountOrderDetailPage() {
   }
 
   const statusInfo = statusDisplay(order.status);
+  const canReview = ["delivered", "completed"].includes(order.status.toLowerCase());
 
   return (
     <>
@@ -122,6 +123,20 @@ export default function AccountOrderDetailPage() {
                   <p className="mt-1 text-sm text-[#2A4C6A]/75">
                     {item.quantity} × {money(item.unitPrice)}
                   </p>
+                  {canReview ? (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 h-8 rounded-lg border-white/70 bg-white/55 text-xs"
+                    >
+                      <Link
+                        href={`/account/reviews?productId=${encodeURIComponent(item.productId)}`}
+                      >
+                        Write review
+                      </Link>
+                    </Button>
+                  ) : null}
                 </div>
                 <p className="font-semibold text-[#1e3157]">{money(item.total)}</p>
               </li>

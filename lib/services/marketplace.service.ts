@@ -258,6 +258,106 @@ export async function resolveMarketplaceCashierId(): Promise<Types.ObjectId> {
   return admin._id as Types.ObjectId;
 }
 
+export type CategoryFeaturedProduct = {
+  productId: string;
+  name: string;
+  slug: string;
+  image: string;
+};
+
+export type MarketplaceCategoryShowcase = {
+  /** Newest listed product with an image in each category. */
+  featured: Partial<Record<ProductCategory, CategoryFeaturedProduct>>;
+  catalog: CategoryFeaturedProduct | null;
+};
+
+export type MarketplaceCategorySampleImages = {
+  byCategory: Partial<Record<ProductCategory, string>>;
+  featured: Partial<Record<ProductCategory, CategoryFeaturedProduct>>;
+  catalog: string | null;
+  catalogProduct: CategoryFeaturedProduct | null;
+};
+
+export async function getMarketplaceCategoryShowcase(): Promise<MarketplaceCategoryShowcase> {
+  await connectDB();
+
+  const grouped = await Product.aggregate<{
+    _id: ProductCategory;
+    productId: mongoose.Types.ObjectId;
+    name: string;
+    slug: string;
+    image: string;
+  }>([
+    {
+      $match: {
+        ...marketplaceListedMatch,
+        images: { $exists: true, $type: "array", $ne: [] },
+      },
+    },
+    { $sort: { updatedAt: -1 } },
+    {
+      $group: {
+        _id: "$category",
+        productId: { $first: "$_id" },
+        name: { $first: "$name" },
+        slug: { $first: "$slug" },
+        image: { $first: { $arrayElemAt: ["$images", 0] } },
+      },
+    },
+  ]);
+
+  const featured: Partial<Record<ProductCategory, CategoryFeaturedProduct>> = {};
+  for (const row of grouped) {
+    if (!row._id || !row.image) continue;
+    featured[row._id] = {
+      productId: String(row.productId),
+      name: row.name,
+      slug: row.slug,
+      image: row.image,
+    };
+  }
+
+  const catalogDoc = await Product.findOne({
+    ...marketplaceListedMatch,
+    images: { $exists: true, $type: "array", $ne: [] },
+  })
+    .select("name slug images")
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  const catalog = catalogDoc?.images?.[0]
+    ? {
+        productId: String(catalogDoc._id),
+        name: catalogDoc.name as string,
+        slug: catalogDoc.slug as string,
+        image: catalogDoc.images[0] as string,
+      }
+    : featured.wellness ??
+      featured.cosmetics ??
+      featured.homecare ??
+      featured.scent ??
+      null;
+
+  return { featured, catalog };
+}
+
+export async function getMarketplaceCategorySampleImages(): Promise<MarketplaceCategorySampleImages> {
+  const { featured, catalog } = await getMarketplaceCategoryShowcase();
+  const byCategory: Partial<Record<ProductCategory, string>> = {};
+  for (const [key, product] of Object.entries(featured) as [
+    ProductCategory,
+    CategoryFeaturedProduct,
+  ][]) {
+    byCategory[key] = product.image;
+  }
+  return {
+    byCategory,
+    featured,
+    catalog: catalog?.image ?? null,
+    catalogProduct: catalog,
+  };
+}
+
 export async function getMarketplaceShopFacets() {
   await connectDB();
   const [facet] = await Product.aggregate<{
@@ -916,7 +1016,34 @@ export type PublicMarketplaceReview = {
   reviewerName: string;
 };
 
-export async function listPublicMarketplaceReviews(limit = 50) {
+export type ListPublicReviewsOptions = {
+  limit?: number;
+  productId?: string;
+};
+
+export type ReviewAggregateStats = {
+  averageRating: number | null;
+  reviewCount: number;
+  fiveStarCount: number;
+};
+
+export type ProductReviewSummary = {
+  averageRating: number | null;
+  reviewCount: number;
+};
+
+export type ListPublicReviewsResult = {
+  reviews: PublicMarketplaceReview[];
+  stats: ReviewAggregateStats;
+};
+
+export async function listPublicMarketplaceReviews(
+  options: ListPublicReviewsOptions | number = 50
+): Promise<ListPublicReviewsResult> {
+  const opts: ListPublicReviewsOptions =
+    typeof options === "number" ? { limit: options } : options;
+  const { limit = 50, productId } = opts;
+
   await connectDB();
   const cap = Math.min(100, Math.max(1, limit));
   const users = await User.find({
@@ -931,6 +1058,7 @@ export async function listPublicMarketplaceReviews(limit = 50) {
   for (const user of users) {
     const reviews = user.marketplace?.reviews ?? [];
     for (const r of reviews) {
+      if (productId && r.productId !== productId) continue;
       flat.push({
         id: r.id,
         productId: r.productId,
@@ -945,7 +1073,61 @@ export async function listPublicMarketplaceReviews(limit = 50) {
   }
 
   flat.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return flat.slice(0, cap);
+
+  const reviewCount = flat.length;
+  const averageRating =
+    reviewCount > 0
+      ? Math.round((flat.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10
+      : null;
+  const fiveStarCount = flat.filter((r) => r.rating === 5).length;
+
+  return {
+    reviews: flat.slice(0, cap),
+    stats: { averageRating, reviewCount, fiveStarCount },
+  };
+}
+
+/** Per-product average rating and count from stored customer reviews. */
+export async function getProductReviewSummaries(
+  productIds: string[]
+): Promise<Record<string, ProductReviewSummary>> {
+  const unique = [...new Set(productIds.filter(Boolean))];
+  const out: Record<string, ProductReviewSummary> = {};
+  for (const id of unique) {
+    out[id] = { averageRating: null, reviewCount: 0 };
+  }
+  if (!unique.length) return out;
+
+  await connectDB();
+  const idSet = new Set(unique);
+  const users = await User.find({
+    role: "CUSTOMER",
+    deletedAt: null,
+    "marketplace.reviews.0": { $exists: true },
+  })
+    .select("marketplace.reviews")
+    .lean();
+
+  const buckets = new Map<string, { sum: number; count: number }>();
+  for (const user of users) {
+    for (const r of user.marketplace?.reviews ?? []) {
+      if (!idSet.has(r.productId)) continue;
+      const prev = buckets.get(r.productId) ?? { sum: 0, count: 0 };
+      prev.sum += r.rating;
+      prev.count += 1;
+      buckets.set(r.productId, prev);
+    }
+  }
+
+  for (const id of unique) {
+    const b = buckets.get(id);
+    if (!b || b.count === 0) continue;
+    out[id] = {
+      averageRating: Math.round((b.sum / b.count) * 10) / 10,
+      reviewCount: b.count,
+    };
+  }
+  return out;
 }
 
 export async function submitMarketplaceContactMessage(input: {

@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import { getMarketplaceCategorySampleImages } from "@/lib/services/marketplace.service";
 import { buildPageMetadata } from "@/lib/seo/site";
-import { MARKETPLACE_STOCK_IMAGES } from "@/lib/marketplace/stockImages";
+import {
+  pickCategoryProductImage,
+  pickHeroFloatImages,
+} from "@/lib/marketplace/categoryImages";
+import { MarketplaceFillImage } from "@/components/marketplace/MarketplaceFillImage";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
@@ -29,22 +33,10 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-const HERO_FLOATS = [
-  {
-    image: MARKETPLACE_STOCK_IMAGES.cleanser,
-    label: "Clean botanical care",
-    position: "left-[6%] top-[18%] h-48 w-32 -rotate-6 sm:left-[12%] sm:h-52 sm:w-36",
-  },
-  {
-    image: MARKETPLACE_STOCK_IMAGES.serum,
-    label: "Daily glow essentials",
-    position: "left-[38%] top-[4%] h-52 w-36 sm:left-[40%] sm:h-60 sm:w-40",
-  },
-  {
-    image: MARKETPLACE_STOCK_IMAGES.collection,
-    label: "Pure skincare rituals",
-    position: "right-[6%] top-[24%] h-44 w-36 rotate-6 sm:right-[10%] sm:h-48 sm:w-40",
-  },
+const HERO_FLOAT_META = [
+  { label: "Clean botanical care", position: "left-[6%] top-[18%] h-48 w-32 -rotate-6 sm:left-[12%] sm:h-52 sm:w-36" },
+  { label: "Daily glow essentials", position: "left-[38%] top-[4%] h-52 w-36 sm:left-[40%] sm:h-60 sm:w-40" },
+  { label: "Pure skincare rituals", position: "right-[6%] top-[24%] h-44 w-36 rotate-6 sm:right-[10%] sm:h-48 sm:w-40" },
 ] as const;
 
 const promises = [
@@ -83,6 +75,10 @@ const promises = [
 export default async function AboutUsPage() {
   const settings = await getPublicAppSettings();
   const appName = settings.appName;
+  const samples = await getMarketplaceCategorySampleImages();
+  const heroImages = pickHeroFloatImages(samples, ["homecare", "wellness", "cosmetics"]);
+  const heroFloats = HERO_FLOAT_META.map((meta, i) => ({ ...meta, image: heroImages[i] }));
+  const storyImage = pickCategoryProductImage(samples, "cosmetics");
 
   return (
     <MarketplacePageShell>
@@ -155,17 +151,15 @@ export default async function AboutUsPage() {
               <div className="absolute left-[24%] top-[6%] h-64 w-64 rounded-full border border-white/55 bg-white/15" />
               <div className="absolute bottom-8 right-[6%] h-24 w-24 rounded-full bg-pink-300/35 blur-md" />
 
-              {HERO_FLOATS.map((card) => (
+              {heroFloats.map((card) => (
                 <div
                   key={card.label}
                   className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
                   <div className="relative h-[calc(100%-1.5rem)] min-h-[7.5rem] overflow-hidden rounded-[1.35rem]">
-                    <Image
+                    <MarketplaceFillImage
                       src={card.image}
-                      alt=""
-                      fill
-                      className="object-cover"
+                      alt={card.label}
                       sizes="(max-width: 768px) 140px, 180px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/55 via-transparent to-transparent" />
@@ -218,11 +212,9 @@ export default async function AboutUsPage() {
         {/* Story */}
         <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-white/65 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="relative min-h-[280px] overflow-hidden sm:min-h-[320px] lg:min-h-full">
-            <Image
-              src={MARKETPLACE_STOCK_IMAGES.botanical}
+            <MarketplaceFillImage
+              src={storyImage}
               alt={`${appName} skincare`}
-              fill
-              className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority
             />

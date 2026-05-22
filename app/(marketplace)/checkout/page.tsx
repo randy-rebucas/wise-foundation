@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -74,17 +74,12 @@ import { validateGcashEntry } from "@/lib/utils/gcashPayment";
 import { validateBankTransferEntry } from "@/lib/utils/bankTransferPayment";
 import { validateCodEntry } from "@/lib/utils/codPayment";
 import { MARKETPLACE_COD_MIN_ORDER } from "@/lib/constants/marketplaceCod";
-
-const STOCK_IMAGES = {
-  hero: [
-    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
-  ],
-  product:
-    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
-};
-
+import { useCategorySampleImages } from "@/components/marketplace/useCategorySampleImages";
+import {
+  pickCatalogImage,
+  pickHeroFloatImages,
+} from "@/lib/marketplace/categoryImages";
+import { MARKETPLACE_STOCK_IMAGES } from "@/lib/marketplace/stockImages";
 
 const CHECKOUT_STEPS = [
   { id: "cart", label: "Cart" },
@@ -142,6 +137,21 @@ export default function MarketplaceCheckoutPage() {
   const getSubtotal = useMarketplaceCartStore((s) => s.getSubtotal);
   const clear = useMarketplaceCartStore((s) => s.clear);
   const subtotal = getSubtotal();
+  const categorySamples = useCategorySampleImages();
+  const heroImages = useMemo(
+    () =>
+      categorySamples
+        ? pickHeroFloatImages(categorySamples, ["homecare", "wellness", "cosmetics"])
+        : [
+            MARKETPLACE_STOCK_IMAGES.cleanser,
+            MARKETPLACE_STOCK_IMAGES.serum,
+            MARKETPLACE_STOCK_IMAGES.collection,
+          ],
+    [categorySamples]
+  );
+  const catalogFallback = categorySamples
+    ? pickCatalogImage(categorySamples)
+    : MARKETPLACE_STOCK_IMAGES.moisturizer;
 
   const [loading, setLoading] = useState(false);
   const [shippingMethod, setShippingMethod] =
@@ -467,7 +477,7 @@ export default function MarketplaceCheckoutPage() {
   }
 
   function lineImage(url: string | undefined) {
-    return url || STOCK_IMAGES.product;
+    return url || catalogFallback;
   }
 
   async function submit(e: React.FormEvent) {
@@ -851,7 +861,7 @@ export default function MarketplaceCheckoutPage() {
 
             <div className="relative min-h-[200px] lg:min-h-[240px]">
               <div className="absolute inset-x-[8%] bottom-6 h-20 rounded-[50%] bg-white/45 blur-2xl" />
-              {STOCK_IMAGES.hero.map((image, index) => {
+              {heroImages.map((image, index) => {
                 const positions = [
                   "left-[16%] top-[24%] h-40 w-32 rotate-[-5deg]",
                   "left-[42%] top-[5%] h-52 w-36",

@@ -5,8 +5,13 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") ?? "50", 10);
-    const reviews = await listPublicMarketplaceReviews(limit);
-    return successResponse(reviews);
+    const productId = searchParams.get("productId")?.trim() || undefined;
+    const { reviews, stats } = await listPublicMarketplaceReviews({ limit, productId });
+    return successResponse(reviews, undefined, 200, {
+      averageRating: stats.averageRating,
+      reviewCount: stats.reviewCount,
+      fiveStarCount: stats.fiveStarCount,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to load reviews";
     return errorResponse(msg, 500);

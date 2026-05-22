@@ -8,6 +8,7 @@ import type { OrderStatus } from "@/types";
 export type CustomerOrderLineSummary = {
   productId: string;
   productName: string;
+  productSlug?: string;
 };
 
 export type CustomerOrderRow = {
@@ -52,12 +53,13 @@ export async function listMyMarketplaceOrders(customerUserId: string, limit = 50
   const products =
     productIds.length > 0
       ? await Product.find({ _id: { $in: productIds }, deletedAt: null })
-          .select("images")
+          .select("images slug")
           .lean()
       : [];
   const imageByProductId = new Map(
     products.map((p) => [String(p._id), (p.images?.[0] as string | undefined) ?? null])
   );
+  const slugByProductId = new Map(products.map((p) => [String(p._id), p.slug as string]));
 
   const metaByOrderId = new Map<
     string,
@@ -72,14 +74,20 @@ export async function listMyMarketplaceOrders(customerUserId: string, limit = 50
     if (existing) {
       existing.itemCount += qty;
       if (!existing.lineItems.some((l) => l.productId === productId)) {
-        existing.lineItems.push({ productId, productName });
+        existing.lineItems.push({
+          productId,
+          productName,
+          productSlug: slugByProductId.get(productId),
+        });
       }
       continue;
     }
     metaByOrderId.set(orderKey, {
       thumbnailUrl: imageByProductId.get(productId) ?? null,
       itemCount: qty,
-      lineItems: [{ productId, productName }],
+      lineItems: [
+        { productId, productName, productSlug: slugByProductId.get(productId) },
+      ],
     });
   }
 

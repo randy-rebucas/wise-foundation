@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   FlaskConical,
   Heart,
   Leaf,
@@ -15,7 +13,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +25,22 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AppLogo } from "@/components/branding/AppLogo";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { PublicReviewsCarousel } from "@/components/marketplace/reviews/PublicReviewsCarousel";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
+import { MARKETPLACE_CATEGORY_CARDS } from "@/lib/marketplace/categories";
+import { MARKETPLACE_PRODUCT_STOCK } from "@/lib/marketplace/stockImages";
+import {
+  pickCategoryProductImage,
+  pickHeroFloatImages,
+} from "@/lib/marketplace/categoryImages";
+import { useCategorySampleImages } from "@/components/marketplace/useCategorySampleImages";
+import { cn } from "@/lib/utils";
 import type { ProductCategory } from "@/types";
+
+const VALID_CATEGORIES = new Set<ProductCategory>(["homecare", "cosmetics", "wellness", "scent"]);
 
 type Row = {
   _id: string;
@@ -45,48 +54,20 @@ type Row = {
 
 const CATS: { value: ProductCategory | ""; label: string }[] = [
   { value: "", label: "All categories" },
-  { value: "homecare", label: "Homecare" },
-  { value: "cosmetics", label: "Cosmetics" },
-  { value: "wellness", label: "Wellness" },
-  { value: "scent", label: "Scent" },
+  ...PRODUCT_CATEGORIES.map((c) => ({ value: c.value, label: c.label })),
 ];
 
-const CATEGORY_CARDS: {
-  value: ProductCategory | "";
-  label: string;
-  detail: string;
-  icon: ElementType;
-  color: string;
-}[] = [
-    {
-      value: "cosmetics",
-      label: "Cosmetics",
-      detail: "Glow essentials",
-      icon: Sparkles,
-      color: "from-pink-200/80 to-fuchsia-100/70 text-pink-700",
-    },
-    {
-      value: "wellness",
-      label: "Wellness",
-      detail: "Care from within",
-      icon: Leaf,
-      color: "from-emerald-200/80 to-lime-100/70 text-emerald-700",
-    },
-    {
-      value: "homecare",
-      label: "Homecare",
-      detail: "Fresh daily rituals",
-      icon: ShieldCheck,
-      color: "from-sky-200/80 to-blue-100/70 text-sky-700",
-    },
-    {
-      value: "scent",
-      label: "Scent",
-      detail: "Soft signature notes",
-      icon: Heart,
-      color: "from-violet-200/80 to-purple-100/70 text-violet-700",
-    },
-  ];
+function categoryLabel(value: string) {
+  return PRODUCT_CATEGORIES.find((c) => c.value === value)?.label ?? value.replace(/_/g, " ");
+}
+
+const CATEGORY_CARDS = MARKETPLACE_CATEGORY_CARDS.map((c) => ({
+  value: c.value,
+  label: c.label,
+  detail: c.description.split(".")[0] ?? c.description,
+  icon: c.icon,
+  color: c.homeColor,
+}));
 
 const BENEFITS = [
   {
@@ -108,55 +89,6 @@ const BENEFITS = [
     title: "Trusted quality",
     description: "Premium Glowish care shipped with confidence.",
     icon: ShieldCheck,
-  },
-];
-
-const STOCK_IMAGES = {
-  products: [
-    "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=700&q=80",
-  ],
-  avatars: [
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80",
-    "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-    "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=200&q=80",
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-  ],
-};
-
-const REVIEWS = [
-  {
-    name: "Angelica D.",
-    title: "Verified buyer",
-    avatar: STOCK_IMAGES.avatars[0],
-    text: "Glowish products transformed my skin. It feels fresh, soft, and glowing every day.",
-  },
-  {
-    name: "Rhealyn M.",
-    title: "Verified buyer",
-    avatar: STOCK_IMAGES.avatars[1],
-    text: "The exfoliating bar is amazing. My skin feels smoother and brighter.",
-  },
-  {
-    name: "Lara C.",
-    title: "Verified buyer",
-    avatar: STOCK_IMAGES.avatars[2],
-    text: "Finally found skincare that suits my skin. Natural, effective, and worth every peso.",
-  },
-  {
-    name: "Isabella S.",
-    title: "Premium member",
-    avatar: STOCK_IMAGES.avatars[3],
-    text: "The products feel gentle and premium. My routine looks prettier and feels more consistent.",
-  },
-  {
-    name: "Mika A.",
-    title: "Verified buyer",
-    avatar: STOCK_IMAGES.avatars[4],
-    text: "Fast delivery, beautiful packaging, and the skincare gives such a clean glow.",
   },
 ];
 
@@ -182,7 +114,6 @@ export default function MarketplaceCatalogPage() {
   const [meta, setMeta] = useState<{ total: number; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const feedbackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search.trim()), 350);
@@ -224,24 +155,47 @@ export default function MarketplaceCatalogPage() {
     });
   }, [debounced, category, load]);
 
+  const categorySamples = useCategorySampleImages();
+  const heroCategoryImages = useMemo(
+    () =>
+      categorySamples
+        ? pickHeroFloatImages(categorySamples, ["homecare", "wellness", "cosmetics"])
+        : null,
+    [categorySamples]
+  );
+
   const img = (r: Row) => r.images?.[0];
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
-  const stockProductImage = (index: number) => STOCK_IMAGES.products[index % STOCK_IMAGES.products.length];
+
+  function resolveProductImage(r: Row, index: number) {
+    const direct = img(r);
+    if (direct) return direct;
+    const cat = VALID_CATEGORIES.has(r.category as ProductCategory)
+      ? (r.category as ProductCategory)
+      : null;
+    if (categorySamples) return pickCategoryProductImage(categorySamples, cat);
+    return MARKETPLACE_PRODUCT_STOCK[index % MARKETPLACE_PRODUCT_STOCK.length];
+  }
+
+  function heroSlotImage(index: number, product?: Row) {
+    if (product) return resolveProductImage(product, index);
+    return (
+      heroCategoryImages?.[index] ??
+      MARKETPLACE_PRODUCT_STOCK[index % MARKETPLACE_PRODUCT_STOCK.length]
+    );
+  }
+
   const heroProducts = rows.slice(0, 3);
-  const scrollFeedback = (direction: "prev" | "next") => {
-    const node = feedbackRef.current;
-    if (!node) return;
-    const cardWidth = node.firstElementChild?.clientWidth ?? 320;
-    node.scrollBy({
-      left: direction === "next" ? cardWidth + 16 : -(cardWidth + 16),
-      behavior: "smooth",
-    });
-  };
+
+  function selectCategory(value: ProductCategory | "") {
+    setCategory((prev) => (prev === value && value !== "" ? "" : value));
+    setPage(1);
+    document.getElementById("featured-products")?.scrollIntoView({ behavior: "smooth" });
+  }
 
   return (
-    <div className="overflow-hidden px-4 pb-6 pt-5 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A] sm:px-6">
-      <div className="mx-auto max-w-7xl">
-        <section className="relative isolate overflow-hidden sm:p-8 lg:min-h-[620px] lg:p-10">
+    <MarketplacePageShell gap="space-y-8">
+      <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/60 bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[580px] lg:py-12">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_58%_20%,rgba(255,255,255,0.72),transparent_20%),radial-gradient(circle_at_75%_45%,rgba(0,229,255,0.2),transparent_34%),radial-gradient(circle_at_86%_56%,rgba(255,51,204,0.18),transparent_34%)]" />
           <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
             <div className="space-y-6">
@@ -253,19 +207,19 @@ export default function MarketplaceCatalogPage() {
                   </span>
                 </h1>
                 <p className="max-w-lg text-base leading-7 text-[#2A4C6A]/85 sm:text-lg">
-                  Premium skincare crafted for healthy, radiant, and glowing skin. Shop soft,
-                  effective formulas inspired by the Glowish full-page concept.
+                  Premium skincare crafted for healthy, radiant skin. Discover cleansers, serums,
+                  and daily essentials shipped from our fulfillment center.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   className="h-12 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] px-6 text-white shadow-[0_10px_30px_rgba(71,125,52,0.28)] hover:from-[#5f9636] hover:to-[#3f702e]"
-                  onClick={() =>
-                    document.getElementById("featured-products")?.scrollIntoView({ behavior: "smooth" })
-                  }
+                  asChild
                 >
-                  Shop now
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <Link href="/shop">
+                    Shop now
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
                 </Button>
                 <Button
                   variant="outline"
@@ -290,57 +244,112 @@ export default function MarketplaceCatalogPage() {
               </div>
             </div>
 
-            <div className="relative flex min-h-[12rem] items-center justify-center rounded-[2rem] border border-white/60 bg-white/35 md:hidden">
-              <Leaf className="h-16 w-16 text-[#6ea43f]/60" />
+            <div className="relative flex min-h-[14rem] items-end justify-center overflow-hidden rounded-[2rem] border border-white/60 bg-white/35 p-4 md:hidden">
+              {heroProducts[0] ? (
+                <Link
+                  href={`/product/${encodeURIComponent(heroProducts[0].slug)}`}
+                  className="relative h-40 w-28 overflow-hidden rounded-2xl border border-white/70 shadow-lg"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroSlotImage(0, heroProducts[0])}
+                    alt={heroProducts[0].name}
+                    className="h-full w-full object-cover"
+                  />
+                </Link>
+              ) : heroCategoryImages?.[0] ? (
+                <div className="relative h-40 w-28 overflow-hidden rounded-2xl border border-white/70 shadow-lg">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroCategoryImages[0]}
+                    alt="Featured from our catalog"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <Leaf className="h-16 w-16 text-[#6ea43f]/60" />
+              )}
             </div>
             <div className="relative hidden min-h-[420px] md:block lg:min-h-[560px]">
               <div className="absolute inset-x-[7%] top-[16%] h-64 rounded-full border border-white/45 bg-[radial-gradient(circle,rgba(255,255,255,0.42),rgba(0,229,255,0.08)_48%,transparent_70%)] blur-[1px]" />
               <div className="absolute inset-x-[4%] bottom-[14%] h-20 rounded-[50%] bg-white/30 blur-2xl" />
               {HERO_PRODUCT_POSITIONS.map((position, index) => {
                 const product = heroProducts[index];
-                const imageUrl = product ? img(product) || stockProductImage(index) : stockProductImage(index);
-                return (
-                  <div
-                    key={position}
-                    className={`absolute ${position} overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/58 p-3 shadow-[0_22px_50px_rgba(68,47,107,0.22)] backdrop-blur-md`}
+                const imageUrl = heroSlotImage(index, product);
+                const shellClass = `absolute ${position} overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/58 p-3 shadow-[0_22px_50px_rgba(68,47,107,0.22)] backdrop-blur-md transition hover:shadow-[0_26px_58px_rgba(68,47,107,0.28)]`;
+                const inner = (
+                  <div className="relative h-full overflow-hidden rounded-[1rem] bg-gradient-to-br from-white/70 to-pink-100/60">
+                    {isRemote(imageUrl) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imageUrl}
+                        alt={product?.name ?? "Featured product"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Image
+                        src={imageUrl}
+                        alt={product?.name ?? "Featured product"}
+                        fill
+                        className="object-cover"
+                        sizes="180px"
+                      />
+                    )}
+                  </div>
+                );
+                return product ? (
+                  <Link
+                    key={product._id}
+                    href={`/product/${encodeURIComponent(product.slug)}`}
+                    className={shellClass}
+                    aria-label={product.name}
                   >
-                    <div className="relative h-full overflow-hidden rounded-[1rem] bg-gradient-to-br from-white/70 to-pink-100/60">
-                      {isRemote(imageUrl) ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <Image src={imageUrl} alt="" fill className="object-cover" sizes="180px" />
-                      )}
-                    </div>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={position} className={shellClass}>
+                    {inner}
                   </div>
                 );
               })}
               <div className="absolute bottom-8 right-4 rounded-2xl border border-white/70 bg-white/58 p-4 shadow-lg backdrop-blur-md sm:right-10">
-                <p className="text-sm font-semibold text-[#2B6B56]">Soft skincare aesthetic</p>
+                <p className="text-sm font-semibold text-[#2B6B56]">Curated for you</p>
                 <p className="mt-1 max-w-56 text-xs leading-5 text-[#2A4C6A]/80">
-                  A page-wide Glowish look inspired by the provided mockup.
+                  {meta?.total
+                    ? `${meta.total} products available online today.`
+                    : "Fresh picks from our online catalog."}
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7">
-          <div className="mb-5 flex flex-col gap-3 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
-              Shop by category
-            </p>
-            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
-              Find your next Glowish ritual
-            </h2>
+        <section className="rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7">
+          <div className="mb-5 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
+                Shop by category
+              </p>
+              <h2 className="mt-2 font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
+                Find your next Glowish ritual
+              </h2>
+            </div>
+            <Button variant="outline" className="rounded-xl border-white/70 bg-white/55" asChild>
+              <Link href="/categories">View all categories</Link>
+            </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {CATEGORY_CARDS.map((card) => (
               <button
                 key={card.value || "all"}
                 type="button"
-                onClick={() => setCategory(card.value)}
-                className="group rounded-2xl border border-white/65 bg-white/45 p-4 text-left shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/65 hover:shadow-lg"
+                onClick={() => selectCategory(card.value)}
+                className={cn(
+                  "group rounded-2xl border bg-white/45 p-4 text-left shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/65 hover:shadow-lg",
+                  category === card.value
+                    ? "border-[#6ea43f]/60 ring-2 ring-[#6ea43f]/25"
+                    : "border-white/65"
+                )}
               >
                 <span
                   className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${card.color}`}
@@ -356,7 +365,7 @@ export default function MarketplaceCatalogPage() {
 
         <section
           id="featured-products"
-          className="mt-8 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
+          className="scroll-mt-24 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
         >
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -367,7 +376,7 @@ export default function MarketplaceCatalogPage() {
                 Beauty favorites ready to ship
               </h2>
               <p className="mt-1 text-sm text-[#2A4C6A]/75">
-                Browse products fulfilled from our warehouse. Prices include standard retail.
+                Live catalog from our shop — search, filter, and add to cart on each product page.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -377,12 +386,17 @@ export default function MarketplaceCatalogPage() {
                   className="h-11 rounded-xl border-white/70 bg-white/55 pl-9 text-[#2A4C6A] shadow-sm placeholder:text-[#2A4C6A]/45 focus-visible:ring-[#00E5FF]/50"
                   placeholder="Search name or SKU..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                 />
               </div>
               <Select
                 value={category || "all"}
-                onValueChange={(v) => setCategory(v === "all" ? "" : (v as ProductCategory))}
+                onValueChange={(v) =>
+                  selectCategory(v === "all" ? "" : (v as ProductCategory))
+                }
               >
                 <SelectTrigger className="h-11 w-full rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-[200px]">
                   <SelectValue placeholder="Category" />
@@ -395,6 +409,16 @@ export default function MarketplaceCatalogPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                className="h-11 shrink-0 rounded-xl border-white/70 bg-white/55 px-4 text-[#2A4C6A]"
+                asChild
+              >
+                <Link href={category ? `/shop?category=${category}` : "/shop"}>
+                  Full shop
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </div>
           </div>
 
@@ -415,15 +439,39 @@ export default function MarketplaceCatalogPage() {
               <Package className="mb-3 h-10 w-10 text-[#2A4C6A]/45" />
               <p className="font-semibold text-[#3c2e60]">No products match your filters.</p>
               <p className="mt-1 text-sm text-[#2A4C6A]/70">Try another search or category.</p>
+              <Button
+                variant="outline"
+                className="mt-4 rounded-xl border-white/70 bg-white/55"
+                onClick={() => {
+                  setSearch("");
+                  setCategory("");
+                  setPage(1);
+                }}
+              >
+                Clear filters
+              </Button>
             </div>
           ) : (
             <>
-              <p className="mb-4 text-sm text-[#2A4C6A]/75">
-                {meta?.total ?? rows.length} product{(meta?.total ?? 0) === 1 ? "" : "s"}
+              <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[#2A4C6A]/75">
+                <span>
+                  {meta?.total ?? rows.length} product{(meta?.total ?? 0) === 1 ? "" : "s"}
+                  {debounced || category ? " matching your filters" : ""}
+                </span>
+                {category ? (
+                  <span className="rounded-full border border-[#6ea43f]/30 bg-[#6ea43f]/10 px-2.5 py-0.5 text-xs font-medium text-[#477d34]">
+                    {categoryLabel(category)}
+                  </span>
+                ) : null}
+                {debounced ? (
+                  <span className="rounded-full border border-white/70 bg-white/55 px-2.5 py-0.5 text-xs text-[#2A4C6A]">
+                    &ldquo;{debounced}&rdquo;
+                  </span>
+                ) : null}
               </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {rows.map((r, index) => {
-                  const imageUrl = img(r) || stockProductImage(index);
+                  const imageUrl = resolveProductImage(r, index);
 
                   return (
                   <Link
@@ -437,13 +485,13 @@ export default function MarketplaceCatalogPage() {
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={imageUrl}
-                              alt=""
+                              alt={r.name}
                               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                             />
                           ) : (
                             <Image
                               src={imageUrl}
-                              alt=""
+                              alt={r.name}
                               fill
                               className="object-cover transition duration-500 group-hover:scale-105"
                               sizes="(max-width:768px) 100vw, (max-width:1280px) 33vw, 25vw"
@@ -451,7 +499,7 @@ export default function MarketplaceCatalogPage() {
                         )}
                         <span
                           className="absolute right-3 top-3 rounded-full border border-white/70 bg-white/65 p-2 text-[#3c2e60] shadow-sm backdrop-blur"
-                          aria-label="View product"
+                          aria-hidden
                         >
                           <Heart className="h-4 w-4" />
                         </span>
@@ -463,7 +511,7 @@ export default function MarketplaceCatalogPage() {
                       </div>
                       <CardContent className="space-y-2 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6ea43f]">
-                          {r.category}
+                          {categoryLabel(r.category)}
                         </p>
                         <p className="line-clamp-2 font-semibold leading-snug text-[#3c2e60]">
                           {r.name}
@@ -480,6 +528,13 @@ export default function MarketplaceCatalogPage() {
                   );
                 })}
               </div>
+              {loading && rows.length > 0 ? (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={`more-${i}`} className="h-72 rounded-3xl bg-white/45" />
+                  ))}
+                </div>
+              ) : null}
               {meta?.hasMore && (
                 <div className="flex justify-center pt-6">
                   <Button
@@ -498,7 +553,7 @@ export default function MarketplaceCatalogPage() {
 
         <section
           id="why-glowish"
-          className="mt-8 grid gap-4 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7 md:grid-cols-2 lg:grid-cols-4"
+          className="scroll-mt-24 grid gap-4 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7 md:grid-cols-2 lg:grid-cols-4"
         >
           {BENEFITS.map((benefit) => (
             <div key={benefit.title} className="rounded-3xl border border-white/60 bg-white/40 p-5 backdrop-blur">
@@ -509,88 +564,19 @@ export default function MarketplaceCatalogPage() {
           ))}
         </section>
 
-        <section className="mt-8 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
-                Customer feedback
-              </p>
-              <h2 className="mt-2 font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
-                What our customers say
-              </h2>
-            </div>
-            <div className="hidden gap-2 sm:flex">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full border-white/70 bg-white/55 text-[#3c2e60] shadow-sm backdrop-blur hover:bg-white/75"
-                onClick={() => scrollFeedback("prev")}
-                aria-label="Previous feedback"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 rounded-full border-white/70 bg-white/55 text-[#3c2e60] shadow-sm backdrop-blur hover:bg-white/75"
-                onClick={() => scrollFeedback("next")}
-                aria-label="Next feedback"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+        <section className="rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7">
+          <div className="mb-2">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#6ea43f]">
+              Customer feedback
+            </p>
+            <h2 className="mt-2 font-[family-name:var(--font-playfair-display)] text-2xl font-semibold tracking-tight text-[#3c2e60]">
+              What our customers say
+            </h2>
           </div>
-          <div className="relative">
-            <div
-              ref={feedbackRef}
-              className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              aria-label="Customer feedback carousel"
-            >
-              {REVIEWS.map((review) => (
-                <article
-                  key={review.name}
-                  className="min-w-[82%] snap-start rounded-3xl border border-white/60 bg-white/50 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/65 hover:shadow-[0_18px_45px_rgba(94,70,135,0.16)] sm:min-w-[22rem] lg:min-w-[calc((100%_-_2rem)/3)]"
-                >
-                  <div className="mb-4 flex gap-0.5 text-[#FBC02D]">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                  <p className="min-h-[4.5rem] text-sm leading-6 text-[#2A4C6A]/80">
-                    &ldquo;{review.text}&rdquo;
-                  </p>
-                  <div className="mt-5 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={review.avatar}
-                      alt={`${review.name} avatar`}
-                      className="h-12 w-12 rounded-full border-2 border-white/80 object-cover shadow-sm"
-                      loading="lazy"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-[#3c2e60]">&mdash; {review.name}</p>
-                      <p className="text-xs font-medium text-[#6ea43f]">{review.title}</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="mt-3 flex justify-center gap-1.5">
-              {REVIEWS.map((review) => (
-                <span
-                  key={review.name}
-                  className="h-1.5 w-6 rounded-full bg-[#6ea43f]/35"
-                  aria-hidden
-                />
-              ))}
-            </div>
-          </div>
+          <PublicReviewsCarousel limit={10} showAllLink />
         </section>
 
-        <MarketplaceFooter className="mt-8" showSocial />
-      </div>
-    </div>
+      <MarketplaceFooter showSocial />
+    </MarketplacePageShell>
   );
 }

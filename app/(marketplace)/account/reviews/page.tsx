@@ -2,21 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader2, MessageCircle, Star } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
+import { InteractiveStarRating } from "@/components/marketplace/reviews/StarRating";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { MarketplaceCustomerReview } from "@/lib/types/customerAccount";
 import type { CustomerOrderRow } from "@/lib/services/customerOrders.service";
-import { cn } from "@/lib/utils";
 
 type ReviewableProduct = {
   productId: string;
   productName: string;
+  productSlug?: string;
   orderNumber: string;
 };
 
 export default function AccountReviewsPage() {
+  const searchParams = useSearchParams();
   const [reviews, setReviews] = useState<MarketplaceCustomerReview[]>([]);
   const [reviewable, setReviewable] = useState<ReviewableProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +60,7 @@ export default function AccountReviewsPage() {
               products.push({
                 productId: item.productId,
                 productName: item.productName,
+                productSlug: item.productSlug,
                 orderNumber: order.orderNumber,
               });
               reviewedIds.add(item.productId);
@@ -77,6 +81,21 @@ export default function AccountReviewsPage() {
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    if (loading || draft) return;
+    const productId = searchParams.get("productId")?.trim();
+    if (!productId) return;
+    const match = reviewable.find((p) => p.productId === productId);
+    if (!match) return;
+    setDraft({
+      productId: match.productId,
+      productName: match.productName,
+      productSlug: match.productSlug,
+      rating: 5,
+      text: "",
+    });
+  }, [loading, draft, reviewable, searchParams]);
 
   async function submitReview(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +145,16 @@ export default function AccountReviewsPage() {
                   className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-[#1e3157]">{review.productName}</p>
+                    {review.productSlug ? (
+                      <Link
+                        href={`/product/${encodeURIComponent(review.productSlug)}`}
+                        className="font-semibold text-[#1e3157] hover:text-[#6ea43f] hover:underline"
+                      >
+                        {review.productName}
+                      </Link>
+                    ) : (
+                      <p className="font-semibold text-[#1e3157]">{review.productName}</p>
+                    )}
                     <span className="flex items-center gap-0.5 text-amber-500">
                       {Array.from({ length: review.rating }).map((_, i) => (
                         <Star key={i} className="h-4 w-4 fill-current" />
@@ -155,22 +183,12 @@ export default function AccountReviewsPage() {
               <h2 className="font-semibold text-[#1e3157]">Review {draft.productName}</h2>
               <div className="mt-4">
                 <Label>Rating</Label>
-                <div className="mt-2 flex gap-1">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setDraft((d) => (d ? { ...d, rating: n } : d))}
-                      className="rounded p-1"
-                    >
-                      <Star
-                        className={cn(
-                          "h-6 w-6",
-                          n <= draft.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"
-                        )}
-                      />
-                    </button>
-                  ))}
+                <div className="mt-2">
+                  <InteractiveStarRating
+                    rating={draft.rating}
+                    onChange={(rating) => setDraft((d) => (d ? { ...d, rating } : d))}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
               <div className="mt-4">
@@ -228,6 +246,7 @@ export default function AccountReviewsPage() {
                         setDraft({
                           productId: p.productId,
                           productName: p.productName,
+                          productSlug: p.productSlug,
                           rating: 5,
                           text: "",
                         })

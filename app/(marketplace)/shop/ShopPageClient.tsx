@@ -11,18 +11,17 @@ import {
   ChevronRight,
   Grid3X3,
   Heart,
-  Home,
   LayoutList,
   Leaf,
   Package,
   Search,
-  ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
   Sparkles,
-  Star,
   Trash2,
 } from "lucide-react";
+import { ProductRatingBadge } from "@/components/marketplace/reviews/ProductRatingBadge";
+import { useProductReviewSummaries } from "@/components/marketplace/reviews/useProductReviewSummaries";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
@@ -42,6 +41,7 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
+import { MARKETPLACE_CATEGORY_CARDS, marketplaceCategoryLabel } from "@/lib/marketplace/categories";
 import type { MarketplaceProductSort } from "@/lib/services/marketplaceShopFilters";
 import type { ProductCategory } from "@/types";
 
@@ -62,11 +62,12 @@ const VIEW_STORAGE_KEY = "wise-shop-view";
 type ShopViewMode = "grid" | "list";
 
 const CATS: { value: ProductCategory | ""; label: string; icon: ElementType }[] = [
-  { value: "homecare", label: "Cleansers", icon: Home },
-  { value: "cosmetics", label: "Toners", icon: Sparkles },
-  { value: "wellness", label: "Serums", icon: Leaf },
-  { value: "scent", label: "Moisturizers", icon: ShieldCheck },
-  { value: "", label: "All Products", icon: Grid3X3 },
+  ...MARKETPLACE_CATEGORY_CARDS.map((c) => ({
+    value: c.value,
+    label: c.label,
+    icon: c.icon,
+  })),
+  { value: "" as const, label: "All Products", icon: Grid3X3 },
 ];
 
 type ShopFacets = {
@@ -78,8 +79,7 @@ type ShopFacets = {
 };
 
 function categoryLabel(value: string) {
-  const match = CATS.find((cat) => cat.value === value);
-  return match?.label ?? value;
+  return marketplaceCategoryLabel(value);
 }
 
 const VALID_CATEGORIES = new Set<ProductCategory>(["homecare", "cosmetics", "wellness", "scent"]);
@@ -214,6 +214,8 @@ export function ShopPageClient() {
   const showingStart = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const showingEnd = Math.min(page * LIMIT, total);
   const heroProducts = rows.slice(0, 3);
+  const productIds = useMemo(() => rows.map((r) => r._id), [rows]);
+  const { summaries: reviewSummaries } = useProductReviewSummaries(productIds);
 
   const categoryCounts = facets?.categoryCounts ?? {};
 
@@ -319,19 +321,6 @@ export function ShopPageClient() {
     );
   }
 
-  function ProductRating({ product }: { product: Row }) {
-    return (
-      <div className="flex items-center gap-1 text-[#FBC02D]">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star key={i} className="h-3 w-3 fill-current" />
-        ))}
-        <span className="ml-1 text-[0.65rem] text-[#2A4C6A]/60">
-          ({Math.max(32, product.stock + 64)})
-        </span>
-      </div>
-    );
-  }
-
   function ShopProductGridCard({ product }: { product: Row }) {
     return (
       <Card className="group overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
@@ -354,7 +343,7 @@ export function ShopPageClient() {
             {product.name}
           </Link>
           <p className="text-sm font-bold text-[#1e3157]">{money(product.retailPrice)}</p>
-          <ProductRating product={product} />
+          <ProductRatingBadge summary={reviewSummaries[product._id]} />
           <Button
             type="button"
             className="mt-2 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
@@ -391,7 +380,7 @@ export function ShopPageClient() {
             </Link>
             <p className="text-lg font-bold text-[#1e3157]">{money(product.retailPrice)}</p>
             <div className="flex justify-center sm:justify-start">
-              <ProductRating product={product} />
+              <ProductRatingBadge summary={reviewSummaries[product._id]} />
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-stretch gap-2 sm:w-40">
