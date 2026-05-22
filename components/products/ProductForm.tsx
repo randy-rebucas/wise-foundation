@@ -28,6 +28,10 @@ import {
   randomProductSku,
 } from "@/lib/products/catalog";
 import {
+  PRODUCT_SEO_DESCRIPTION_MAX,
+  PRODUCT_SEO_TITLE_MAX,
+} from "@/lib/products/seoLimits";
+import {
   buildProductSavePayload,
   defaultProductFormValues,
   type ProductFormValues,
@@ -233,10 +237,12 @@ export function ProductForm({
                 id="seoTitle"
                 value={form.seoTitle}
                 onChange={(e) => setForm((f) => ({ ...f, seoTitle: e.target.value }))}
-                placeholder="Custom page title (max 70 characters)"
-                maxLength={150}
+                placeholder={`Custom page title (max ${PRODUCT_SEO_TITLE_MAX} characters)`}
+                maxLength={PRODUCT_SEO_TITLE_MAX}
               />
-              <p className="text-xs text-muted-foreground">{form.seoTitle.length}/70</p>
+              <p className="text-xs text-muted-foreground">
+                {form.seoTitle.length}/{PRODUCT_SEO_TITLE_MAX}
+              </p>
             </div>
             <MarkdownEditor
               id="seoDescription"
@@ -246,11 +252,11 @@ export function ProductForm({
               onChange={(seoDescription) => setForm((f) => ({ ...f, seoDescription }))}
               placeholder="Custom meta description (plain text used in search results)"
               minRows={2}
-              maxLength={320}
+              maxLength={PRODUCT_SEO_DESCRIPTION_MAX}
               helperText={
                 <p className="text-xs text-muted-foreground">
-                  {form.seoDescription.length}/160 · Stored as Markdown; search engines receive plain
-                  text.
+                  {form.seoDescription.length}/{PRODUCT_SEO_DESCRIPTION_MAX} · Stored as Markdown;
+                  search engines receive plain text.
                 </p>
               }
             />

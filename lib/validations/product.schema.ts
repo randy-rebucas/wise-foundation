@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { MAX_GALLERY_IMAGES } from "@/lib/constants/gallery";
+import {
+  PRODUCT_SEO_DESCRIPTION_MAX,
+  PRODUCT_SEO_TITLE_MAX,
+} from "@/lib/products/seoLimits";
 import { parseImageUrl } from "@/lib/utils/imageUrl";
 
 const imageUrlSchema = z
@@ -22,8 +26,8 @@ export const createProductSchema = z.object({
   name: z.string().min(2, "Name is required").max(200),
   shortDescription: optionalText(500),
   description: optionalText(20_000),
-  seoTitle: optionalText(70),
-  seoDescription: optionalText(160),
+  seoTitle: optionalText(PRODUCT_SEO_TITLE_MAX),
+  seoDescription: optionalText(PRODUCT_SEO_DESCRIPTION_MAX),
   category: z.enum(["homecare", "cosmetics", "wellness", "scent"]),
   sku: z.string().min(1, "SKU is required").max(50),
   barcode: z.string().optional(),

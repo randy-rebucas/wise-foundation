@@ -10,7 +10,7 @@ export interface IProduct extends Document {
   description?: string;
   /** Optional override for HTML document title / OG title. */
   seoTitle?: string;
-  /** Optional override for meta description / OG description (max ~160 recommended). */
+  /** Optional override for meta description / OG description (max 320). */
   seoDescription?: string;
   category: ProductCategory;
   sku: string;
@@ -32,8 +32,8 @@ const ProductSchema = new Schema<IProduct>(
     slug: { type: String, required: true, lowercase: true, trim: true },
     shortDescription: { type: String, maxlength: 500 },
     description: { type: String, maxlength: 20_000 },
-    seoTitle: { type: String, maxlength: 70 },
-    seoDescription: { type: String, maxlength: 160 },
+    seoTitle: { type: String, maxlength: 150 },
+    seoDescription: { type: String, maxlength: 320 },
     category: {
       type: String,
       required: true,
