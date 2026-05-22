@@ -31,6 +31,7 @@ import {
   Upload,
   FileSpreadsheet,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { FileDropzone } from "@/components/shared/FileDropzone";
@@ -41,6 +42,8 @@ import {
   PRODUCTS_CSV_TEMPLATE,
 } from "@/lib/products/catalog";
 import type { ProductCategory } from "@/types";
+
+const PAGE_SIZE = 20;
 
 interface Product {
   _id: string;
@@ -63,6 +66,7 @@ export default function ProductsPage() {
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [importOpen, setImportOpen] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [importSummary, setImportSummary] = useState<{
@@ -72,23 +76,33 @@ export default function ProductsPage() {
   } | null>(null);
 
   const {
-    data: products = [],
+    data: listResult,
     isLoading,
     isError: isProductsError,
     error: productsError,
   } = useQuery({
-    queryKey: ["products", activeCategory, search],
+    queryKey: ["products", activeCategory, search, page],
     queryFn: async () => {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+        includeVariantSummary: "true",
+      });
       if (activeCategory && activeCategory !== "all") params.set("category", activeCategory);
       if (search) params.set("search", search);
-      params.set("includeVariantSummary", "true");
       const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? `Failed to load products (${res.status})`);
-      return (data.data ?? []) as Product[];
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? `Failed to load products (${res.status})`);
+      return json as {
+        data: Product[];
+        meta?: { total?: number; page?: number; limit?: number };
+      };
     },
   });
+
+  const products = listResult?.data ?? [];
+  const total = listResult?.meta?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -199,6 +213,52 @@ export default function ProductsPage() {
     }
   }
 
+  function categoryLabel(category: ProductCategory) {
+    return PRODUCT_CATEGORIES.find((c) => c.value === category)?.label ?? category;
+  }
+
+  function ProductActions({ p, className }: { p: Product; className?: string }) {
+    return (
+      <div className={cn("flex gap-1", className)}>
+        <Button variant="ghost" size="icon" title="Manage variants" asChild>
+          <Link href={`/products/${p._id}/edit#variants`}>
+            <Layers className="h-4 w-4" />
+          </Link>
+        </Button>
+        <RoleGuard requiredPermissions={["manage:products"]}>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Duplicate product"
+            aria-label="Duplicate product"
+            disabled={cloneMutation.isPending}
+            onClick={() => cloneMutation.mutate(p._id)}
+          >
+            {cloneMutation.isPending && cloneMutation.variables === p._id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+          <Button variant="ghost" size="icon" title="Edit product" asChild>
+            <Link href={`/products/${p._id}/edit`}>
+              <Pencil className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive hover:text-destructive"
+            title="Delete product"
+            onClick={() => deleteMutation.mutate(p._id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </RoleGuard>
+      </div>
+    );
+  }
+
   const columns = [
     {
       key: "name",
@@ -236,7 +296,7 @@ export default function ProductsPage() {
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PRODUCT_CATEGORY_COLORS[p.category]}`}
         >
-          {PRODUCT_CATEGORIES.find((c) => c.value === p.category)?.label ?? p.category}
+          {categoryLabel(p.category)}
         </span>
       ),
     },
@@ -266,44 +326,7 @@ export default function ProductsPage() {
     {
       key: "actions",
       label: "",
-      render: (p: Product) => (
-        <div className="flex gap-2 justify-end">
-          <Button variant="ghost" size="icon" title="Manage variants" asChild>
-            <Link href={`/products/${p._id}/edit#variants`}>
-              <Layers className="h-4 w-4" />
-            </Link>
-          </Button>
-          <RoleGuard requiredPermissions={["manage:products"]}>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Duplicate product"
-              aria-label="Duplicate product"
-              disabled={cloneMutation.isPending}
-              onClick={() => cloneMutation.mutate(p._id)}
-            >
-              {cloneMutation.isPending && cloneMutation.variables === p._id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
-            <Button variant="ghost" size="icon" title="Edit product" asChild>
-              <Link href={`/products/${p._id}/edit`}>
-                <Pencil className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive hover:text-destructive"
-              onClick={() => deleteMutation.mutate(p._id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </RoleGuard>
-        </div>
-      ),
+      render: (p: Product) => <ProductActions p={p} className="justify-end gap-2" />,
     },
   ];
 
@@ -324,7 +347,10 @@ export default function ProductsPage() {
             <Input
               placeholder="Search products..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="pl-9"
             />
           </div>
@@ -353,7 +379,13 @@ export default function ProductsPage() {
         </div>
 
         <div className="w-full min-w-0 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0">
-          <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+          <Tabs
+            value={activeCategory}
+            onValueChange={(v) => {
+              setActiveCategory(v);
+              setPage(1);
+            }}
+          >
             <TabsList className="inline-flex h-auto w-max min-w-full flex-wrap justify-start gap-1 p-1 sm:h-10 sm:w-auto sm:flex-nowrap">
               <TabsTrigger value="all" className="text-xs sm:text-sm">
                 All
@@ -373,6 +405,9 @@ export default function ProductsPage() {
           loading={isLoading}
           keyExtractor={(p) => p._id}
           emptyMessage="No products found."
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
         />
       </div>
 

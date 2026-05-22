@@ -55,6 +55,9 @@ type Row = {
 };
 
 const LIMIT = 12;
+const VIEW_STORAGE_KEY = "wise-shop-view";
+
+type ShopViewMode = "grid" | "list";
 
 const CATS: { value: ProductCategory | ""; label: string; icon: ElementType }[] = [
   { value: "homecare", label: "Cleansers", icon: Home },
@@ -93,6 +96,25 @@ export function ShopPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ShopViewMode>("grid");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (stored === "grid" || stored === "list") setViewMode(stored);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function setShopViewMode(mode: ShopViewMode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(search.trim()), 350);
@@ -169,6 +191,135 @@ export function ShopPageClient() {
       quantity: 1,
     });
     toast({ title: "Added to cart", description: product.name });
+  }
+
+  function ProductImage({ product, className }: { product: Row; className?: string }) {
+    const imageUrl = img(product);
+    return (
+      <div className={cn("relative overflow-hidden bg-white/35", className)}>
+        {imageUrl ? (
+          isRemote(imageUrl) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt=""
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <Image
+              src={imageUrl}
+              alt=""
+              fill
+              className="object-cover transition duration-500 group-hover:scale-105"
+              sizes="(max-width:768px) 100vw, (max-width:1280px) 50vw, 25vw"
+            />
+          )
+        ) : (
+          <div className="flex h-full items-center justify-center text-[#2A4C6A]/45">
+            <Package className="h-12 w-12 opacity-40" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function ProductRating({ product }: { product: Row }) {
+    return (
+      <div className="flex items-center gap-1 text-[#FBC02D]">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star key={i} className="h-3 w-3 fill-current" />
+        ))}
+        <span className="ml-1 text-[0.65rem] text-[#2A4C6A]/60">
+          ({Math.max(32, product.stock + 64)})
+        </span>
+      </div>
+    );
+  }
+
+  function ShopProductGridCard({ product }: { product: Row }) {
+    return (
+      <Card className="group overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
+        <Link href={`/product/${encodeURIComponent(product.slug)}`} className="block">
+          <div className="relative aspect-square">
+            <ProductImage product={product} className="aspect-square" />
+            <span className="absolute right-3 top-3 rounded-full border border-white/70 bg-white/65 p-2 text-[#3c2e60] shadow-sm backdrop-blur">
+              <Heart className="h-4 w-4" />
+            </span>
+          </div>
+        </Link>
+        <CardContent className="space-y-2 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2A4C6A]/60">
+            {categoryLabel(product.category)}
+          </p>
+          <Link
+            href={`/product/${encodeURIComponent(product.slug)}`}
+            className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-[#3c2e60] hover:text-[#2B6B56]"
+          >
+            {product.name}
+          </Link>
+          <p className="text-sm font-bold text-[#1e3157]">{money(product.retailPrice)}</p>
+          <ProductRating product={product} />
+          <Button
+            type="button"
+            className="mt-2 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
+            disabled={product.stock <= 0}
+            onClick={() => addProductToCart(product)}
+          >
+            {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
+            <ShoppingBag className="ml-2 h-3.5 w-3.5" />
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function ShopProductListRow({ product }: { product: Row }) {
+    return (
+      <Card className="group overflow-hidden rounded-2xl border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur transition duration-200 hover:bg-white/70 hover:shadow-[0_16px_44px_rgba(94,70,135,0.16)]">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+          <Link
+            href={`/product/${encodeURIComponent(product.slug)}`}
+            className="relative mx-auto h-28 w-28 shrink-0 overflow-hidden rounded-2xl sm:mx-0 sm:h-32 sm:w-32"
+          >
+            <ProductImage product={product} className="h-full w-full rounded-2xl" />
+          </Link>
+          <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2A4C6A]/60">
+              {categoryLabel(product.category)}
+            </p>
+            <Link
+              href={`/product/${encodeURIComponent(product.slug)}`}
+              className="block text-base font-semibold leading-snug text-[#3c2e60] hover:text-[#2B6B56] sm:text-lg"
+            >
+              {product.name}
+            </Link>
+            <p className="text-lg font-bold text-[#1e3157]">{money(product.retailPrice)}</p>
+            <div className="flex justify-center sm:justify-start">
+              <ProductRating product={product} />
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:w-40">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] sm:hidden"
+              asChild
+            >
+              <Link href={`/product/${encodeURIComponent(product.slug)}`}>View details</Link>
+            </Button>
+            <Button
+              type="button"
+              className="h-10 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-sm text-white"
+              disabled={product.stock <= 0}
+              onClick={() => addProductToCart(product)}
+            >
+              {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
+              <ShoppingBag className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
   }
 
   return (
@@ -268,16 +419,44 @@ export function ShopPageClient() {
                 <SelectItem value="price-high">Price: High to Low</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex justify-center gap-2">
-              <Button size="icon" className="h-10 w-10 rounded-xl bg-[#6ea43f] text-white">
+            <div
+              className="flex justify-center gap-2"
+              role="group"
+              aria-label="Display mode"
+            >
+              <Button
+                type="button"
+                size="icon"
+                className={cn(
+                  "h-10 w-10 rounded-xl",
+                  viewMode === "grid"
+                    ? "bg-[#6ea43f] text-white hover:bg-[#5f9438]"
+                    : "border-white/70 bg-white/55 text-[#2A4C6A]"
+                )}
+                variant={viewMode === "grid" ? "default" : "outline"}
+                onClick={() => setShopViewMode("grid")}
+                aria-pressed={viewMode === "grid"}
+                title="Grid view"
+              >
                 <Grid3X3 className="h-4 w-4" />
+                <span className="sr-only">Grid view</span>
               </Button>
               <Button
+                type="button"
                 size="icon"
-                variant="outline"
-                className="h-10 w-10 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A]"
+                className={cn(
+                  "h-10 w-10 rounded-xl",
+                  viewMode === "list"
+                    ? "bg-[#6ea43f] text-white hover:bg-[#5f9438]"
+                    : "border-white/70 bg-white/55 text-[#2A4C6A]"
+                )}
+                variant={viewMode === "list" ? "default" : "outline"}
+                onClick={() => setShopViewMode("list")}
+                aria-pressed={viewMode === "list"}
+                title="List view"
               >
                 <LayoutList className="h-4 w-4" />
+                <span className="sr-only">List view</span>
               </Button>
             </div>
           </div>
@@ -388,11 +567,19 @@ export function ShopPageClient() {
             )}
 
             {loading && rows.length === 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <Skeleton key={i} className="h-80 rounded-3xl bg-white/45" />
-                ))}
-              </div>
+              viewMode === "grid" ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-80 rounded-3xl bg-white/45" />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-36 rounded-2xl bg-white/45 sm:h-40" />
+                  ))}
+                </div>
+              )
             ) : rows.length === 0 ? (
               <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-3xl border border-dashed border-white/70 bg-white/35 py-20 text-center">
                 <Package className="mb-3 h-10 w-10 text-[#2A4C6A]/45" />
@@ -401,76 +588,19 @@ export function ShopPageClient() {
               </div>
             ) : (
               <>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  {rows.map((r) => {
-                    const imageUrl = img(r);
-                    return (
-                      <Card
-                        key={r._id}
-                        className="group overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]"
-                      >
-                        <Link href={`/product/${encodeURIComponent(r.slug)}`} className="block">
-                          <div className="relative aspect-square overflow-hidden bg-white/35">
-                            {imageUrl ? (
-                              isRemote(imageUrl) ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={imageUrl}
-                                  alt=""
-                                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                                />
-                              ) : (
-                                <Image
-                                  src={imageUrl}
-                                  alt=""
-                                  fill
-                                  className="object-cover transition duration-500 group-hover:scale-105"
-                                  sizes="(max-width:768px) 100vw, (max-width:1280px) 50vw, 25vw"
-                                />
-                              )
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-[#2A4C6A]/45">
-                                <Package className="h-12 w-12 opacity-40" />
-                              </div>
-                            )}
-                            <span className="absolute right-3 top-3 rounded-full border border-white/70 bg-white/65 p-2 text-[#3c2e60] shadow-sm backdrop-blur">
-                              <Heart className="h-4 w-4" />
-                            </span>
-                          </div>
-                        </Link>
-                        <CardContent className="space-y-2 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2A4C6A]/60">
-                            {categoryLabel(r.category)}
-                          </p>
-                          <Link
-                            href={`/product/${encodeURIComponent(r.slug)}`}
-                            className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-[#3c2e60] hover:text-[#2B6B56]"
-                          >
-                            {r.name}
-                          </Link>
-                          <p className="text-sm font-bold text-[#1e3157]">{money(r.retailPrice)}</p>
-                          <div className="flex items-center gap-1 text-[#FBC02D]">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className="h-3 w-3 fill-current" />
-                            ))}
-                            <span className="ml-1 text-[0.65rem] text-[#2A4C6A]/60">
-                              ({Math.max(32, r.stock + 64)})
-                            </span>
-                          </div>
-                          <Button
-                            type="button"
-                            className="mt-2 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
-                            disabled={r.stock <= 0}
-                            onClick={() => addProductToCart(r)}
-                          >
-                            {r.stock <= 0 ? "Out of Stock" : "Add to Cart"}
-                            <ShoppingBag className="ml-2 h-3.5 w-3.5" />
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                {viewMode === "grid" ? (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {rows.map((r) => (
+                      <ShopProductGridCard key={r._id} product={r} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {rows.map((r) => (
+                      <ShopProductListRow key={r._id} product={r} />
+                    ))}
+                  </div>
+                )}
 
                 <div className="mt-6 flex justify-center gap-2">
                   <Button

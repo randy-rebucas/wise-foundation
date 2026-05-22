@@ -8,8 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { ListPagination } from "@/components/shared/ListPagination";
 
 interface Column<T> {
   key: string;
@@ -82,31 +82,9 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {totalPages > 1 && onPageChange && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex justify-end gap-2 sm:justify-start">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {onPageChange ? (
+        <ListPagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+      ) : null}
     </div>
   );
 }
