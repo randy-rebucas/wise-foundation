@@ -234,7 +234,7 @@ export function ProductForm({
                 value={form.seoTitle}
                 onChange={(e) => setForm((f) => ({ ...f, seoTitle: e.target.value }))}
                 placeholder="Custom page title (max 70 characters)"
-                maxLength={70}
+                maxLength={150}
               />
               <p className="text-xs text-muted-foreground">{form.seoTitle.length}/70</p>
             </div>
@@ -246,7 +246,7 @@ export function ProductForm({
               onChange={(seoDescription) => setForm((f) => ({ ...f, seoDescription }))}
               placeholder="Custom meta description (plain text used in search results)"
               minRows={2}
-              maxLength={160}
+              maxLength={320}
               helperText={
                 <p className="text-xs text-muted-foreground">
                   {form.seoDescription.length}/160 · Stored as Markdown; search engines receive plain
