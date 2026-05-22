@@ -124,19 +124,13 @@ export function ImageGalleryEditor({
   }
 
   function handleFileInputChange(e: ChangeEvent<HTMLInputElement>) {
-    console.log("[ImageGalleryEditor] File input changed", { filesCount: e.target.files?.length, pickerDisabled });
     const list = e.target.files;
     e.target.value = "";
-    if (!list?.length || pickerDisabled || !uploadEnabled) {
-      console.log("[ImageGalleryEditor] No files, picker disabled, or upload disabled; returning");
-      return;
-    }
-    console.log("[ImageGalleryEditor] Calling handleUploadFiles");
+    if (!list?.length || pickerDisabled || !uploadEnabled) return;
     void handleUploadFiles(Array.from(list));
   }
 
   async function handleUploadFiles(files: File[]) {
-    console.log("[ImageGalleryEditor] handleUploadFiles called", { filesCount: files.length, room: maxImages - totalCount });
     const room = maxImages - totalCount;
     if (!uploadEnabled) {
       toast({
@@ -147,7 +141,6 @@ export function ImageGalleryEditor({
       return;
     }
     if (room <= 0) {
-      console.log("[ImageGalleryEditor] Image limit reached");
       toast({
         variant: "destructive",
         title: "Image limit reached",
@@ -155,7 +148,6 @@ export function ImageGalleryEditor({
       });
       return;
     }
-    console.log("[ImageGalleryEditor] Calling onUploadFiles with", { count: files.slice(0, room).length });
     await onUploadFiles(files.slice(0, room));
   }
 

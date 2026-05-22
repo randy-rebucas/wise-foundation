@@ -300,8 +300,8 @@ export function ProductForm({
         deleteFromStorageOnRemove={!isEdit}
         helperText={
           imageUploadEnabled
-            ? "Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each)."
-            : "Add images by URL. To enable uploads, configure Cloudinary or a writable public/uploads folder."
+            ? "Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each). The first image is the cover; order matches the gallery on the product page."
+            : "Add images by URL. The first image is the cover. To enable uploads, configure Cloudinary or a writable public/uploads folder."
         }
       />
 

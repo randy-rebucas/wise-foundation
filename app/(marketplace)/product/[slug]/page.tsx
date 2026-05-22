@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   AlertCircle,
   ArrowLeft,
   ChevronRight,
   Loader2,
   Minus,
-  Package,
   Plus,
   ShoppingBag,
   ShoppingCart,
@@ -31,10 +29,10 @@ import { WishlistButton } from "@/components/marketplace/WishlistButton";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  resolveProductShortDescriptionMarkdown,
-} from "@/lib/products/productCopy";
+import { buildMarketplaceGalleryImages } from "@/lib/products/galleryImages";
+import { resolveProductShortDescriptionMarkdown } from "@/lib/products/productCopy";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
+import { ProductImageGallery } from "@/components/marketplace/ProductImageGallery";
 
 type Variant = {
   _id: string;
@@ -72,41 +70,6 @@ const CATEGORY_LABELS: Record<string, string> = {
 function categoryLabel(value?: string) {
   if (!value) return null;
   return CATEGORY_LABELS[value] ?? value.replace(/_/g, " ");
-}
-
-function isRemote(url: string) {
-  return /^https?:\/\//i.test(url);
-}
-
-function ProductImage({
-  src,
-  alt,
-  className,
-  sizes,
-  priority,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-  sizes?: string;
-  priority?: boolean;
-}) {
-  if (isRemote(src)) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={alt} className={cn("h-full w-full object-cover", className)} />
-    );
-  }
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      fill
-      className={cn("object-cover", className)}
-      sizes={sizes ?? "(max-width:768px) 100vw, 50vw"}
-      priority={priority}
-    />
-  );
 }
 
 function ProductPageSkeleton() {
@@ -188,18 +151,7 @@ export default function MarketplaceProductPage() {
 
   const galleryImages = useMemo(() => {
     if (!data) return [] as string[];
-    const variantImgs = selectedVariant?.images ?? [];
-    const productImgs = data.images ?? [];
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const url of [...variantImgs, ...productImgs]) {
-      const t = url?.trim();
-      if (t && !seen.has(t)) {
-        seen.add(t);
-        out.push(t);
-      }
-    }
-    return out;
+    return buildMarketplaceGalleryImages(data.images, selectedVariant?.images);
   }, [data, selectedVariant]);
 
   const displayImage = galleryImages[activeImageIdx] ?? galleryImages[0];
@@ -312,43 +264,12 @@ export default function MarketplaceProductPage() {
 
       <article className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
         <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-2 lg:gap-10">
-          <div className="space-y-3">
-            <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/70 bg-white/50 shadow-inner">
-              {displayImage ? (
-                <ProductImage
-                  src={displayImage}
-                  alt={data.name}
-                  priority
-                  sizes="(max-width:1024px) 100vw, 50vw"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center bg-white/30">
-                  <Package className="h-20 w-20 text-[#2A4C6A]/25" aria-hidden />
-                </div>
-              )}
-            </div>
-            {galleryImages.length > 1 ? (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {galleryImages.map((url, idx) => (
-                  <button
-                    key={url}
-                    type="button"
-                    onClick={() => setActiveImageIdx(idx)}
-                    className={cn(
-                      "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all",
-                      idx === activeImageIdx
-                        ? "border-[#6ea43f] ring-2 ring-[#6ea43f]/30"
-                        : "border-white/70 opacity-80 hover:opacity-100"
-                    )}
-                    aria-label={`View image ${idx + 1}`}
-                    aria-current={idx === activeImageIdx}
-                  >
-                    <ProductImage src={url} alt="" sizes="64px" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <ProductImageGallery
+            images={galleryImages}
+            activeIndex={activeImageIdx}
+            onActiveIndexChange={setActiveImageIdx}
+            productName={data.name}
+          />
 
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-2">

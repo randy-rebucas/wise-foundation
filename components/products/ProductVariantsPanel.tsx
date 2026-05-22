@@ -333,7 +333,7 @@ export function ProductVariantsPanel({ productId, productName }: ProductVariants
             uploading={variantImageUploading}
             uploadEnabled={imageUploadEnabled}
             deleteFromStorageOnRemove={!editVariantId}
-            helperText="Add images by URL or upload JPEG, PNG, WebP, or GIF (up to 5 MB each)."
+            helperText="Variant images appear first on the product page when this variant is selected; product photos fill in after."
           />
 
           <div className="flex justify-end gap-2">
