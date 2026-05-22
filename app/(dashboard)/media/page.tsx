@@ -42,7 +42,25 @@ import {
   type PendingUploadItem,
 } from "@/components/media/PendingUploadTiles";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Copy, Loader2, Search, Trash2, Images, Upload } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ListPagination } from "@/components/shared/ListPagination";
+import { cn } from "@/lib/utils";
+import {
+  Copy,
+  ExternalLink,
+  Images,
+  LayoutGrid,
+  LayoutList,
+  Loader2,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+
+const MEDIA_PAGE_SIZE = 24;
+const VIEW_STORAGE_KEY = "wise-media-view";
+
+type MediaViewMode = "grid" | "list";
 
 function formatUploadedAt(iso?: string) {
   if (!iso) return "—";
@@ -54,6 +72,42 @@ function formatUploadedAt(iso?: string) {
   } catch {
     return iso;
   }
+}
+
+function mediaDisplayName(item: MediaAssetRow) {
+  return item.filename ?? item.publicId.split("/").pop() ?? "Media";
+}
+
+function MediaThumb({
+  item,
+  className,
+  onClick,
+}: {
+  item: MediaAssetRow;
+  className?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "group relative overflow-hidden rounded-md border border-border bg-muted text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        className
+      )}
+      onClick={onClick}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.url}
+        alt={mediaDisplayName(item)}
+        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+        }}
+      />
+    </button>
+  );
 }
 
 export default function MediaPage() {
@@ -73,25 +127,51 @@ export default function MediaPage() {
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
-  const [pageRequest, setPage] = useState(1);
+  const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<MediaViewMode>("grid");
   const [uploading, setUploading] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUploadItem[]>([]);
   const pendingRef = useRef<PendingUploadItem[]>([]);
   const [preview, setPreview] = useState<MediaAssetRow | null>(null);
 
-  const limit = 24;
-
   const { data, isLoading, isError, error, isFetching } = useQuery({
-    queryKey: ["media", pageRequest, debouncedSearch],
+    queryKey: ["media", page, debouncedSearch, MEDIA_PAGE_SIZE],
     queryFn: () =>
-      fetchMediaAssets({ page: pageRequest, limit, search: debouncedSearch || undefined }),
+      fetchMediaAssets({
+        page,
+        limit: MEDIA_PAGE_SIZE,
+        search: debouncedSearch || undefined,
+      }),
   });
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const page = Math.min(pageRequest, totalPages);
+  const totalPages = Math.max(1, Math.ceil(total / MEDIA_PAGE_SIZE));
+  const showingStart = total === 0 ? 0 : (page - 1) * MEDIA_PAGE_SIZE + 1;
+  const showingEnd = Math.min(page * MEDIA_PAGE_SIZE, total);
   const hasSearch = debouncedSearch.length > 0;
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (stored === "grid" || stored === "list") setViewMode(stored);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function setMediaViewMode(mode: MediaViewMode) {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }
 
   const { data: usageData, isLoading: usageLoading } = useQuery({
     queryKey: ["media-usage", preview?._id],
@@ -339,27 +419,59 @@ export default function MediaPage() {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="relative w-full sm:max-w-md">
-                  <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <Input
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value);
-                      setPage(1);
-                    }}
-                    placeholder="Search by filename or URL…"
-                    className="h-10 pl-9"
-                    aria-label="Search media library"
-                  />
+              <div className="flex flex-col gap-3 border-b border-border pb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative w-full sm:max-w-md">
+                    <Search
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <Input
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(1);
+                      }}
+                      placeholder="Search by filename or URL…"
+                      className="h-10 pl-9"
+                      aria-label="Search media library"
+                    />
+                  </div>
+                  <div
+                    className="flex shrink-0 items-center gap-1 self-end rounded-md border bg-muted/40 p-0.5 sm:self-center"
+                    role="group"
+                    aria-label="Display mode"
+                  >
+                    <Button
+                      type="button"
+                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2.5"
+                      onClick={() => setMediaViewMode("grid")}
+                      aria-pressed={viewMode === "grid"}
+                      title="Grid view"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      <span className="sr-only">Grid view</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-8 px-2.5"
+                      onClick={() => setMediaViewMode("list")}
+                      aria-pressed={viewMode === "list"}
+                      title="List view"
+                    >
+                      <LayoutList className="h-4 w-4" />
+                      <span className="sr-only">List view</span>
+                    </Button>
+                  </div>
                 </div>
                 {!isLoading && total > 0 && (
-                  <p className="shrink-0 text-sm tabular-nums text-muted-foreground sm:text-right">
-                    {total} file{total === 1 ? "" : "s"}
-                    {hasSearch ? " matching" : ""}
+                  <p className="text-sm tabular-nums text-muted-foreground">
+                    Showing {showingStart}–{showingEnd} of {total} file{total === 1 ? "" : "s"}
+                    {hasSearch ? " matching your search" : ""}
                     {isFetching && !isLoading ? " · Updating…" : ""}
                   </p>
                 )}
@@ -374,9 +486,27 @@ export default function MediaPage() {
               <PendingUploadTiles items={pendingUploads} />
 
               {showInitialLoading ? (
-                <div className="flex min-h-[240px] items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/20">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
-                </div>
+                viewMode === "grid" ? (
+                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5">
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <li key={i}>
+                        <Skeleton className="aspect-square w-full rounded-md" />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="divide-y rounded-lg border">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <li key={i} className="flex items-center gap-3 p-3">
+                        <Skeleton className="h-14 w-14 shrink-0 rounded-md" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-48 max-w-full" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )
               ) : showEmptyLibrary ? (
                 <div className="flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/10 px-4 py-12 text-center text-muted-foreground">
                   <Images className="mb-3 h-11 w-11 opacity-40 sm:h-12 sm:w-12" aria-hidden />
@@ -392,65 +522,92 @@ export default function MediaPage() {
                   </p>
                 </div>
               ) : items.length > 0 ? (
-                <>
-                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5">
-                    {items.map((item) => (
-                      <li key={item._id} className="min-w-0">
-                        <button
-                          type="button"
-                          className="group relative aspect-square w-full overflow-hidden rounded-md border border-border bg-muted text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                          onClick={() => setPreview(item)}
+                <div className="space-y-4">
+                  {viewMode === "grid" ? (
+                    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 xl:grid-cols-5">
+                      {items.map((item) => (
+                        <li key={item._id} className="min-w-0">
+                          <button
+                            type="button"
+                            className="group relative aspect-square w-full overflow-hidden rounded-md border border-border bg-muted text-left shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            onClick={() => setPreview(item)}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.url}
+                              alt={mediaDisplayName(item)}
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                              loading="lazy"
+                            />
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-8">
+                              <p className="line-clamp-2 text-left text-[0.65rem] font-medium leading-tight text-white">
+                                {mediaDisplayName(item)}
+                              </p>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+                      {items.map((item) => (
+                        <li
+                          key={item._id}
+                          className="flex flex-col gap-3 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center"
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={item.url}
-                            alt={item.filename ?? "Media"}
-                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                            loading="lazy"
-                            onError={(e) => {
-                              const parent = e.currentTarget.parentElement;
-                              if (parent) {
-                                parent.innerHTML = '<div class="flex items-center justify-center h-full w-full bg-muted text-muted-foreground text-xs font-medium">Failed to load</div>';
-                              }
-                            }}
+                          <MediaThumb
+                            item={item}
+                            className="h-16 w-16 shrink-0 sm:h-14 sm:w-14"
+                            onClick={() => setPreview(item)}
                           />
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-8">
-                            <p className="line-clamp-2 text-left text-[0.65rem] font-medium leading-tight text-white">
-                              {item.filename ?? item.publicId.split("/").pop()}
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => setPreview(item)}
+                          >
+                            <p className="truncate font-medium text-sm">{mediaDisplayName(item)}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {formatMediaBytes(item.bytes)} · {item.mimeType} ·{" "}
+                              {formatUploadedAt(item.createdAt)}
                             </p>
+                            <p className="mt-1 truncate font-mono text-[0.65rem] text-muted-foreground">
+                              {item.url}
+                            </p>
+                          </button>
+                          <div className="flex shrink-0 gap-1 self-end sm:self-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void copyUrl(item.url)}
+                            >
+                              <Copy className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Copy</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPreview(item)}
+                            >
+                              <ExternalLink className="h-4 w-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Details</span>
+                            </Button>
                           </div>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {totalPages > 1 && (
-                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => p - 1)}
-                      >
-                        Previous
-                      </Button>
-                      <span className="min-w-[7rem] text-center text-sm tabular-nums text-muted-foreground">
-                        Page {page} of {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage((p) => p + 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                </>
+
+                  <ListPagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                </div>
               ) : hasPending ? (
                 <p className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 py-8 text-center text-sm text-muted-foreground">
-                  Files will appear in the grid below when the upload finishes.
+                  Files will appear in the library when the upload finishes.
                 </p>
               ) : null}
             </div>
