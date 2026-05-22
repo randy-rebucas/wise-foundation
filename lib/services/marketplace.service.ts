@@ -15,6 +15,13 @@ import { MarketplaceContactMessage } from "@/lib/db/models/MarketplaceContactMes
 import { generateOrderNumber } from "@/lib/utils";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import type { ProductCategory } from "@/types";
+import {
+  buildMarketplaceProductFilter,
+  marketplaceListedMatch,
+  marketplaceProductSortSpec,
+  normalizeShopTags,
+  type MarketplaceShopListParams,
+} from "@/lib/services/marketplaceShopFilters";
 import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
 import {
   addCustomerPaymentMethod,
@@ -200,11 +207,7 @@ export async function resolveMarketplaceCodPayment(
   return validated.resolved;
 }
 
-const listedFilter: Record<string, unknown> = {
-  deletedAt: null,
-  isActive: true,
-  $or: [{ marketplaceListed: true }, { marketplaceListed: { $exists: false } }],
-};
+const listedFilter: Record<string, unknown> = { ...marketplaceListedMatch };
 
 export async function listMarketplaceProductSlugs(): Promise<
   { slug: string; updatedAt?: Date }[]
@@ -255,33 +258,92 @@ export async function resolveMarketplaceCashierId(): Promise<Types.ObjectId> {
   return admin._id as Types.ObjectId;
 }
 
-export async function listMarketplaceProducts(params: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  category?: ProductCategory | "";
-}) {
+export async function getMarketplaceShopFacets() {
+  await connectDB();
+  const [facet] = await Product.aggregate<{
+    total: { n: number }[];
+    categories: { _id: ProductCategory; count: number }[];
+    price: { min: number; max: number }[];
+    tags: { _id: string; count: number }[];
+  }>([
+    { $match: marketplaceListedMatch },
+    {
+      $facet: {
+        total: [{ $count: "n" }],
+        categories: [{ $group: { _id: "$category", count: { $sum: 1 } } }],
+        price: [
+          {
+            $group: {
+              _id: null,
+              min: { $min: "$retailPrice" },
+              max: { $max: "$retailPrice" },
+            },
+          },
+        ],
+        tags: [
+          { $unwind: { path: "$tags", preserveNullAndEmptyArrays: false } },
+          { $match: { tags: { $type: "string", $ne: "" } } },
+          { $group: { _id: { $toLower: "$tags" }, count: { $sum: 1 } } },
+          { $sort: { count: -1, _id: 1 } },
+          { $limit: 32 },
+        ],
+      },
+    },
+  ]);
+
+  const categoryCounts: Partial<Record<ProductCategory, number>> = {};
+  for (const row of facet?.categories ?? []) {
+    if (row._id) categoryCounts[row._id] = row.count;
+  }
+
+  const priceRow = facet?.price?.[0];
+  const priceMin = priceRow?.min ?? 0;
+  const priceMax = priceRow?.max ?? 0;
+
+  return {
+    total: facet?.total?.[0]?.n ?? 0,
+    categoryCounts,
+    priceMin,
+    priceMax,
+    tags: (facet?.tags ?? []).map((t) => ({
+      tag: t._id,
+      count: t.count,
+    })),
+  };
+}
+
+export async function listMarketplaceProducts(params: MarketplaceShopListParams) {
   await connectDB();
   const { branchId } = await getMarketplaceFulfillmentContext();
   const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(48, Math.max(1, params.limit ?? 12));
   const skip = (page - 1) * limit;
+  const tags = normalizeShopTags(params.tags);
+  const sortKey = params.sort ?? "featured";
 
-  const filter: Record<string, unknown> = { ...listedFilter };
-  if (params.category) filter.category = params.category;
-  const q = params.search?.trim();
-  if (q) {
-    const esc = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rx = new RegExp(esc, "i");
-    filter.$or = [{ name: rx }, { sku: rx }, { tags: rx }];
+  let filter = buildMarketplaceProductFilter({
+    category: params.category,
+    search: params.search,
+    minPrice: params.minPrice,
+    maxPrice: params.maxPrice,
+    tags,
+  });
+
+  if (params.inStockOnly) {
+    const stocked = await Inventory.aggregate<{ _id: Types.ObjectId }>([
+      { $match: { branchId, quantity: { $gt: 0 } } },
+      { $group: { _id: "$productId" } },
+    ]);
+    const ids = stocked.map((r) => r._id);
+    filter = { $and: [filter, { _id: { $in: ids.length ? ids : [new mongoose.Types.ObjectId()] } }] };
   }
 
-  const sort = { createdAt: -1 } as const;
+  const sort = marketplaceProductSortSpec(sortKey);
 
   const [rows, total] = await Promise.all([
     Product.find(filter)
       .select(
-        "name slug images retailPrice category sku shortDescription description seoTitle seoDescription"
+        "name slug images retailPrice category sku shortDescription description seoTitle seoDescription tags"
       )
       .sort(sort)
       .skip(skip)
@@ -312,9 +374,10 @@ export async function listMarketplaceProducts(params: {
       sku: p.sku,
       shortDescription: p.shortDescription,
       description: p.description,
+      tags: p.tags ?? [],
       stock: stockByProduct.get(p._id.toString()) ?? 0,
     })),
-    meta: { page, limit, total, hasMore: skip + rows.length < total },
+    meta: { page, limit, total, hasMore: skip + rows.length < total, sort: sortKey },
   };
 }
 

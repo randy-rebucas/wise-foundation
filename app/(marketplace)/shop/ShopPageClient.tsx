@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -41,6 +42,7 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
+import type { MarketplaceProductSort } from "@/lib/services/marketplaceShopFilters";
 import type { ProductCategory } from "@/types";
 
 type Row = {
@@ -67,8 +69,13 @@ const CATS: { value: ProductCategory | ""; label: string; icon: ElementType }[] 
   { value: "", label: "All Products", icon: Grid3X3 },
 ];
 
-const SKIN_TYPES = ["All Skin Types", "Dry", "Oily", "Sensitive", "Combination", "Normal"];
-const INGREDIENTS = ["Hyaluronic Acid", "Niacinamide", "Vitamin C", "Aloe Vera", "Tea Tree"];
+type ShopFacets = {
+  total: number;
+  categoryCounts: Partial<Record<ProductCategory, number>>;
+  priceMin: number;
+  priceMax: number;
+  tags: { tag: string; count: number }[];
+};
 
 function categoryLabel(value: string) {
   const match = CATS.find((cat) => cat.value === value);
@@ -97,6 +104,14 @@ export function ShopPageClient() {
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ShopViewMode>("grid");
+  const [sort, setSort] = useState<MarketplaceProductSort>("featured");
+  const [facets, setFacets] = useState<ShopFacets | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [priceMinApplied, setPriceMinApplied] = useState<number | undefined>(undefined);
+  const [priceMaxApplied, setPriceMaxApplied] = useState<number | undefined>(undefined);
+  const [priceMinDraft, setPriceMinDraft] = useState("");
+  const [priceMaxDraft, setPriceMaxDraft] = useState("");
 
   useEffect(() => {
     try {
@@ -126,6 +141,26 @@ export function ShopPageClient() {
     setPage(1);
   }, [searchParams]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/marketplace/shop/facets");
+        const json = await res.json();
+        if (!json.success || cancelled) return;
+        const f = json.data as ShopFacets;
+        setFacets(f);
+        setPriceMinDraft(String(f.priceMin ?? 0));
+        setPriceMaxDraft(String(f.priceMax ?? 0));
+      } catch {
+        /* facets optional — filters still work without counts */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const load = useCallback(
     async (p: number) => {
       setLoading(true);
@@ -136,7 +171,13 @@ export function ShopPageClient() {
           limit: String(LIMIT),
           search: debounced,
           category,
+          sort,
         });
+        if (priceMinApplied != null) params.set("minPrice", String(priceMinApplied));
+        if (priceMaxApplied != null) params.set("maxPrice", String(priceMaxApplied));
+        if (inStockOnly) params.set("inStock", "true");
+        for (const tag of selectedTags) params.append("tag", tag);
+
         const res = await fetch(`/api/marketplace/products?${params}`);
         const json = await res.json();
         if (!json.success) throw new Error(json.error ?? "Failed to load");
@@ -150,26 +191,81 @@ export function ShopPageClient() {
         setLoading(false);
       }
     },
-    [debounced, category]
+    [
+      debounced,
+      category,
+      sort,
+      priceMinApplied,
+      priceMaxApplied,
+      selectedTags,
+      inStockOnly,
+    ]
   );
 
   useEffect(() => {
     queueMicrotask(() => {
       void load(1);
     });
-  }, [debounced, category, load]);
+  }, [debounced, category, sort, priceMinApplied, priceMaxApplied, selectedTags, inStockOnly, load]);
 
   const total = meta?.total ?? rows.length;
+  const catalogTotal = facets?.total ?? total;
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
   const showingStart = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const showingEnd = Math.min(page * LIMIT, total);
   const heroProducts = rows.slice(0, 3);
 
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
-    return counts;
-  }, [rows]);
+  const categoryCounts = facets?.categoryCounts ?? {};
+
+  function applyPriceFilter() {
+    const min = priceMinDraft.trim() === "" ? undefined : Number(priceMinDraft);
+    const max = priceMaxDraft.trim() === "" ? undefined : Number(priceMaxDraft);
+    if (min != null && (!Number.isFinite(min) || min < 0)) {
+      toast({ title: "Invalid minimum price", variant: "destructive" });
+      return;
+    }
+    if (max != null && (!Number.isFinite(max) || max < 0)) {
+      toast({ title: "Invalid maximum price", variant: "destructive" });
+      return;
+    }
+    if (min != null && max != null && min > max) {
+      toast({ title: "Minimum price cannot exceed maximum", variant: "destructive" });
+      return;
+    }
+    setPriceMinApplied(min);
+    setPriceMaxApplied(max);
+    setPage(1);
+  }
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+    setPage(1);
+  }
+
+  function clearAllFilters() {
+    setSearch("");
+    setCategory("");
+    setSort("featured");
+    setSelectedTags([]);
+    setInStockOnly(false);
+    setPriceMinApplied(undefined);
+    setPriceMaxApplied(undefined);
+    if (facets) {
+      setPriceMinDraft(String(facets.priceMin));
+      setPriceMaxDraft(String(facets.priceMax));
+    } else {
+      setPriceMinDraft("");
+      setPriceMaxDraft("");
+    }
+    setPage(1);
+  }
+
+  function selectCategory(value: ProductCategory | "") {
+    setCategory(value);
+    setPage(1);
+  }
 
   const img = (r: Row) => r.images?.[0];
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
@@ -408,7 +504,13 @@ export function ShopPageClient() {
             <p className="text-center sm:text-right">
               Showing {showingStart}-{showingEnd} of {total} products
             </p>
-            <Select defaultValue="featured">
+            <Select
+              value={sort}
+              onValueChange={(v) => {
+                setSort(v as MarketplaceProductSort);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="h-10 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-48">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -478,7 +580,7 @@ export function ShopPageClient() {
                 <button
                   key={cat.label}
                   type="button"
-                  onClick={() => setCategory(cat.value)}
+                  onClick={() => selectCategory(cat.value)}
                   className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
                     category === cat.value ? "bg-[#6ea43f]/15 text-[#2B6B56]" : "hover:bg-white/55"
                   }`}
@@ -488,7 +590,9 @@ export function ShopPageClient() {
                     {cat.label}
                   </span>
                   <span className="text-xs text-[#2A4C6A]/55">
-                    {cat.value ? categoryCounts.get(cat.value) ?? 0 : total}
+                    {cat.value
+                      ? categoryCounts[cat.value] ?? 0
+                      : catalogTotal}
                   </span>
                 </button>
               ))}
@@ -502,59 +606,104 @@ export function ShopPageClient() {
                   className="h-11 rounded-xl border-white/70 bg-white/60 pl-9 text-[#2A4C6A]"
                   placeholder="Search products..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
                 />
               </div>
             </div>
 
             <div className="border-t border-[#3c2e60]/10 pt-5">
-              <h3 className="mb-4 font-semibold text-[#3c2e60]">Price Range</h3>
-              <div className="h-1.5 rounded-full bg-[#6ea43f]/25">
-                <div className="h-full w-4/5 rounded-full bg-[#6ea43f]" />
+              <h3 className="mb-3 font-semibold text-[#3c2e60]">Price range</h3>
+              {facets && facets.priceMax > facets.priceMin ? (
+                <p className="mb-3 text-xs text-[#2A4C6A]/65">
+                  Catalog from {money(facets.priceMin)} to {money(facets.priceMax)}
+                </p>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-[#2A4C6A]/75">Min</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="h-10 rounded-xl border-white/70 bg-white/60 text-[#2A4C6A]"
+                    value={priceMinDraft}
+                    onChange={(e) => setPriceMinDraft(e.target.value)}
+                    placeholder={facets ? String(facets.priceMin) : "0"}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-[#2A4C6A]/75">Max</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className="h-10 rounded-xl border-white/70 bg-white/60 text-[#2A4C6A]"
+                    value={priceMaxDraft}
+                    onChange={(e) => setPriceMaxDraft(e.target.value)}
+                    placeholder={facets ? String(facets.priceMax) : ""}
+                  />
+                </div>
               </div>
-              <div className="mt-2 flex justify-between text-xs">
-                <span>₱249</span>
-                <span>₱1,299</span>
-              </div>
-              <Button className="mt-4 w-full rounded-xl bg-violet-100 text-violet-700 hover:bg-violet-200">
-                Filter
+              <Button
+                type="button"
+                className="mt-3 w-full rounded-xl bg-[#6ea43f]/15 text-[#2B6B56] hover:bg-[#6ea43f]/25"
+                onClick={applyPriceFilter}
+              >
+                Apply price
               </Button>
             </div>
 
-            <div className="border-t border-[#3c2e60]/10 pt-5">
-              <h3 className="mb-3 font-semibold text-[#3c2e60]">Skin Type</h3>
-              <div className="space-y-2">
-                {SKIN_TYPES.map((skin) => (
-                  <label key={skin} className="flex items-center gap-2 text-xs text-[#2A4C6A]/75">
-                    <Checkbox className="h-3.5 w-3.5 border-[#2A4C6A]/25" />
-                    {skin}
-                  </label>
-                ))}
+            {(facets?.tags.length ?? 0) > 0 ? (
+              <div className="border-t border-[#3c2e60]/10 pt-5">
+                <h3 className="mb-3 font-semibold text-[#3c2e60]">Tags</h3>
+                <p className="mb-2 text-xs text-[#2A4C6A]/65">
+                  From product tags in your catalog
+                </p>
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {facets!.tags.map(({ tag, count }) => (
+                    <label
+                      key={tag}
+                      className="flex cursor-pointer items-center justify-between gap-2 text-xs text-[#2A4C6A]/75"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <Checkbox
+                          className="h-3.5 w-3.5 shrink-0 border-[#2A4C6A]/25"
+                          checked={selectedTags.includes(tag)}
+                          onCheckedChange={() => toggleTag(tag)}
+                        />
+                        <span className="truncate capitalize">{tag}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-[#2A4C6A]/50">{count}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="border-t border-[#3c2e60]/10 pt-5">
-              <h3 className="mb-3 font-semibold text-[#3c2e60]">Key Ingredients</h3>
-              <div className="space-y-2">
-                {INGREDIENTS.map((item) => (
-                  <label key={item} className="flex items-center gap-2 text-xs text-[#2A4C6A]/75">
-                    <Checkbox className="h-3.5 w-3.5 border-[#2A4C6A]/25" />
-                    {item}
-                  </label>
-                ))}
-              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-[#2A4C6A]/80">
+                <Checkbox
+                  className="h-4 w-4 border-[#2A4C6A]/25"
+                  checked={inStockOnly}
+                  onCheckedChange={(checked) => {
+                    setInStockOnly(checked === true);
+                    setPage(1);
+                  }}
+                />
+                In stock only
+              </label>
             </div>
 
             <Button
               type="button"
               variant="outline"
               className="w-full rounded-xl border-white/70 bg-white/55 text-violet-700"
-              onClick={() => {
-                setSearch("");
-                setCategory("");
-              }}
+              onClick={clearAllFilters}
             >
-              Clear All Filters
+              Clear all filters
               <Trash2 className="ml-2 h-4 w-4" />
             </Button>
           </aside>
