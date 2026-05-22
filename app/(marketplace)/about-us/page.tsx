@@ -96,7 +96,7 @@ export default async function AboutUsPage() {
               </p>
               <h1 className="mt-4 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#1e3157] sm:text-5xl lg:text-6xl">
                 Naturally Beautiful,
-                <span className="block font-[family-name:var(--font-great-vibes)] text-[#d965c9]">
+                <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl">
                   Confidently You.
                 </span>
               </h1>
