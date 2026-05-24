@@ -201,9 +201,9 @@ export default function MarketplaceCatalogPage() {
             <div className="space-y-6">
               <div className="max-w-xl space-y-4">
                 <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#2B6B56] sm:text-5xl lg:text-6xl">
-                  Get the Glow you wish
+                  Glowish
                   <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl lg:text-7xl">
-                     at Glowish
+                    Get the Glow you wish 
                   </span>
                 </h1>
                 <p className="max-w-lg text-base leading-7 text-[#2A4C6A]/85 sm:text-lg">
