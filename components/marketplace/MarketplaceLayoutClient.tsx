@@ -36,7 +36,7 @@ export function MarketplaceLayoutClient({ children }: { children: React.ReactNod
             <Skeleton className="h-9 w-32" />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 py-8">{children}</main>
       </div>
     );
   }
