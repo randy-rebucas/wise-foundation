@@ -47,7 +47,12 @@ export async function GET(req: Request) {
       tags,
       inStockOnly,
     });
-    return successResponse(data, undefined, 200, meta);
+    const res = successResponse(data, undefined, 200, meta);
+    // Only cache unfiltered first-page requests at the edge; skip for search/filter/pagination
+    if (!search && !category && !sort && !minPrice && !maxPrice && !tags.length && !inStockOnly && page === 1) {
+      res.headers.set("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+    }
+    return res;
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to load products";
     if (msg.includes("No branch")) return errorResponse(msg, 503);

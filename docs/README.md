@@ -2,6 +2,7 @@
 
 | Document | Audience | Description |
 |----------|----------|-------------|
+| [initial-audit-report.md](./initial-audit-report.md) | Developers / stakeholders | Initial full-app audit: architecture, security, CI, production readiness, priority roadmap |
 | [marketplace-seo.md](./marketplace-seo.md) | Developers / admins | Storefront SEO: metadata, sitemap, robots, settings, verification checklist, follow-ups |
 | [full-audit-help-seo.md](./full-audit-help-seo.md) | Developers | Full audit: Help KB, sidebar coverage, SEO implementation, verification |
 | [help-knowledgebase-sync.md](./help-knowledgebase-sync.md) | Developers | Help KB maintenance index (links to full audit) |

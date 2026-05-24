@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
@@ -73,10 +74,14 @@ export async function getAppSettingsLean() {
   return AppSettings.findOne().lean();
 }
 
-export async function getPublicAppSettings(): Promise<PublicAppSettings> {
-  const doc = await getAppSettingsLean();
-  return toPublicAppSettings(doc);
-}
+export const getPublicAppSettings = unstable_cache(
+  async (): Promise<PublicAppSettings> => {
+    const doc = await getAppSettingsLean();
+    return toPublicAppSettings(doc);
+  },
+  ["public-app-settings"],
+  { tags: ["app-settings"], revalidate: 30 }
+);
 
 export async function getDefaultLowStockThreshold(): Promise<number> {
   const doc = await getAppSettingsLean();
@@ -140,5 +145,6 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
     { new: true, runValidators: true }
   ).lean();
   if (!doc) throw new Error("Application settings not found");
+  revalidateTag("app-settings", "seconds");
   return toPublicAppSettings(doc);
 }

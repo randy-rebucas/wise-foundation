@@ -32,8 +32,12 @@ function buildSecurityHeaders() {
 }
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
+  reactStrictMode: true,
   serverExternalPackages: ["pdfkit"],
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
