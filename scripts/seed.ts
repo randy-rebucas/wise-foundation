@@ -588,6 +588,147 @@ export async function runSeed(): Promise<void> {
   ]);
   console.log(`  3 commission records seeded`);
 
+  // ── 16. Customer Users & Product Reviews ────────────────────────────────────
+  console.log("\n[16] Customer Users & Reviews");
+
+  const customerPw = await bcrypt.hash("password123", 12);
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+  const revId = () => new mongoose.Types.ObjectId().toString().slice(-12);
+
+  const customerUsersWithReviews = [
+    {
+      name: "Ana Reyes",
+      email: "ana.reyes@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[0]._id.toString(), productName: "Aloe Fresh Body Wash",    productSlug: "aloe-fresh-body-wash",    rating: 5, text: "Love this body wash! Leaves my skin so soft and smells absolutely amazing. Will definitely buy again.",                                  createdAt: daysAgo(5) },
+          { id: revId(), productId: products[3]._id.toString(), productName: "Rose Glow Face Serum",    productSlug: "rose-glow-face-serum",    rating: 5, text: "This serum has transformed my skin in just 2 weeks. My glow is real! Best skincare purchase I've ever made.",                      createdAt: daysAgo(12) },
+          { id: revId(), productId: products[9]._id.toString(), productName: "Lavender Mist Perfume",  productSlug: "lavender-mist-perfume",   rating: 4, text: "Beautiful scent that lasts throughout the day. Great gift idea too. The packaging is also very elegant.",                         createdAt: daysAgo(20) },
+        ],
+      },
+    },
+    {
+      name: "Miguel Santos",
+      email: "miguel.santos@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[1]._id.toString(),  productName: "Citrus All-Purpose Cleaner",  productSlug: "citrus-all-purpose-cleaner",  rating: 2, text: "The citrus scent is way too overpowering. Gave me a headache every time I used it. Not suitable for small spaces.", createdAt: daysAgo(8) },
+          { id: revId(), productId: products[6]._id.toString(),  productName: "Moringa Supplement Capsules", productSlug: "moringa-supplement-capsules", rating: 5, text: "The Moringa capsules are easy to swallow and I genuinely feel more energetic after 3 weeks. Highly recommend!", createdAt: daysAgo(15) },
+          { id: revId(), productId: products[10]._id.toString(), productName: "Citrus Burst EDT",            productSlug: "citrus-burst-edt",            rating: 4, text: "Fresh and clean scent. The bottle design is stylish too. Gets lots of compliments whenever I wear it.",         createdAt: daysAgo(22) },
+        ],
+      },
+    },
+    {
+      name: "Carla Mendoza",
+      email: "carla.mendoza@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[4]._id.toString(), productName: "Matte Lip Color Set",  productSlug: "matte-lip-color-set",  rating: 1, text: "The colors look completely different from the photos online. Very disappointed with this purchase. Will not rebuy.",      createdAt: daysAgo(3) },
+          { id: revId(), productId: products[7]._id.toString(), productName: "Collagen Drink Mix",   productSlug: "collagen-drink-mix",   rating: 3, text: "Taste is okay I guess. Not sure if it's working yet but I'll keep trying for another month before deciding.",               createdAt: daysAgo(18) },
+          { id: revId(), productId: products[2]._id.toString(), productName: "Herbal Shampoo Bar",   productSlug: "herbal-shampoo-bar",   rating: 4, text: "Good lather and a nice herbal scent. Took a little getting used to the shampoo bar format but now I love it.",            createdAt: daysAgo(25) },
+        ],
+      },
+    },
+    {
+      name: "Jose Lim",
+      email: "jose.lim@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[11]._id.toString(), productName: "Midnight Oud Parfum",  productSlug: "midnight-oud-parfum",  rating: 1, text: "The oud scent completely disappeared within 30 minutes of application. Absolutely not worth ₱999. Very disappointed.", createdAt: daysAgo(2) },
+          { id: revId(), productId: products[5]._id.toString(),  productName: "Brightening CC Cream", productSlug: "brightening-cc-cream", rating: 4, text: "Great coverage and feels really light on the skin. Matches my skin tone very well. Will definitely repurchase.",          createdAt: daysAgo(30) },
+          { id: revId(), productId: products[8]._id.toString(),  productName: "Turmeric Herbal Tea",  productSlug: "turmeric-herbal-tea",  rating: 5, text: "Best herbal tea I've ever tried! Super calming and great for digestion. Drinking it every night now.",                  createdAt: daysAgo(35) },
+        ],
+      },
+    },
+    {
+      name: "Sofia Cruz",
+      email: "sofia.cruz@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[2]._id.toString(), productName: "Herbal Shampoo Bar",   productSlug: "herbal-shampoo-bar",   rating: 2, text: "Left my hair feeling waxy and dull after the first use. Had to use my regular shampoo afterward to fix it. Very disappointing.", createdAt: daysAgo(7) },
+          { id: revId(), productId: products[3]._id.toString(), productName: "Rose Glow Face Serum", productSlug: "rose-glow-face-serum", rating: 5, text: "I've been using Rose Glow for a month and my skin has never looked better. Genuinely worth every peso!",                         createdAt: daysAgo(14) },
+          { id: revId(), productId: products[9]._id.toString(), productName: "Lavender Mist Perfume",productSlug: "lavender-mist-perfume",rating: 5, text: "Lavender Mist is now my signature scent. Long-lasting and absolutely heavenly. Already bought my second bottle!",              createdAt: daysAgo(21) },
+        ],
+      },
+    },
+    {
+      name: "Bianca Torres",
+      email: "bianca.torres@email.com",
+      password: customerPw,
+      role: "CUSTOMER",
+      isActive: true,
+      emailVerified: true,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      marketplace: {
+        wishlist: [],
+        savedAddresses: [],
+        paymentMethods: [],
+        reviews: [
+          { id: revId(), productId: products[0]._id.toString(), productName: "Aloe Fresh Body Wash", productSlug: "aloe-fresh-body-wash", rating: 4, text: "Nice body wash, smells great and leaves skin moisturized. Good value for money. Bought for the whole family.",                       createdAt: daysAgo(10) },
+          { id: revId(), productId: products[7]._id.toString(), productName: "Collagen Drink Mix",   productSlug: "collagen-drink-mix",   rating: 2, text: "I expected more from a collagen drink at this price point. The flavor is off and I've seen minimal results after a full month.",  createdAt: daysAgo(16) },
+          { id: revId(), productId: products[4]._id.toString(), productName: "Matte Lip Color Set",  productSlug: "matte-lip-color-set",  rating: 4, text: "The lip colors are pigmented and last all day without drying my lips. Love the matte finish on all 6 shades.",                     createdAt: daysAgo(28) },
+        ],
+      },
+    },
+  ];
+
+  const totalReviews = customerUsersWithReviews.reduce((s, u) => s + u.marketplace.reviews.length, 0);
+  await db.collection("users").insertMany(customerUsersWithReviews);
+  console.log(`  ${customerUsersWithReviews.length} customer users with ${totalReviews} reviews seeded`);
+  console.log("  Customer login: ana.reyes@email.com / password123");
+
   // ─── Summary ────────────────────────────────────────────────────────────────
   console.log("\n════════════════════════════════════════");
   console.log("  Seed Complete!");
@@ -614,6 +755,9 @@ export async function runSeed(): Promise<void> {
   console.log("    Password: password123");
   console.log("\n  INVENTORY MANAGER");
   console.log("    Email:    mark@glowish.demo");
+  console.log("    Password: password123");
+  console.log("\n  CUSTOMERS (6 users with reviews)");
+  console.log("    Email:    ana.reyes@email.com");
   console.log("    Password: password123");
   console.log("════════════════════════════════════════\n");
 

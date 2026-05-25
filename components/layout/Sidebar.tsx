@@ -27,6 +27,7 @@ import {
   Globe2,
   BookOpen,
   Images,
+  MessageSquare,
 } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -99,6 +100,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: "Users", path: "/admin/users", icon: Users, roles: ["ADMIN"] },
   { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
   { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
+  { label: "Reviews", path: "/admin/reviews", icon: MessageSquare, roles: ["ADMIN"] },
 ];
 
 export interface SidebarUser {

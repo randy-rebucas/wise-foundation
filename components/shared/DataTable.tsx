@@ -27,6 +27,7 @@ interface DataTableProps<T> {
   totalPages?: number;
   onPageChange?: (page: number) => void;
   keyExtractor: (row: T) => string;
+  rowClassName?: (row: T) => string;
 }
 
 export function DataTable<T>({
@@ -38,6 +39,7 @@ export function DataTable<T>({
   totalPages = 1,
   onPageChange,
   keyExtractor,
+  rowClassName,
 }: DataTableProps<T>) {
   return (
     <div className="space-y-4">
@@ -67,7 +69,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((row) => (
-                <TableRow key={keyExtractor(row)}>
+                <TableRow key={keyExtractor(row)} className={rowClassName?.(row)}>
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
                       {col.render
