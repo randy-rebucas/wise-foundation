@@ -4,6 +4,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 
 function isRemote(url: string) {
   return /^https?:\/\//i.test(url);
@@ -23,9 +24,10 @@ function GalleryImage({
   priority?: boolean;
 }) {
   if (isRemote(src)) {
+    const optimized = cloudinaryTransformedUrl(src);
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={alt} className={cn("h-full w-full object-cover", className)} />
+      <img src={optimized} alt={alt} className={cn("h-full w-full object-cover", className)} />
     );
   }
   return (

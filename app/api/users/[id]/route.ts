@@ -63,7 +63,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       payload.organizationId = req.user.organizationId;
     }
 
-    const user = await updateUser(id, payload);
+    const user = await updateUser(id, payload, { id: req.user.id, name: req.user.name });
     return successResponse(user, "User updated successfully");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
@@ -85,7 +85,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
       }
     }
 
-    await deleteUser(id, req.user.id);
+    await deleteUser(id, req.user.id, { id: req.user.id, name: req.user.name });
     return successResponse(null, "User removed successfully");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

@@ -1,0 +1,851 @@
+openapi: "3.1.0"
+info:
+  title: Glowish API
+  version: "1.0.0"
+  description: |
+    REST API for the Glowish retail management platform.
+
+    ## Authentication
+    - **Staff routes** (`/api/users`, `/api/products`, `/api/orders`, etc.): Bearer JWT via NextAuth session cookie.
+    - **Customer routes** (`/api/account/*`): Session cookie from marketplace login.
+    - **Public routes** (`/api/marketplace/*`, `/api/health`): No authentication required.
+
+    ## Response envelope
+    All endpoints return a consistent JSON envelope:
+    ```json
+    { "success": true, "data": <payload>, "message": "...", "meta": { "page": 1, "limit": 20, "total": 100 } }
+    { "success": false, "error": "Human-readable error message" }
+    ```
+
+servers:
+  - url: https://your-store.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Marketplace
+  - name: Account
+  - name: Products
+  - name: Inventory
+  - name: Orders
+  - name: Purchase Orders
+  - name: Members
+  - name: Users
+  - name: Organizations
+  - name: Branches
+  - name: Reports
+  - name: Admin
+  - name: Settings
+
+paths:
+  # ─── Health ──────────────────────────────────────────────
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Returns status of MongoDB, Cloudinary, and PayMongo. Use as uptime monitor target.
+      responses:
+        "200":
+          description: All configured services healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: One or more services degraded
+
+  # ─── Auth / 2FA ──────────────────────────────────────────
+  /api/auth/2fa/setup:
+    post:
+      tags: [Auth]
+      summary: Initiate 2FA setup (admin/org-admin only)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: Returns TOTP secret and QR code data URL
+
+  /api/auth/2fa/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm 2FA setup with first TOTP token
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, example: "123456" }
+      responses:
+        "200":
+          description: 2FA enabled; returns one-time backup codes
+        "400":
+          description: Invalid token
+
+  /api/auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: Step-up TOTP verification (mid-session)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: Verified
+        "401":
+          description: Invalid code
+
+  /api/auth/2fa/disable:
+    delete:
+      tags: [Auth]
+      summary: Disable 2FA (requires current TOTP token)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: 2FA disabled
+
+  # ─── Marketplace (public) ────────────────────────────────
+  /api/marketplace/products:
+    get:
+      tags: [Marketplace]
+      summary: List marketplace products
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 12, maximum: 48 }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string, enum: [homecare, cosmetics, wellness, scent] }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [featured, price_asc, price_desc, newest] }
+        - in: query
+          name: minPrice
+          schema: { type: number }
+        - in: query
+          name: maxPrice
+          schema: { type: number }
+        - in: query
+          name: inStock
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Paginated product list
+
+  /api/marketplace/products/{slug}:
+    get:
+      tags: [Marketplace]
+      summary: Get product by slug
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Product detail with variants and inventory
+        "404":
+          description: Not found
+
+  /api/marketplace/shop/facets:
+    get:
+      tags: [Marketplace]
+      summary: Shop filter facets (categories, tags, price range)
+      responses:
+        "200":
+          description: Facets for the shop filter sidebar
+
+  /api/marketplace/settings:
+    get:
+      tags: [Marketplace]
+      summary: Public store settings (app name, logo, policies)
+      responses:
+        "200":
+          description: Public app settings
+
+  /api/marketplace/checkout:
+    post:
+      tags: [Marketplace]
+      summary: Create a marketplace order (checkout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Order created
+        "400":
+          description: Validation error or out-of-stock
+
+  /api/marketplace/checkout/quote:
+    post:
+      tags: [Marketplace]
+      summary: Calculate shipping cost quote before checkout
+      responses:
+        "200":
+          description: Shipping options and costs
+
+  /api/marketplace/paymongo/config:
+    get:
+      tags: [Marketplace]
+      summary: Get PayMongo public key for client-side tokenisation
+      responses:
+        "200":
+          description: Public key
+
+  /api/marketplace/paymongo/intent:
+    post:
+      tags: [Marketplace]
+      summary: Create PayMongo payment intent
+      responses:
+        "200":
+          description: Payment intent with client_key
+
+  /api/marketplace/paymongo/attach:
+    post:
+      tags: [Marketplace]
+      summary: Attach payment method to intent and capture
+      responses:
+        "200":
+          description: Payment result
+
+  /api/marketplace/reviews:
+    get:
+      tags: [Marketplace]
+      summary: List public product reviews
+    post:
+      tags: [Marketplace]
+      summary: Submit a product review (authenticated customer)
+      security: [{ sessionCookie: [] }]
+
+  /api/marketplace/reviews/summaries:
+    get:
+      tags: [Marketplace]
+      summary: Aggregated review summaries per product
+
+  /api/marketplace/contact:
+    post:
+      tags: [Marketplace]
+      summary: Submit a contact message
+
+  /api/marketplace/category-images:
+    get:
+      tags: [Marketplace]
+      summary: Sample product images per category for storefront display
+
+  # ─── Account (authenticated customer) ───────────────────
+  /api/account/register:
+    post:
+      tags: [Account]
+      summary: Register a new customer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200":
+          description: Account created
+        "400":
+          description: Email already registered or validation error
+
+  /api/account/verify-email:
+    get:
+      tags: [Account]
+      summary: Verify email address with token
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Email verified
+        "400":
+          description: Invalid or expired token
+
+  /api/account/dashboard:
+    get:
+      tags: [Account]
+      summary: Customer account dashboard (orders, rewards, stats)
+      security: [{ sessionCookie: [] }]
+
+  /api/account/orders:
+    get:
+      tags: [Account]
+      summary: List customer orders
+      security: [{ sessionCookie: [] }]
+
+  /api/account/orders/{id}:
+    get:
+      tags: [Account]
+      summary: Get order detail
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+
+  /api/account/addresses:
+    get:
+      tags: [Account]
+      summary: List saved addresses
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Account]
+      summary: Add saved address
+      security: [{ sessionCookie: [] }]
+
+  /api/account/saved-addresses:
+    get:
+      tags: [Account]
+      summary: Alias for /api/account/addresses
+      security: [{ sessionCookie: [] }]
+
+  /api/account/payment-methods:
+    get:
+      tags: [Account]
+      summary: List saved payment methods
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Account]
+      summary: Add saved payment method
+      security: [{ sessionCookie: [] }]
+
+  /api/account/wishlist:
+    get:
+      tags: [Account]
+      summary: Get wishlist
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Account]
+      summary: Add item to wishlist
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Account]
+      summary: Remove item from wishlist
+      security: [{ sessionCookie: [] }]
+
+  /api/account/reviews:
+    get:
+      tags: [Account]
+      summary: List customer's own reviews
+      security: [{ sessionCookie: [] }]
+
+  /api/account/notifications:
+    get:
+      tags: [Account]
+      summary: List notifications
+      security: [{ sessionCookie: [] }]
+
+  /api/account/data-export:
+    get:
+      tags: [Account]
+      summary: GDPR data export — download all personal data as JSON
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: JSON file attachment with all account data
+          headers:
+            Content-Disposition:
+              schema: { type: string, example: "attachment; filename=glowish-data-export-xxx.json" }
+
+  /api/account/delete-account:
+    delete:
+      tags: [Account]
+      summary: GDPR account erasure — anonymise and soft-delete account
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: { type: boolean, enum: [true] }
+      responses:
+        "200":
+          description: Account deleted and PII removed
+        "400":
+          description: Missing confirmation
+
+  # ─── Products (staff) ────────────────────────────────────
+  /api/products:
+    get:
+      tags: [Products]
+      summary: List products
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Products]
+      summary: Create product
+      security: [{ sessionCookie: [] }]
+
+  /api/products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+    patch:
+      tags: [Products]
+      summary: Update product
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Products]
+      summary: Delete product
+      security: [{ sessionCookie: [] }]
+
+  /api/products/{id}/variants:
+    get:
+      tags: [Products]
+      summary: List product variants
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Products]
+      summary: Add variant
+      security: [{ sessionCookie: [] }]
+
+  /api/products/{id}/clone:
+    post:
+      tags: [Products]
+      summary: Clone product
+      security: [{ sessionCookie: [] }]
+
+  /api/products/pos:
+    get:
+      tags: [Products]
+      summary: POS product catalog (available in branch)
+      security: [{ sessionCookie: [] }]
+
+  /api/products/import:
+    post:
+      tags: [Products]
+      summary: Bulk import products from CSV/Excel
+      security: [{ sessionCookie: [] }]
+
+  /api/products/export:
+    get:
+      tags: [Products]
+      summary: Export product catalog as CSV
+      security: [{ sessionCookie: [] }]
+
+  /api/products/images:
+    post:
+      tags: [Products]
+      summary: Upload product image
+      security: [{ sessionCookie: [] }]
+
+  # ─── Inventory ────────────────────────────────────────────
+  /api/inventory:
+    get:
+      tags: [Inventory]
+      summary: List inventory (all branches or filtered)
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Inventory]
+      summary: Adjust inventory (add/subtract stock)
+      security: [{ sessionCookie: [] }]
+
+  /api/inventory/movements:
+    get:
+      tags: [Inventory]
+      summary: List stock movements / audit trail
+      security: [{ sessionCookie: [] }]
+
+  /api/inventory/org-transfer:
+    post:
+      tags: [Inventory]
+      summary: Transfer inventory between organization branches
+      security: [{ sessionCookie: [] }]
+
+  # ─── Orders ───────────────────────────────────────────────
+  /api/orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Orders]
+      summary: Create POS order
+      security: [{ sessionCookie: [] }]
+
+  /api/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order detail
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Orders]
+      summary: Update order status (e.g. mark delivered, refund)
+      security: [{ sessionCookie: [] }]
+
+  /api/orders/b2b:
+    post:
+      tags: [Orders]
+      summary: Create B2B reseller order
+      security: [{ sessionCookie: [] }]
+
+  # ─── Purchase Orders ─────────────────────────────────────
+  /api/purchase-orders:
+    get:
+      tags: [Purchase Orders]
+      summary: List purchase orders
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Purchase Orders]
+      summary: Create purchase order draft
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}:
+    get:
+      tags: [Purchase Orders]
+      summary: Get purchase order
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Purchase Orders]
+      summary: Edit purchase order draft
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Purchase Orders]
+      summary: Delete purchase order draft
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}/sign:
+    post:
+      tags: [Purchase Orders]
+      summary: Submit / sign purchase order
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}/decline:
+    post:
+      tags: [Purchase Orders]
+      summary: Decline purchase order
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}/receive:
+    post:
+      tags: [Purchase Orders]
+      summary: Receive goods against a purchase order
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}/discount:
+    patch:
+      tags: [Purchase Orders]
+      summary: Apply discount to purchase order
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/{id}/pdf:
+    get:
+      tags: [Purchase Orders]
+      summary: Download purchase order as PDF
+      security: [{ sessionCookie: [] }]
+
+  /api/purchase-orders/template:
+    get:
+      tags: [Purchase Orders]
+      summary: Get product catalog template for purchase order creation
+      security: [{ sessionCookie: [] }]
+
+  # ─── Members ──────────────────────────────────────────────
+  /api/members:
+    get:
+      tags: [Members]
+      summary: List loyalty members
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Members]
+      summary: Register new member
+      security: [{ sessionCookie: [] }]
+
+  /api/members/{id}:
+    get:
+      tags: [Members]
+      summary: Get member detail
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Members]
+      summary: Update member
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Members]
+      summary: Delete member
+      security: [{ sessionCookie: [] }]
+
+  # ─── Users ────────────────────────────────────────────────
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List staff users
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Users]
+      summary: Create staff user
+      security: [{ sessionCookie: [] }]
+
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get staff user
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Users]
+      summary: Update staff user
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Users]
+      summary: Delete (soft) staff user
+      security: [{ sessionCookie: [] }]
+
+  /api/users/{id}/lock:
+    post:
+      tags: [Users]
+      summary: Lock or unlock a user account
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locked]
+              properties:
+                locked: { type: boolean }
+
+  /api/users/me:
+    get:
+      tags: [Users]
+      summary: Get current authenticated user profile
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Users]
+      summary: Update own profile
+      security: [{ sessionCookie: [] }]
+
+  /api/users/me/password:
+    post:
+      tags: [Users]
+      summary: Change own password
+      security: [{ sessionCookie: [] }]
+
+  /api/audit-logs:
+    get:
+      tags: [Users]
+      summary: List admin audit log entries
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { in: query, name: action, schema: { type: string } }
+        - { in: query, name: targetId, schema: { type: string } }
+        - { in: query, name: performedBy, schema: { type: string } }
+        - { in: query, name: page, schema: { type: integer } }
+        - { in: query, name: limit, schema: { type: integer } }
+
+  # ─── Organizations & Branches ─────────────────────────────
+  /api/organizations:
+    get:
+      tags: [Organizations]
+      summary: List organizations
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Organizations]
+      summary: Create organization
+      security: [{ sessionCookie: [] }]
+
+  /api/organizations/{id}:
+    get:
+      tags: [Organizations]
+      summary: Get organization
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Organizations]
+      summary: Update organization
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Organizations]
+      summary: Delete organization
+      security: [{ sessionCookie: [] }]
+
+  /api/organizations/{id}/permissions:
+    get:
+      tags: [Organizations]
+      summary: Get custom role permissions for an organization
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Organizations]
+      summary: Update custom permissions
+      security: [{ sessionCookie: [] }]
+
+  /api/branches:
+    get:
+      tags: [Branches]
+      summary: List branches
+      security: [{ sessionCookie: [] }]
+    post:
+      tags: [Branches]
+      summary: Create branch
+      security: [{ sessionCookie: [] }]
+
+  /api/branches/{id}:
+    get:
+      tags: [Branches]
+      summary: Get branch
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Branches]
+      summary: Update branch
+      security: [{ sessionCookie: [] }]
+    delete:
+      tags: [Branches]
+      summary: Delete branch
+      security: [{ sessionCookie: [] }]
+
+  /api/branches/{id}/users:
+    get:
+      tags: [Branches]
+      summary: List users assigned to a branch
+      security: [{ sessionCookie: [] }]
+
+  # ─── Reports ──────────────────────────────────────────────
+  /api/reports:
+    get:
+      tags: [Reports]
+      summary: Sales / inventory reports with date range filters
+      security: [{ sessionCookie: [] }]
+
+  /api/commissions:
+    get:
+      tags: [Reports]
+      summary: List commission records
+      security: [{ sessionCookie: [] }]
+
+  # ─── Admin ────────────────────────────────────────────────
+  /api/admin/roles:
+    get:
+      tags: [Admin]
+      summary: List all roles and their default permissions
+      security: [{ sessionCookie: [] }]
+
+  /api/admin/roles/sync:
+    post:
+      tags: [Admin]
+      summary: Sync default role permissions to all users
+      security: [{ sessionCookie: [] }]
+
+  /api/settings/app:
+    get:
+      tags: [Settings]
+      summary: Get app settings (admin)
+      security: [{ sessionCookie: [] }]
+    patch:
+      tags: [Settings]
+      summary: Update app settings
+      security: [{ sessionCookie: [] }]
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: NextAuth v5 session cookie
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            mongo:
+              $ref: "#/components/schemas/ServiceStatus"
+            cloudinary:
+              $ref: "#/components/schemas/ServiceStatus"
+            paymongo:
+              $ref: "#/components/schemas/ServiceStatus"
+
+    ServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unconfigured]
+        latencyMs:
+          type: integer
+
+    CheckoutInput:
+      type: object
+      required: [items, shipping, payment]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string }
+              variantId: { type: string }
+              quantity: { type: integer, minimum: 1 }
+        shipping:
+          type: object
+          required: [fullName, email, phone, line1, city, region, postalCode, country, shippingMethodId]
+          properties:
+            fullName: { type: string }
+            email: { type: string, format: email }
+            phone: { type: string }
+            line1: { type: string }
+            line2: { type: string }
+            city: { type: string }
+            region: { type: string }
+            postalCode: { type: string }
+            country: { type: string }
+            shippingMethodId: { type: string }
+        payment:
+          type: object
+          required: [method]
+          properties:
+            method: { type: string, enum: [cod, gcash, card, bank_transfer] }
+            paymentIntentId: { type: string }
+            paymentMethodId: { type: string }

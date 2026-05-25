@@ -45,7 +45,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const user = await createUser(parsed.data);
+    const user = await createUser(parsed.data, { id: req.user.id, name: req.user.name });
     return successResponse(user, "User created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

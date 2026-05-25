@@ -2,6 +2,7 @@ import { AppLogo } from "@/components/branding/AppLogo";
 import { AlertTriangle } from "lucide-react";
 import type { Session } from "next-auth";
 import { auth } from "@/auth";
+import logger from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function MaintenancePage() {
   try {
     session = await auth();
   } catch (err) {
-    console.error("[maintenance page] auth failed", err);
+    logger.error({ err }, "[maintenance page] auth failed");
   }
 
   return (

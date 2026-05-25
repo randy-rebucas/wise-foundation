@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
+import logger from "@/lib/logger";
 import {
   getPurchaseOrders,
   createPurchaseOrder,
@@ -29,7 +30,7 @@ const getHandler = async (req: AuthedRequest) => {
       statusCounts,
     });
   } catch (error) {
-    console.error("[GET /api/purchase-orders]", error);
+    logger.error({ err: error }, "[GET /api/purchase-orders]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
@@ -52,7 +53,7 @@ const postHandler = async (req: AuthedRequest) => {
     const po = await createPurchaseOrder(req.user.id, parsed.data, req.user);
     return successResponse(po, "Purchase order created", 201);
   } catch (error) {
-    console.error("[POST /api/purchase-orders]", error);
+    logger.error({ err: error }, "[POST /api/purchase-orders]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

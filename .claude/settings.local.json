@@ -19,7 +19,21 @@
       "Bash(node -e \"console.log\\(require\\('c:/Users/corew/wise/node_modules/next-auth/package.json'\\).version\\)\")",
       "Bash(ls \"c:\\\\Users\\\\corew\\\\wise\\\\app\\\\api\\\\branches\\\\[id]\\\\\\\\\")",
       "Bash(xargs grep *)",
-      "Bash(git -C /c/Users/corew/wise log --oneline -10)"
+      "Bash(git -C /c/Users/corew/wise log --oneline -10)",
+      "Bash(pnpm add *)",
+      "Bash(npx vitest *)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\corew\\\\wise\\\\app\\\\api\\\\users\\\\[id]\\\\lock\" 2>/dev/null; echo \"done\")",
+      "Bash(node -e \"require\\('otplib'\\)\")",
+      "Bash(node -e \"require\\('speakeasy'\\)\")",
+      "Bash(node -e \"require\\('@otplib/preset-default'\\)\")",
+      "Bash(node -e \"const o = require\\('otplib'\\); console.log\\(Object.keys\\(o\\)\\)\")",
+      "Bash(node -e \"const o = require\\('otplib'\\); console.log\\(Object.keys\\(o\\)\\); const t = new o.TOTP\\(\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(t\\)\\).filter\\(k=>k!=='constructor'\\)\\)\")",
+      "Bash(node -e \"const o = require\\('C:/Users/corew/wise/node_modules/otplib'\\); const t = new o.TOTP\\(\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(t\\)\\).filter\\(k=>k!=='constructor'\\)\\)\")",
+      "Bash(node -e \"const o = require\\('C:/Users/corew/wise/node_modules/otplib'\\); const t = new o.TOTP\\(\\); const secret = t.generateSecret\\(20\\); console.log\\('secret:', secret\\); const uri = t.toURI\\('test@example.com', 'Glowish', secret\\); console.log\\('uri:', uri\\); console.log\\('verify:', t.verify\\({ token: t.generate\\(secret\\), secret }\\)\\)\")",
+      "Bash(Remove-Item \"C:\\\\Users\\\\corew\\\\wise\\\\middleware.ts\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\corew\\wise\\app\\api\\users\\[id]"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { connectDB } from "@/lib/db/connect";
+import logger from "@/lib/logger";
 import { MediaAsset } from "@/lib/db/models/MediaAsset";
 import { Product } from "@/lib/db/models/Product";
 import { ProductVariant } from "@/lib/db/models/ProductVariant";
@@ -120,7 +121,7 @@ export async function uploadAndRegisterImages(
       } catch (registerError) {
         /* Registration failed - clean up this upload immediately */
         await deleteStoredImage(result.publicId).catch(() => {
-          console.error("Failed to clean up orphaned upload:", result.publicId);
+          logger.error({ publicId: result.publicId }, "Failed to clean up orphaned upload");
         });
         throw registerError;
       }
@@ -150,7 +151,7 @@ export async function listMediaAssets(
       const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       query.$or = [{ filename: re }, { publicId: re }, { url: re }];
     } catch (e) {
-      console.error("Invalid search pattern:", e);
+      logger.error({ err: e }, "Invalid search pattern");
       /* Fallback to no matches for this search term */
       return { items: [], total: 0, pages: 0 };
     }

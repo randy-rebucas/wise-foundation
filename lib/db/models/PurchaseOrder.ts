@@ -96,6 +96,8 @@ const PurchaseOrderSchema = new Schema<IPurchaseOrder>(
 
 PurchaseOrderSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 PurchaseOrderSchema.index({ status: 1, deletedAt: 1 });
+PurchaseOrderSchema.index({ createdBy: 1, status: 1, createdAt: -1 });
+PurchaseOrderSchema.index({ branchId: 1, status: 1, createdAt: -1 });
 
 export const PurchaseOrder =
   models.PurchaseOrder || model<IPurchaseOrder>("PurchaseOrder", PurchaseOrderSchema);

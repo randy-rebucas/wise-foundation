@@ -1,6 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import { getPurchaseOrderByIdForUser, receivePurchaseOrder } from "@/lib/services/purchaseOrder.service";
+import logger from "@/lib/logger";
 import { receivePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
@@ -19,7 +20,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
     const po = await receivePurchaseOrder(id, req.user, parsed.data);
     return successResponse(po, "Purchase order received with signature");
   } catch (error) {
-    console.error("[POST /api/purchase-orders/[id]/receive]", error);
+    logger.error({ err: error }, "[POST /api/purchase-orders/[id]/receive]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

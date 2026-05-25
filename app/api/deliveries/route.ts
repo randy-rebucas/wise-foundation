@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
+import logger from "@/lib/logger";
 import {
   getDeliveries,
   getDeliveryStatusCounts,
@@ -35,7 +36,7 @@ const getHandler = async (req: AuthedRequest) => {
       statusCounts,
     });
   } catch (error) {
-    console.error("[GET /api/deliveries]", error);
+    logger.error({ err: error }, "[GET /api/deliveries]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

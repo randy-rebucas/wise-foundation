@@ -1,8 +1,9 @@
 import "server-only";
 
 import { v2 as cloudinary } from "cloudinary";
-import { normalizeCloudinaryError } from "@/lib/server/cloudinaryErrors";
+import { normalizeCloudinaryError, CloudinaryUploadError } from "@/lib/server/cloudinaryErrors";
 import { sanitizeUploadFolder } from "@/lib/server/uploadPathUtils";
+import { withRetry } from "@/lib/utils/retry";
 
 let configApplied = false;
 
@@ -64,25 +65,35 @@ export async function saveImageBufferToCloudinary(
   const safeFolder = sanitizeUploadFolder(folder);
   const format = MIME_TO_FORMAT[mime];
 
-  const result = await new Promise<{
-    secure_url: string;
-    public_id: string;
-    bytes?: number;
-  }>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: safeFolder,
-        resource_type: "image",
-        ...(format ? { format } : {}),
-      },
-      (error, uploadResult) => {
-        if (error) reject(normalizeCloudinaryError(error));
-        else if (!uploadResult) reject(new Error("Cloudinary upload returned no result"));
-        else resolve(uploadResult);
-      }
-    );
-    stream.end(buffer);
-  });
+  const result = await withRetry(
+    () =>
+      new Promise<{
+        secure_url: string;
+        public_id: string;
+        bytes?: number;
+      }>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: safeFolder,
+            resource_type: "image",
+            ...(format ? { format } : {}),
+          },
+          (error, uploadResult) => {
+            if (error) reject(normalizeCloudinaryError(error));
+            else if (!uploadResult) reject(new Error("Cloudinary upload returned no result"));
+            else resolve(uploadResult);
+          }
+        );
+        stream.end(buffer);
+      }),
+    {
+      attempts: 3,
+      baseDelayMs: 300,
+      shouldAbort: (err) =>
+        err instanceof CloudinaryUploadError &&
+        (err.httpCode === 401 || err.httpCode === 403),
+    }
+  );
 
   return {
     url: result.secure_url,
@@ -98,11 +109,24 @@ export async function deleteCloudinaryImage(publicId: string): Promise<void> {
   const trimmed = publicId.trim();
   if (!trimmed) return;
 
-  await cloudinary.uploader.destroy(trimmed, { resource_type: "image" }).catch((err: unknown) => {
-    const normalized = normalizeCloudinaryError(err);
-    if (normalized.message.includes("not found") || normalized.httpCode === 404) return;
-    throw normalized;
-  });
+  await withRetry(
+    async () => {
+      await cloudinary.uploader
+        .destroy(trimmed, { resource_type: "image" })
+        .catch((err: unknown) => {
+          const normalized = normalizeCloudinaryError(err);
+          if (normalized.message.includes("not found") || normalized.httpCode === 404) return;
+          throw normalized;
+        });
+    },
+    {
+      attempts: 3,
+      baseDelayMs: 300,
+      shouldAbort: (err) =>
+        err instanceof CloudinaryUploadError &&
+        (err.httpCode === 401 || err.httpCode === 403 || err.httpCode === 404),
+    }
+  );
 }
 
 /** Quick credential / account check for status endpoints. */

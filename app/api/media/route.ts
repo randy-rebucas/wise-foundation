@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
+import logger from "@/lib/logger";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { MAX_IMAGES_PER_UPLOAD_BATCH } from "@/lib/constants/gallery";
 import { getMediaLibraryFolder } from "@/lib/server/uploadFolders";
@@ -72,7 +73,7 @@ const postHandler = async (req: AuthedRequest) => {
       201
     );
   } catch (e) {
-    console.error("[POST /api/media]", e);
+    logger.error({ err: e }, "[POST /api/media]");
     if (e instanceof CloudinaryUploadError) {
       return errorResponse(e.message, httpStatusForCloudinaryError(e));
     }

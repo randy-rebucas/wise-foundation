@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { updatePurchaseOrderDiscount } from "@/lib/services/purchaseOrder.service";
+import logger from "@/lib/logger";
 import { purchaseOrderDiscountPercentSchema } from "@/lib/validations/purchaseOrder.schema";
 import {
   successResponse,
@@ -28,7 +29,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order discount updated");
   } catch (error) {
-    console.error("[PATCH /api/purchase-orders/[id]/discount]", error);
+    logger.error({ err: error }, "[PATCH /api/purchase-orders/[id]/discount]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

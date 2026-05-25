@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
+import logger from "@/lib/logger";
 import {
   getPurchaseOrderCatalogTemplateAll,
   getPurchaseOrderCatalogTemplatePage,
@@ -22,7 +23,7 @@ const getHandler = async (req: AuthedRequest) => {
     const template = await getPurchaseOrderCatalogTemplatePage(page, limit);
     return successResponse(template);
   } catch (error) {
-    console.error("[GET /api/purchase-orders/template]", error);
+    logger.error({ err: error }, "[GET /api/purchase-orders/template]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

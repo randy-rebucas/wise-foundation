@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isCloudinaryAccountError, normalizeCloudinaryError } from "@/lib/server/cloudinaryErrors";
+import logger from "@/lib/logger";
 import {
   cloudinaryConfigured,
   deleteCloudinaryImage,
@@ -52,9 +53,9 @@ export async function saveImageBuffer(
       return await saveImageBufferToCloudinary(buffer, folder, mime);
     } catch (err) {
       if (isCloudinaryAccountError(err) && localImageStorageConfigured()) {
-        console.warn(
-          "[imageStorage] Cloudinary unavailable, falling back to local storage:",
-          err instanceof Error ? err.message : err
+        logger.warn(
+          { err: err instanceof Error ? err.message : err },
+          "[imageStorage] Cloudinary unavailable, falling back to local storage"
         );
         return saveLocalImageBuffer(buffer, folder, mime);
       }

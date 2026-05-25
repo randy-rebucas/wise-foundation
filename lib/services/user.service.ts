@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { getRolePermissions } from "@/lib/services/role.service";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";
 import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
 
@@ -54,7 +55,7 @@ export async function getUserById(userId: string) {
     .lean();
 }
 
-export async function createUser(data: CreateUserInput) {
+export async function createUser(data: CreateUserInput, actor?: AuditActor) {
   await connectDB();
 
   const existing = await User.findOne({ email: data.email.toLowerCase() });
@@ -75,13 +76,23 @@ export async function createUser(data: CreateUserInput) {
     isActive: true,
   });
 
+  if (actor) {
+    void writeAuditLog({
+      action: "user.created",
+      actor,
+      targetId: user._id.toString(),
+      targetType: "User",
+      metadata: { role: data.role, email: data.email },
+    });
+  }
+
   const doc = user.toObject();
   const { password, ...safeUser } = doc;
   void password;
   return safeUser;
 }
 
-export async function updateUser(userId: string, data: UpdateUserInput) {
+export async function updateUser(userId: string, data: UpdateUserInput, actor?: AuditActor) {
   await connectDB();
 
   const existing = await User.findOne({ _id: userId, deletedAt: null });
@@ -96,6 +107,7 @@ export async function updateUser(userId: string, data: UpdateUserInput) {
     );
   }
 
+  const roleChanged = data.role && data.role !== existing.role;
   if (data.role) {
     update.permissions = await getRolePermissions(data.role);
   }
@@ -109,10 +121,23 @@ export async function updateUser(userId: string, data: UpdateUserInput) {
     .lean();
 
   if (!user) throw new Error("User not found");
+
+  if (actor) {
+    void writeAuditLog({
+      action: roleChanged ? "user.role_changed" : "user.updated",
+      actor,
+      targetId: userId,
+      targetType: "User",
+      metadata: roleChanged
+        ? { fromRole: existing.role, toRole: data.role }
+        : { fields: Object.keys(data) },
+    });
+  }
+
   return user;
 }
 
-export async function deleteUser(userId: string, requesterId: string) {
+export async function deleteUser(userId: string, requesterId: string, actor?: AuditActor) {
   await connectDB();
 
   if (userId === requesterId) throw new Error("You cannot delete your own account");
@@ -121,9 +146,46 @@ export async function deleteUser(userId: string, requesterId: string) {
   if (!user) throw new Error("User not found");
   if (user.role === "ADMIN") throw new Error("Cannot delete the admin account");
 
-  return User.findOneAndUpdate(
+  const result = await User.findOneAndUpdate(
     { _id: userId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();
+
+  if (actor) {
+    void writeAuditLog({
+      action: "user.deleted",
+      actor,
+      targetId: userId,
+      targetType: "User",
+      metadata: { email: user.email, role: user.role },
+    });
+  }
+
+  return result;
+}
+
+/** Permanently lock or unlock a user account. */
+export async function setUserLock(userId: string, lock: boolean, actor?: AuditActor) {
+  await connectDB();
+
+  const user = await User.findOne({ _id: userId, deletedAt: null });
+  if (!user) throw new Error("User not found");
+  if (user.role === "ADMIN") throw new Error("The admin account cannot be locked");
+
+  const update = lock
+    ? { lockedUntil: new Date("2099-01-01"), failedLoginAttempts: 0 }
+    : { lockedUntil: null, failedLoginAttempts: 0 };
+
+  await User.updateOne({ _id: userId }, { $set: update });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "user.locked",
+      actor,
+      targetId: userId,
+      targetType: "User",
+      metadata: { locked: lock, email: user.email },
+    });
+  }
 }

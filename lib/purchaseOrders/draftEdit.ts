@@ -1,7 +1,4 @@
-import {
-  canManagePurchaseOrdersInventory,
-  isOrgPurchaseOrderSubmitter,
-} from "@/lib/permissions/purchaseOrders";
+import { isOrgPurchaseOrderSubmitter } from "@/lib/permissions/purchaseOrders";
 import { refEntityId } from "@/lib/purchaseOrders/entityId";
 import type { SessionUser } from "@/types";
 
@@ -14,7 +11,6 @@ export function assertCanEditDraftPurchaseOrder(
   }
   if (
     isOrgPurchaseOrderSubmitter(user) &&
-    !canManagePurchaseOrdersInventory(user) &&
     refEntityId(po.createdBy) !== String(user.id)
   ) {
     throw new Error("You can only edit your own draft purchase orders");

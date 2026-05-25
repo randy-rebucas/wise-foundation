@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { requireStaffRoleHome } from "@/lib/navigation/requireStaffHome";
+import logger from "@/lib/logger";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,7 +114,7 @@ export default async function DashboardPage() {
   try {
     stats = await getDashboardStats();
   } catch (err) {
-    console.error("[dashboard] getDashboardStats failed", err);
+    logger.error({ err }, "[dashboard] getDashboardStats failed");
     statsError =
       err instanceof Error ? err.message : "Unable to load dashboard statistics.";
   }

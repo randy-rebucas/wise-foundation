@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
+import logger from "@/lib/logger";
 import {
   getPurchaseOrderByIdForUser,
   updatePurchaseOrder,
@@ -24,7 +25,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po);
   } catch (error) {
-    console.error("[GET /api/purchase-orders/[id]]", error);
+    logger.error({ err: error }, "[GET /api/purchase-orders/[id]]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
@@ -54,7 +55,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, "Purchase order updated");
   } catch (error) {
-    console.error("[PUT /api/purchase-orders/[id]]", error);
+    logger.error({ err: error }, "[PUT /api/purchase-orders/[id]]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
@@ -71,7 +72,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!po) return notFoundResponse("Purchase order not found");
     return successResponse(po, `Purchase order ${status}`);
   } catch (error) {
-    console.error("[PATCH /api/purchase-orders/[id]]", error);
+    logger.error({ err: error }, "[PATCH /api/purchase-orders/[id]]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }
@@ -84,7 +85,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!deleted) return notFoundResponse("Purchase order not found");
     return successResponse(null, "Purchase order deleted");
   } catch (error) {
-    console.error("[DELETE /api/purchase-orders/[id]]", error);
+    logger.error({ err: error }, "[DELETE /api/purchase-orders/[id]]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

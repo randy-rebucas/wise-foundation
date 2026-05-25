@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
+import logger from "@/lib/logger";
 import {
   getPurchaseOrderByIdForUser,
 } from "@/lib/services/purchaseOrder.service";
@@ -38,7 +39,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     return successResponse(po, message);
   } catch (error) {
-    console.error("[POST /api/purchase-orders/[id]/sign]", error);
+    logger.error({ err: error }, "[POST /api/purchase-orders/[id]/sign]");
     if (error instanceof Error) return errorResponse(error.message, 500);
     return serverErrorResponse();
   }

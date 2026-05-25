@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
+import logger from "@/lib/logger";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { deleteMediaAssetsByUrls } from "@/lib/services/media.service";
@@ -59,7 +60,7 @@ const postHandler = async (req: AuthedRequest) => {
       201
     );
   } catch (e) {
-    console.error("[POST /api/products/images]", e);
+    logger.error({ err: e }, "[POST /api/products/images]");
     if (e instanceof CloudinaryUploadError) {
       return errorResponse(e.message, httpStatusForCloudinaryError(e));
     }

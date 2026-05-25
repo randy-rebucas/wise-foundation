@@ -25,7 +25,15 @@ export interface IUser extends Document {
   avatar?: string;
   phone?: string;
   isActive: boolean;
+  emailVerified: boolean;
+  emailVerificationToken?: string | null;
+  emailVerificationExpiry?: Date | null;
   lastLoginAt?: Date;
+  failedLoginAttempts: number;
+  lockedUntil?: Date | null;
+  totpSecret?: string | null;
+  totpEnabled: boolean;
+  totpBackupCodes?: string[] | null;
   marketplace?: IUserMarketplace;
   createdAt: Date;
   updatedAt: Date;
@@ -117,7 +125,15 @@ const UserSchema = new Schema<IUser>(
     avatar: { type: String },
     phone: { type: String },
     isActive: { type: Boolean, default: true },
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String, select: false, default: null },
+    emailVerificationExpiry: { type: Date, select: false, default: null },
     lastLoginAt: { type: Date },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockedUntil: { type: Date, default: null },
+    totpSecret: { type: String, select: false, default: null },
+    totpEnabled: { type: Boolean, default: false },
+    totpBackupCodes: { type: [String], select: false, default: null },
     marketplace: { type: MarketplaceSchema, default: () => ({}) },
     deletedAt: { type: Date, default: null },
   },
@@ -127,5 +143,6 @@ const UserSchema = new Schema<IUser>(
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ role: 1, deletedAt: 1 });
 UserSchema.index({ branchIds: 1, deletedAt: 1 });
+UserSchema.index({ emailVerificationToken: 1 }, { sparse: true });
 
 export const User = models.User || model<IUser>("User", UserSchema);

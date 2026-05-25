@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import type { Types } from "mongoose";
+import { unstable_cache } from "next/cache";
 import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { Branch } from "@/lib/db/models/Branch";
@@ -412,73 +413,83 @@ export async function getMarketplaceShopFacets() {
   };
 }
 
+const _cachedListMarketplaceProducts = unstable_cache(
+  async (branchIdStr: string, params: MarketplaceShopListParams) => {
+    await connectDB();
+    const branchId = new mongoose.Types.ObjectId(branchIdStr);
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(48, Math.max(1, params.limit ?? 12));
+    const skip = (page - 1) * limit;
+    const tags = normalizeShopTags(params.tags);
+    const sortKey = params.sort ?? "featured";
+
+    let filter = buildMarketplaceProductFilter({
+      category: params.category,
+      search: params.search,
+      minPrice: params.minPrice,
+      maxPrice: params.maxPrice,
+      tags,
+    });
+
+    if (params.inStockOnly) {
+      const stocked = await Inventory.aggregate<{ _id: Types.ObjectId }>([
+        { $match: { branchId, quantity: { $gt: 0 } } },
+        { $group: { _id: "$productId" } },
+      ]);
+      const ids = stocked.map((r) => r._id);
+      filter = { $and: [filter, { _id: { $in: ids.length ? ids : [new mongoose.Types.ObjectId()] } }] };
+    }
+
+    const sort = marketplaceProductSortSpec(sortKey);
+
+    const [rows, total] = await Promise.all([
+      Product.find(filter)
+        .select(
+          "name slug images retailPrice category sku shortDescription description seoTitle seoDescription tags"
+        )
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    const ids = rows.map((r) => r._id);
+    const inv =
+      ids.length === 0
+        ? []
+        : await Inventory.find({ branchId, productId: { $in: ids } }).lean();
+    const stockByProduct = new Map<string, number>();
+    for (const row of inv) {
+      const pid = row.productId.toString();
+      stockByProduct.set(pid, (stockByProduct.get(pid) ?? 0) + row.quantity);
+    }
+
+    return {
+      data: rows.map((p) => ({
+        _id: p._id.toString(),
+        name: p.name,
+        slug: p.slug,
+        images: p.images ?? [],
+        retailPrice: p.retailPrice,
+        category: p.category,
+        sku: p.sku,
+        shortDescription: p.shortDescription,
+        description: p.description,
+        tags: p.tags ?? [],
+        stock: stockByProduct.get(p._id.toString()) ?? 0,
+      })),
+      meta: { page, limit, total, hasMore: skip + rows.length < total, sort: sortKey },
+    };
+  },
+  ["marketplace-products-list"],
+  { revalidate: 60, tags: ["marketplace-products"] }
+);
+
 export async function listMarketplaceProducts(params: MarketplaceShopListParams) {
   await connectDB();
   const { branchId } = await getMarketplaceFulfillmentContext();
-  const page = Math.max(1, params.page ?? 1);
-  const limit = Math.min(48, Math.max(1, params.limit ?? 12));
-  const skip = (page - 1) * limit;
-  const tags = normalizeShopTags(params.tags);
-  const sortKey = params.sort ?? "featured";
-
-  let filter = buildMarketplaceProductFilter({
-    category: params.category,
-    search: params.search,
-    minPrice: params.minPrice,
-    maxPrice: params.maxPrice,
-    tags,
-  });
-
-  if (params.inStockOnly) {
-    const stocked = await Inventory.aggregate<{ _id: Types.ObjectId }>([
-      { $match: { branchId, quantity: { $gt: 0 } } },
-      { $group: { _id: "$productId" } },
-    ]);
-    const ids = stocked.map((r) => r._id);
-    filter = { $and: [filter, { _id: { $in: ids.length ? ids : [new mongoose.Types.ObjectId()] } }] };
-  }
-
-  const sort = marketplaceProductSortSpec(sortKey);
-
-  const [rows, total] = await Promise.all([
-    Product.find(filter)
-      .select(
-        "name slug images retailPrice category sku shortDescription description seoTitle seoDescription tags"
-      )
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Product.countDocuments(filter),
-  ]);
-
-  const ids = rows.map((r) => r._id);
-  const inv =
-    ids.length === 0
-      ? []
-      : await Inventory.find({ branchId, productId: { $in: ids } }).lean();
-  const stockByProduct = new Map<string, number>();
-  for (const row of inv) {
-    const pid = row.productId.toString();
-    stockByProduct.set(pid, (stockByProduct.get(pid) ?? 0) + row.quantity);
-  }
-
-  return {
-    data: rows.map((p) => ({
-      _id: p._id.toString(),
-      name: p.name,
-      slug: p.slug,
-      images: p.images ?? [],
-      retailPrice: p.retailPrice,
-      category: p.category,
-      sku: p.sku,
-      shortDescription: p.shortDescription,
-      description: p.description,
-      tags: p.tags ?? [],
-      stock: stockByProduct.get(p._id.toString()) ?? 0,
-    })),
-    meta: { page, limit, total, hasMore: skip + rows.length < total, sort: sortKey },
-  };
+  return _cachedListMarketplaceProducts(branchId.toString(), params);
 }
 
 export async function getMarketplaceProductBySlug(slug: string) {

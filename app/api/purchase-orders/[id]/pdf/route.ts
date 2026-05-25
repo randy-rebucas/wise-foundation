@@ -1,6 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withAnyPermission } from "@/lib/middleware/withAnyPermission";
 import { getPurchaseOrderByIdForUser } from "@/lib/services/purchaseOrder.service";
+import logger from "@/lib/logger";
 import { errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
@@ -29,7 +30,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
       },
     });
   } catch (error) {
-    console.error("[GET /api/purchase-orders/[id]/pdf]", error);
+    logger.error({ err: error }, "[GET /api/purchase-orders/[id]/pdf]");
     if (error instanceof Error) {
       return errorResponse(error.message, 500);
     }

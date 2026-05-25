@@ -1,4 +1,5 @@
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
+import logger from "@/lib/logger";
 
 type CacheEntry = { required: boolean; at: number };
 
@@ -70,14 +71,14 @@ export async function resolveSetupRequiredForProxy(options: {
   } catch (err) {
     const stale = cache?.required;
     if (stale !== undefined) {
-      console.warn("[proxy] setup check failed, using stale cache", err);
+      logger.warn({ err }, "[proxy] setup check failed, using stale cache");
       return { required: stale, checkFailed: true };
     }
     if (options.appSetupCookieDone) {
-      console.warn("[proxy] setup check failed, trusting app_setup cookie", err);
+      logger.warn({ err }, "[proxy] setup check failed, trusting app_setup cookie");
       return { required: false, checkFailed: true };
     }
-    console.error("[proxy] setup check failed", err);
+    logger.error({ err }, "[proxy] setup check failed");
     return { required: true, checkFailed: true };
   }
 }

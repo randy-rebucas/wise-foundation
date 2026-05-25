@@ -1,4 +1,5 @@
 import { getPaymongoSecretKey } from "@/lib/paymongo/config";
+import { withRetry } from "@/lib/utils/retry";
 
 const PAYMONGO_API = "https://api.paymongo.com/v1";
 
@@ -45,6 +46,15 @@ export type PaymongoPaymentMethodAttributes = {
   };
 };
 
+class PaymongoClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+  }
+}
+
 async function paymongoRequest<T>(
   path: string,
   options: { method?: string; body?: unknown; secretKey?: string } = {}
@@ -52,28 +62,39 @@ async function paymongoRequest<T>(
   const secretKey = options.secretKey ?? getPaymongoSecretKey();
   const auth = Buffer.from(`${secretKey}:`).toString("base64");
 
-  const res = await fetch(`${PAYMONGO_API}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
+  return withRetry(
+    async () => {
+      const res = await fetch(`${PAYMONGO_API}${path}`, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+      });
+
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: unknown;
+        errors?: { detail?: string }[];
+      };
+
+      if (!res.ok) {
+        const detail =
+          json.errors?.[0]?.detail ?? `PayMongo request failed (${res.status})`;
+        throw new PaymongoClientError(detail, res.status);
+      }
+
+      return json as T;
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-
-  const json = (await res.json().catch(() => ({}))) as {
-    data?: unknown;
-    errors?: { detail?: string }[];
-  };
-
-  if (!res.ok) {
-    const detail =
-      json.errors?.[0]?.detail ?? `PayMongo request failed (${res.status})`;
-    throw new Error(detail);
-  }
-
-  return json as T;
+    {
+      attempts: 3,
+      baseDelayMs: 300,
+      // Don't retry client errors — they won't resolve
+      shouldAbort: (err) =>
+        err instanceof PaymongoClientError && err.status >= 400 && err.status < 500,
+    }
+  );
 }
 
 export async function createPaymentIntent(params: {

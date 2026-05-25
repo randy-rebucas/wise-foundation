@@ -174,7 +174,3 @@ export async function getPurchaseOrderCatalogTemplateAll(): Promise<PurchaseOrde
   };
 }
 
-/** @deprecated Use getPurchaseOrderCatalogTemplateAll or getPurchaseOrderCatalogTemplatePage */
-export async function getPurchaseOrderCatalogTemplate(): Promise<PurchaseOrderCatalogTemplate> {
-  return getPurchaseOrderCatalogTemplateAll();
-}

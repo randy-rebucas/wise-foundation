@@ -38,6 +38,7 @@ import {
 } from "@/lib/marketplace/categoryImages";
 import { useCategorySampleImages } from "@/components/marketplace/useCategorySampleImages";
 import { cn } from "@/lib/utils";
+import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 import type { ProductCategory } from "@/types";
 
 const VALID_CATEGORIES = new Set<ProductCategory>(["homecare", "cosmetics", "wellness", "scent"]);
@@ -252,7 +253,7 @@ export default function MarketplaceCatalogPage() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={heroSlotImage(0, heroProducts[0])}
+                    src={cloudinaryTransformedUrl(heroSlotImage(0, heroProducts[0]), { width: 200, crop: "limit" })}
                     alt={heroProducts[0].name}
                     className="h-full w-full object-cover"
                   />
@@ -261,7 +262,7 @@ export default function MarketplaceCatalogPage() {
                 <div className="relative h-40 w-28 overflow-hidden rounded-2xl border border-white/70 shadow-lg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={heroCategoryImages[0]}
+                    src={cloudinaryTransformedUrl(heroCategoryImages[0], { width: 200, crop: "limit" })}
                     alt="Featured from our catalog"
                     className="h-full w-full object-cover"
                   />
@@ -282,7 +283,7 @@ export default function MarketplaceCatalogPage() {
                     {isRemote(imageUrl) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={imageUrl}
+                        src={cloudinaryTransformedUrl(imageUrl, { width: 400, crop: "limit" })}
                         alt={product?.name ?? "Featured product"}
                         className="h-full w-full object-cover"
                       />
@@ -484,7 +485,7 @@ export default function MarketplaceCatalogPage() {
                         {isRemote(imageUrl) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={imageUrl}
+                              src={cloudinaryTransformedUrl(imageUrl, { width: 600, crop: "limit" })}
                               alt={r.name}
                               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                             />

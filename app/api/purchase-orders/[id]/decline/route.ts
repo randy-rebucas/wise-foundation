@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { getPurchaseOrderByIdForUser, declinePurchaseOrder } from "@/lib/services/purchaseOrder.service";
+import logger from "@/lib/logger";
 import { declinePurchaseOrderSchema } from "@/lib/validations/purchaseOrder.schema";
 import {
   successResponse,
@@ -24,7 +25,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
     const po = await declinePurchaseOrder(id, req.user, parsed.data.reason);
     return successResponse(po, "Purchase order declined");
   } catch (error) {
-    console.error("[POST /api/purchase-orders/[id]/decline]", error);
+    logger.error({ err: error }, "[POST /api/purchase-orders/[id]/decline]");
     if (error instanceof Error) return errorResponse(error.message, 400);
     return serverErrorResponse();
   }

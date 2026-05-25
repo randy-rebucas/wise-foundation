@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { resolveAppLogoSrc } from "@/lib/constants/branding";
+import logger from "@/lib/logger";
 
 const LOCALHOST_FALLBACK = "http://localhost:3000";
 const GENERIC_DESCRIPTION_FALLBACK = "Shop online for quality products.";
@@ -14,9 +15,7 @@ export function getSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (raw) return raw.replace(/\/$/, "");
   if (process.env.NODE_ENV === "production") {
-    console.warn(
-      "[seo] NEXT_PUBLIC_APP_URL is not set; using localhost fallback for canonical URLs."
-    );
+    logger.warn("[seo] NEXT_PUBLIC_APP_URL is not set; using localhost fallback for canonical URLs.");
   }
   return LOCALHOST_FALLBACK;
 }

@@ -9,7 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-build:
+  lint-and-test:
+    name: Lint, test & build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -28,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
       - name: ESLint
         run: npm run lint
 
@@ -36,3 +40,83 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  deploy-preview:
+    name: Deploy preview
+    needs: lint-and-test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy preview to Vercel
+        run: |
+          vercel deploy \
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --yes \
+            --env MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+            --env AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+            --env AUTH_URL="${{ secrets.AUTH_URL }}" \
+            2>&1 | tee vercel-output.txt
+          echo "PREVIEW_URL=$(grep -oE 'https://[^ ]+\.vercel\.app' vercel-output.txt | head -1)" >> "$GITHUB_ENV"
+
+      - name: Post preview URL to PR
+        if: env.PREVIEW_URL != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `**Preview deployment:** ${process.env.PREVIEW_URL}`,
+            })
+
+  deploy-production:
+    name: Deploy production
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel production
+        run: |
+          vercel deploy \
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --prod \
+            --yes \
+            --env MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+            --env AUTH_SECRET="${{ secrets.AUTH_SECRET }}" \
+            --env AUTH_URL="${{ secrets.AUTH_URL }}"
+
+  rollback:
+    name: Rollback production
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: List recent deployments
+        run: |
+          vercel ls --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" 2>&1 | head -20
+
+      - name: Promote previous deployment
+        if: vars.ROLLBACK_DEPLOYMENT_URL != ''
+        run: |
+          vercel promote "${{ vars.ROLLBACK_DEPLOYMENT_URL }}" \
+            --token="${{ secrets.VERCEL_TOKEN }}" \
+            --scope="${{ secrets.VERCEL_ORG_ID }}"

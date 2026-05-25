@@ -1,7 +1,20 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShopPageClient } from "./ShopPageClient";
+import { buildPageMetadata } from "@/lib/seo/site";
+import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicAppSettings();
+  return buildPageMetadata({
+    title: "Shop",
+    description: `Browse all ${settings.appName} skincare products — cleansers, serums, and daily essentials.`,
+    path: "/shop",
+    settings,
+  });
+}
 
 function ShopPageFallback() {
   return (

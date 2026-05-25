@@ -62,6 +62,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         audience: { label: "Audience", type: "text" },
+        totp: { label: "2FA Code", type: "text" },
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse({
@@ -71,10 +72,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!parsed.success) return null;
 
-        const user = await verifyCredentials(parsed.data.email, parsed.data.password, {
+        const result = await verifyCredentials(parsed.data.email, parsed.data.password, {
           audience: parsed.data.audience,
+          totpToken: typeof credentials?.totp === "string" && credentials.totp.trim()
+            ? credentials.totp.trim()
+            : undefined,
         });
-        return user;
+
+        // totpRequired: password was correct but 2FA token still needed
+        if (!result || "totpRequired" in result) return null;
+        return result;
       },
     }),
   ],

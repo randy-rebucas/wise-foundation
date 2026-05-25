@@ -51,6 +51,13 @@ function isAuthApiRoute(pathname: string) {
 }
 
 export async function proxy(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const res = await routeProxy(req, requestId);
+  res.headers.set("X-Request-ID", requestId);
+  return res;
+}
+
+async function routeProxy(req: NextRequest, requestId: string): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   const rateLimited = proxyRateLimit(req);
@@ -163,7 +170,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL(getStaffHomePath(session.user), req.url));
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: new Headers([...req.headers.entries(), ["x-request-id", requestId]]),
+    },
+  });
 }
 
 export const config = {

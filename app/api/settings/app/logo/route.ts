@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
+import logger from "@/lib/logger";
 import { collectImageFilesFromFormData } from "@/lib/server/imageUpload";
 import { removeAppLogo, uploadAppLogo } from "@/lib/services/appLogo.service";
 import {
@@ -41,7 +42,7 @@ const postHandler = async (req: AuthedRequest) => {
     const settings = await uploadAppLogo(files[0]!);
     return successResponse(settings, "Application logo updated", 201);
   } catch (e) {
-    console.error("[POST /api/settings/app/logo]", e);
+    logger.error({ err: e }, "[POST /api/settings/app/logo]");
     if (e instanceof CloudinaryUploadError) {
       return errorResponse(e.message, httpStatusForCloudinaryError(e));
     }
@@ -58,7 +59,7 @@ const deleteHandler = async (req: AuthedRequest) => {
     const settings = await removeAppLogo();
     return successResponse(settings, "Application logo removed");
   } catch (e) {
-    console.error("[DELETE /api/settings/app/logo]", e);
+    logger.error({ err: e }, "[DELETE /api/settings/app/logo]");
     if (e instanceof Error) return errorResponse(e.message, 500);
     return serverErrorResponse();
   }

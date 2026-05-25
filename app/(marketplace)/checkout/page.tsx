@@ -956,6 +956,7 @@ export default function MarketplaceCheckoutPage() {
                     id="email"
                     type="email"
                     required
+                    autoComplete="email"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.email}
                     onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -981,6 +982,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="fullName"
                     required
+                    autoComplete="name"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.fullName}
                     onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
@@ -991,6 +993,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="phone"
                     required
+                    autoComplete="tel"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.phone}
                     onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -1015,6 +1018,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="line1"
                     required
+                    autoComplete="address-line1"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.line1}
                     onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))}
@@ -1024,6 +1028,7 @@ export default function MarketplaceCheckoutPage() {
                   <Label htmlFor="line2">Apartment, suite, etc. (optional)</Label>
                   <Input
                     id="line2"
+                    autoComplete="address-line2"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.line2}
                     onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))}
@@ -1034,6 +1039,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="city"
                     required
+                    autoComplete="address-level2"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.city}
                     onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
@@ -1044,6 +1050,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="postal"
                     required
+                    autoComplete="postal-code"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.postalCode}
                     onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
@@ -1054,6 +1061,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="region"
                     required
+                    autoComplete="address-level1"
                     className="rounded-xl border-white/70 bg-white/65"
                     value={form.region}
                     onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}

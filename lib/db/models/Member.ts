@@ -45,6 +45,7 @@ const MemberSchema = new Schema<IMember>(
 );
 
 MemberSchema.index({ organizationId: 1, deletedAt: 1 });
+MemberSchema.index({ branchId: 1, deletedAt: 1 });
 MemberSchema.index({ phone: 1, deletedAt: 1 });
 MemberSchema.index({ status: 1, deletedAt: 1 });
 

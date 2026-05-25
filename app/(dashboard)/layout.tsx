@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
+import logger from "@/lib/logger";
 import { redirect } from "next/navigation";
 import { isMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -51,7 +52,7 @@ export default async function DashboardLayout({ children }: Props) {
   try {
     tenantSettings = await getPublicAppSettings();
   } catch (err) {
-    console.error("[dashboard layout] settings load failed", err);
+    logger.error({ err }, "[dashboard layout] settings load failed");
     tenantSettings = {
       appName: "Glowish",
       appTagline: "POS & online store",

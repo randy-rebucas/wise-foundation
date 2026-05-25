@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
+import logger from "@/lib/logger";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { User } from "@/lib/db/models/User";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
 
     return res;
   } catch (err) {
-    console.error("[setup GET]", err);
+    logger.error({ err }, "[setup GET]");
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unable to verify setup status" },
       { status: 503 }
@@ -156,7 +157,7 @@ export async function POST(req: Request) {
     });
     return response;
   } catch (err) {
-    console.error("[setup POST]", err);
+    logger.error({ err }, "[setup POST]");
     if (mongoSession?.inTransaction()) {
       await mongoSession.abortTransaction();
     }
