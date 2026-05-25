@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { Loader2, Star } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PublicReviewCard } from "@/components/marketplace/reviews/PublicReviewCard";
 import { ReviewStatsBar } from "@/components/marketplace/reviews/ReviewStatsBar";
 import { usePublicReviews } from "@/components/marketplace/reviews/usePublicReviews";
+
+const PAGE_SIZE = 9;
 
 type PublicReviewsListProps = {
   limit?: number;
   productId?: string;
 };
 
-export function PublicReviewsList({ limit = 50, productId }: PublicReviewsListProps) {
+export function PublicReviewsList({ limit = 100, productId }: PublicReviewsListProps) {
   const { reviews, stats, loading, error } = usePublicReviews({ limit, productId });
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   if (loading) {
     return (
@@ -49,14 +53,33 @@ export function PublicReviewsList({ limit = 50, productId }: PublicReviewsListPr
     );
   }
 
+  const visible = reviews.slice(0, visibleCount);
+  const remaining = reviews.length - visibleCount;
+  const hasMore = remaining > 0;
+
   return (
     <>
       <ReviewStatsBar stats={stats} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {reviews.map((review) => (
+        {visible.map((review) => (
           <PublicReviewCard key={review.id} review={review} />
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-8 flex flex-col items-center gap-2">
+          <Button
+            variant="outline"
+            className="rounded-xl border-white/70 bg-white/55 px-8"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+          >
+            Load more reviews
+            <span className="ml-2 text-xs text-[#2A4C6A]/60">
+              ({remaining} remaining)
+            </span>
+          </Button>
+        </div>
+      )}
     </>
   );
 }
