@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Search, Star, AlertTriangle, TrendingUp, MessageSquare } from "lucide-react";
+import { Search, Star, AlertTriangle, TrendingUp, MessageSquare, Shuffle, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { AdminReview } from "@/app/api/admin/reviews/route";
 
 type RatingFilter = "all" | "negative" | "neutral" | "positive";
@@ -51,11 +52,29 @@ interface ReviewsApiResponse {
 }
 
 export default function AdminReviewsPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<RatingFilter>("negative");
   const [page, setPage] = useState(1);
 
   const selectedFilter = FILTER_OPTIONS.find((f) => f.value === filter)!;
+
+  const generateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/reviews/generate", { method: "POST" });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Generation failed");
+      return json.data as { generated: number; products: number };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-reviews"] });
+      toast({
+        title: `Generated ${data.generated} reviews across ${data.products} products`,
+      });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const { data, isLoading, isError, error } = useQuery<ReviewsApiResponse>({
     queryKey: ["admin-reviews", search, filter, page],
@@ -224,7 +243,20 @@ export default function AdminReviewsPage() {
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             />
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => generateMutation.mutate()}
+              disabled={generateMutation.isPending}
+            >
+              {generateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Shuffle className="h-4 w-4 mr-2" />
+              )}
+              Generate Reviews
+            </Button>
             {FILTER_OPTIONS.map((f) => (
               <Button
                 key={f.value}
