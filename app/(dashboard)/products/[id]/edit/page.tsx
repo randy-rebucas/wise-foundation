@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -53,6 +54,11 @@ export default function EditProductPage() {
     },
     enabled: !!id,
   });
+
+  const initialValues = useMemo(
+    () => (product ? productToFormValues(product) : undefined),
+    [product]
+  );
 
   if (!id) {
     return (
@@ -114,7 +120,7 @@ export default function EditProductPage() {
                     key={id}
                     mode="edit"
                     productId={id}
-                    initialValues={productToFormValues(product)}
+                    initialValues={initialValues}
                     onCancel={() => router.push("/products")}
                     onSuccess={(saved) => {
                       toast({
