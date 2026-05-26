@@ -24,7 +24,8 @@ export async function getSalesSummary(branchId?: string, days = 30) {
     createdAt: { $gte: startDate },
     deletedAt: null,
   };
-  if (branchId) matchStage.branchId = new mongoose.Types.ObjectId(branchId);
+  if (branchId && mongoose.Types.ObjectId.isValid(branchId))
+    matchStage.branchId = new mongoose.Types.ObjectId(branchId);
 
   const [dailySales, totals] = await Promise.all([
     Order.aggregate([
@@ -66,7 +67,8 @@ export async function getTopProducts(branchId?: string, limit = 10) {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const matchStage: Record<string, unknown> = { createdAt: { $gte: startOfMonth } };
-  if (branchId) matchStage.branchId = new mongoose.Types.ObjectId(branchId);
+  if (branchId && mongoose.Types.ObjectId.isValid(branchId))
+    matchStage.branchId = new mongoose.Types.ObjectId(branchId);
 
   return OrderItem.aggregate([
     { $match: matchStage },
@@ -165,14 +167,15 @@ export async function getOrgSalesSummary(organizationId?: string, days = 30) {
   startDate.setDate(startDate.getDate() - days);
   startDate.setHours(0, 0, 0, 0);
 
-  const orgMatch: Record<string, unknown> = organizationId
-    ? {
-        $or: [
-          { organizationId: new mongoose.Types.ObjectId(organizationId) },
-          { sellerOrganizationId: new mongoose.Types.ObjectId(organizationId) },
-        ],
-      }
-    : {};
+  const orgMatch: Record<string, unknown> =
+    organizationId && mongoose.Types.ObjectId.isValid(organizationId)
+      ? {
+          $or: [
+            { organizationId: new mongoose.Types.ObjectId(organizationId) },
+            { sellerOrganizationId: new mongoose.Types.ObjectId(organizationId) },
+          ],
+        }
+      : {};
 
   const matchStage: Record<string, unknown> = {
     status: { $in: [...ORDER_PAID_STATUSES] },
@@ -373,7 +376,8 @@ export async function getOrgInventorySummary(organizationId?: string) {
   await connectDB();
 
   const filter: Record<string, unknown> = {};
-  if (organizationId) filter.organizationId = new mongoose.Types.ObjectId(organizationId);
+  if (organizationId && mongoose.Types.ObjectId.isValid(organizationId))
+    filter.organizationId = new mongoose.Types.ObjectId(organizationId);
 
   const items = await OrganizationInventory.find(filter)
     .populate("organizationId", "name type")

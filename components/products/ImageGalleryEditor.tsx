@@ -247,7 +247,7 @@ export function ImageGalleryEditor({
           variant="outline"
           size="sm"
           className="shrink-0"
-          disabled={uploading || atLimit}
+          disabled={uploading}
           onClick={() => setLibraryOpen(true)}
         >
           <Images className="h-4 w-4 mr-2" />
@@ -261,14 +261,15 @@ export function ImageGalleryEditor({
         selectedUrls={images}
         maxPick={maxImages}
         onConfirm={(urls) => {
-          const merged = [...images];
-          for (const url of urls) {
-            if (!merged.includes(url) && merged.length < maxImages) merged.push(url);
-          }
-          onImagesChange(merged);
+          onImagesChange(urls);
+          const added = urls.filter((u) => !images.includes(u)).length;
+          const removed = images.filter((u) => !urls.includes(u)).length;
+          const parts: string[] = [];
+          if (added > 0) parts.push(`${added} added`);
+          if (removed > 0) parts.push(`${removed} removed`);
           toast({
-            title: "Images added",
-            description: `${urls.length} image(s) added from the media library.`,
+            title: "Gallery updated",
+            description: parts.length > 0 ? parts.join(", ") + "." : "No changes.",
           });
         }}
       />

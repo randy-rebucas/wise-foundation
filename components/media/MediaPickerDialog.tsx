@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
@@ -41,6 +41,16 @@ export function MediaPickerDialog({
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const [picked, setPicked] = useState<string[]>([]);
 
+  useEffect(() => {
+    if (open) {
+      setPicked([...selectedUrls]);
+    } else {
+      setPicked([]);
+      setSearch("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["media", "picker", debouncedSearch],
     queryFn: () =>
@@ -49,23 +59,22 @@ export function MediaPickerDialog({
   });
 
   const items = data?.items ?? [];
-  const room = Math.max(0, maxPick - selectedUrls.length);
 
   function toggle(url: string) {
-    if (selectedUrls.includes(url) || picked.includes(url)) {
+    if (picked.includes(url)) {
       setPicked((prev) => prev.filter((u) => u !== url));
-      return;
+    } else if (maxPick === 1) {
+      setPicked([url]);
+    } else if (picked.length < maxPick) {
+      setPicked((prev) => [...prev, url]);
     }
-    if (picked.length >= room) return;
-    setPicked((prev) => [...prev, url]);
   }
 
   function isSelected(item: MediaAssetRow) {
-    return selectedUrls.includes(item.url) || picked.includes(item.url);
+    return picked.includes(item.url);
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) setPicked([]);
     onOpenChange(next);
   }
 
@@ -105,8 +114,7 @@ export function MediaPickerDialog({
             <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
               {items.map((item) => {
                 const selected = isSelected(item);
-                const disabled =
-                  !selected && picked.length >= room && !selectedUrls.includes(item.url);
+                const disabled = !selected && picked.length >= maxPick;
                 return (
                   <li key={item._id}>
                     <button
@@ -140,16 +148,14 @@ export function MediaPickerDialog({
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <p className="text-xs text-muted-foreground sm:mr-auto">
-            {picked.length} selected · {room} slot{room === 1 ? "" : "s"} available
+            {picked.length} / {maxPick} selected
           </p>
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button
-            disabled={picked.length === 0}
             onClick={() => {
               onConfirm(picked);
-              setPicked([]);
               onOpenChange(false);
             }}
           >

@@ -416,6 +416,9 @@ export async function getMarketplaceShopFacets() {
 const _cachedListMarketplaceProducts = unstable_cache(
   async (branchIdStr: string, params: MarketplaceShopListParams) => {
     await connectDB();
+    if (!mongoose.Types.ObjectId.isValid(branchIdStr)) {
+      throw new Error(`Invalid fulfillment branch ID: "${branchIdStr}"`);
+    }
     const branchId = new mongoose.Types.ObjectId(branchIdStr);
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(48, Math.max(1, params.limit ?? 12));
