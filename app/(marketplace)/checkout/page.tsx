@@ -42,28 +42,41 @@ import {
   type MarketplaceShippingMethodId,
 } from "@/lib/utils/marketplaceShipping";
 import type { MarketplaceCheckoutQuoteMethod } from "@/lib/services/marketplaceCheckoutQuote.service";
-import {
-  CardPaymentSection,
-  type CardPaymentFields,
-} from "@/components/marketplace/CardPaymentSection";
-import {
-  GcashPaymentSection,
-  type GcashPaymentFields,
-} from "@/components/marketplace/GcashPaymentSection";
-import {
-  BankTransferPaymentSection,
-  type BankTransferPaymentFields,
-} from "@/components/marketplace/BankTransferPaymentSection";
-import { CodPaymentSection, type CodPaymentFields } from "@/components/marketplace/CodPaymentSection";
-import {
-  PaymongoCardPaymentForm,
-  type PaymongoCardPaymentHandle,
-  type PaymongoCheckoutPayload,
+import dynamic from "next/dynamic";
+import type { CardPaymentFields } from "@/components/marketplace/CardPaymentSection";
+import type { GcashPaymentFields } from "@/components/marketplace/GcashPaymentSection";
+import type { BankTransferPaymentFields } from "@/components/marketplace/BankTransferPaymentSection";
+import type { CodPaymentFields } from "@/components/marketplace/CodPaymentSection";
+import type {
+  PaymongoCardPaymentHandle,
+  PaymongoCheckoutPayload,
 } from "@/components/marketplace/PaymongoCardPayment";
-import {
-  PaymongoGcashPaymentForm,
-  type PaymongoGcashPaymentHandle,
-} from "@/components/marketplace/PaymongoGcashPayment";
+import type { PaymongoGcashPaymentHandle } from "@/components/marketplace/PaymongoGcashPayment";
+
+const CardPaymentSection = dynamic(() =>
+  import("@/components/marketplace/CardPaymentSection").then((m) => m.CardPaymentSection),
+  { ssr: false }
+);
+const GcashPaymentSection = dynamic(() =>
+  import("@/components/marketplace/GcashPaymentSection").then((m) => m.GcashPaymentSection),
+  { ssr: false }
+);
+const BankTransferPaymentSection = dynamic(() =>
+  import("@/components/marketplace/BankTransferPaymentSection").then((m) => m.BankTransferPaymentSection),
+  { ssr: false }
+);
+const CodPaymentSection = dynamic(() =>
+  import("@/components/marketplace/CodPaymentSection").then((m) => m.CodPaymentSection),
+  { ssr: false }
+);
+const PaymongoCardPaymentForm = dynamic(() =>
+  import("@/components/marketplace/PaymongoCardPayment").then((m) => m.PaymongoCardPaymentForm),
+  { ssr: false }
+);
+const PaymongoGcashPaymentForm = dynamic(() =>
+  import("@/components/marketplace/PaymongoGcashPayment").then((m) => m.PaymongoGcashPaymentForm),
+  { ssr: false }
+);
 import { MARKETPLACE_DEPOSIT_BANK_ACCOUNTS } from "@/lib/constants/marketplaceBankAccounts";
 import type {
   MarketplacePaymentMethod,

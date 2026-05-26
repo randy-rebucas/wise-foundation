@@ -27,8 +27,11 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { AppLogo } from "@/components/branding/AppLogo";
-import { MediaPickerDialog } from "@/components/media/MediaPickerDialog";
+const MediaPickerDialog = dynamic(() =>
+  import("@/components/media/MediaPickerDialog").then((m) => m.MediaPickerDialog)
+);
 import { resolveAppLogoSrc } from "@/lib/constants/branding";
 import { IMAGE_UPLOAD_ACCEPT } from "@/lib/constants/gallery";
 import { Checkbox } from "@/components/ui/checkbox";

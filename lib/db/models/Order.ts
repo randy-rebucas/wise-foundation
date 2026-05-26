@@ -191,7 +191,6 @@ OrderSchema.index({ sellerOrganizationId: 1, status: 1, createdAt: -1 });
 OrderSchema.index({ memberId: 1, createdAt: -1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ type: 1, marketplaceCustomerUserId: 1, createdAt: -1 });
-OrderSchema.index({ orderNumber: 1 }, { unique: true });
 OrderSchema.index({ cashierId: 1, createdAt: -1 });
 
 export const Order = models.Order || model<IOrder>("Order", OrderSchema);

@@ -28,8 +28,13 @@ import {
   FileDown,
   PenLine,
 } from "lucide-react";
-import { PurchaseOrderSignDialog } from "@/components/purchase-orders/PurchaseOrderSignDialog";
-import { PurchaseOrderReceiveDialog } from "@/components/purchase-orders/PurchaseOrderReceiveDialog";
+import dynamic from "next/dynamic";
+const PurchaseOrderSignDialog = dynamic(() =>
+  import("@/components/purchase-orders/PurchaseOrderSignDialog").then((m) => m.PurchaseOrderSignDialog)
+);
+const PurchaseOrderReceiveDialog = dynamic(() =>
+  import("@/components/purchase-orders/PurchaseOrderReceiveDialog").then((m) => m.PurchaseOrderReceiveDialog)
+);
 import { canReceivePurchaseOrder } from "@/lib/permissions/purchaseOrders";
 import type { SessionUser } from "@/types";
 import { downloadPurchaseOrderPdf } from "@/lib/client/purchaseOrderPdf";
@@ -38,7 +43,9 @@ import { useFormatCurrency, useFormatDate, useFormatDateTime } from "@/component
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
-import { PaymentTermsSchedulePanel } from "@/components/purchase-orders/PaymentTermsSchedulePanel";
+const PaymentTermsSchedulePanel = dynamic(() =>
+  import("@/components/purchase-orders/PaymentTermsSchedulePanel").then((m) => m.PaymentTermsSchedulePanel)
+);
 import {
   purchaseOrderFetchInit,
   purchaseOrderFreshQueryOptions,

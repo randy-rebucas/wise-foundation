@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
+import dynamic from "next/dynamic";
 import { Header } from "@/components/layout/Header";
-import { StockTable } from "@/components/inventory/StockTable";
-import { MovementLog } from "@/components/inventory/MovementLog";
+import { Skeleton } from "@/components/ui/skeleton";
+const StockTable = dynamic(
+  () => import("@/components/inventory/StockTable").then((m) => m.StockTable),
+  { loading: () => <Skeleton className="h-96 w-full rounded-xl" /> }
+);
+const MovementLog = dynamic(
+  () => import("@/components/inventory/MovementLog").then((m) => m.MovementLog),
+  { loading: () => <Skeleton className="h-96 w-full rounded-xl" /> }
+);
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

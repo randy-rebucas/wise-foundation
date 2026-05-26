@@ -70,10 +70,12 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(nextConfig, {
   silent: true,
-  disableLogger: true,
   // Source maps are only uploaded when SENTRY_AUTH_TOKEN is set (CI/CD only)
   authToken: process.env.SENTRY_AUTH_TOKEN,
   widenClientFileUpload: true,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
-  automaticVercelMonitors: false,
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    automaticVercelMonitors: false,
+  },
 });

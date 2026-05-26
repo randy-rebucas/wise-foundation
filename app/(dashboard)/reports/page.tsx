@@ -1,17 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { StatCard } from "@/components/shared/StatCard";
-import { SalesChart } from "@/components/reports/SalesChart";
-import { BranchPerformance } from "@/components/reports/BranchPerformance";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -19,16 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
 import {
   DollarSign,
   Users,
@@ -42,8 +31,22 @@ import {
   Boxes,
   ShieldAlert,
 } from "lucide-react";
-import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
-import { formatCurrencyCompactAxis } from "@/lib/utils";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
+
+const SalesChart = dynamic(() =>
+  import("@/components/reports/SalesChart").then((m) => m.SalesChart),
+  { loading: () => <Skeleton className="h-64 w-full rounded-xl" /> }
+);
+
+const BranchPerformance = dynamic(() =>
+  import("@/components/reports/BranchPerformance").then((m) => m.BranchPerformance),
+  { loading: () => <Skeleton className="h-64 w-full rounded-xl" /> }
+);
+
+const DistributionTab = dynamic(() =>
+  import("@/components/reports/DistributionTab").then((m) => m.DistributionTab),
+  { loading: () => <Skeleton className="h-96 w-full rounded-xl" /> }
+);
 
 const CATEGORY_COLORS: Record<string, string> = {
   homecare: "bg-blue-100 text-blue-800",
@@ -58,8 +61,6 @@ const ORG_TYPE_COLORS: Record<string, string> = {
   partner: "bg-green-100 text-green-800",
   headquarters: "bg-orange-100 text-orange-800",
 };
-
-const BAR_COLORS = ["#f97316", "#3b82f6", "#8b5cf6", "#10b981", "#f59e0b"];
 
 const DAYS_OPTIONS = [
   { value: "7", label: "Last 7 days" },
@@ -110,7 +111,6 @@ function KpiSkeleton() {
 
 export default function ReportsPage() {
   const money = useFormatCurrency();
-  const { currency } = useTenant();
   const { data: session } = useSession();
   const userRole = session?.user?.role ?? "";
   const [days, setDays] = useState("30");
@@ -156,15 +156,6 @@ export default function ReportsPage() {
   const topOrgs: TopOrgItem[] = orgReport?.topOrgs ?? [];
   const distribution: DistributionData | undefined = orgReport?.distribution;
   const orgInventory: OrgInventoryItem[] = orgReport?.orgInventory ?? [];
-
-  const distChartData = distribution
-    ? [
-        { name: "HQ", revenue: distribution.revenueByType.headquarters.revenue, orders: distribution.revenueByType.headquarters.orders },
-        { name: "Distributor", revenue: distribution.revenueByType.distributor.revenue, orders: distribution.revenueByType.distributor.orders },
-        { name: "Franchise", revenue: distribution.revenueByType.franchise.revenue, orders: distribution.revenueByType.franchise.orders },
-        { name: "Partner", revenue: distribution.revenueByType.partner.revenue, orders: distribution.revenueByType.partner.orders },
-      ]
-    : [];
 
   const isAdmin = userRole === "ADMIN";
   const isOrgAdmin = userRole === "ORG_ADMIN";
@@ -610,113 +601,11 @@ export default function ReportsPage() {
 
           {/* ── Distribution ─────────────────────────────────────────── */}
           {isAdmin && (
-            <TabsContent value="distribution" className="mt-4 space-y-4">
-              {isOrgReportError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {orgReportError instanceof Error ? orgReportError.message : "Unable to load distribution metrics."}
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <>
-                  <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-                {(["headquarters", "distributor", "franchise", "partner"] as const).map((type, idx) => (
-                  <Card key={type} className="overflow-hidden">
-                    <div className="h-1" style={{ background: BAR_COLORS[idx] }} />
-                    <CardContent className="pt-4 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${ORG_TYPE_COLORS[type]}`}>
-                          {type === "headquarters" ? "HQ" : type}
-                        </span>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {distribution?.orgCounts[type] ?? 0} orgs
-                        </span>
-                      </div>
-                      <p className="text-xl font-bold">
-                        {money(distribution?.revenueByType[type]?.revenue ?? 0)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {distribution?.revenueByType[type]?.orders ?? 0} orders
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-semibold">Revenue by Organization Type</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={distChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrencyCompactAxis(Number(v), currency)} />
-                      <Tooltip
-                        formatter={(value) => [money(Number(value)), "Revenue"]}
-                        contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--background))" }}
-                      />
-                      <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
-                        {distChartData.map((_, idx) => (
-                          <Cell key={idx} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <Percent className="h-4 w-4 text-muted-foreground" /> Commission Pipeline
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Total Generated</p>
-                      <p className="text-2xl font-bold">{money(distribution?.commissions?.total ?? 0)}</p>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Pending payout</span>
-                        <span className="font-medium text-yellow-600">{money(distribution?.commissions?.pending ?? 0)}</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-yellow-400"
-                          style={{
-                            width: distribution?.commissions?.total
-                              ? `${Math.round(((distribution.commissions.pending ?? 0) / distribution.commissions.total) * 100)}%`
-                              : "0%",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" /> Network Size
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {(["headquarters", "distributor", "franchise", "partner"] as const).map((type, idx) => (
-                      <div key={type} className="flex items-center gap-3 text-sm">
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: BAR_COLORS[idx] }} />
-                        <span className="capitalize text-muted-foreground flex-1">{type}</span>
-                        <span className="font-semibold">{distribution?.orgCounts[type] ?? 0}</span>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-                </>
-              )}
+            <TabsContent value="distribution" className="mt-4">
+              <DistributionTab
+                distribution={distribution}
+                error={isOrgReportError ? (orgReportError instanceof Error ? orgReportError : new Error("Unable to load distribution metrics.")) : null}
+              />
             </TabsContent>
           )}
 
