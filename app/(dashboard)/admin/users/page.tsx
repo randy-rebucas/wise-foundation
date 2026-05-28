@@ -141,17 +141,17 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
-    return () => clearTimeout(t);
-  }, [search]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<CreateForm>(defaultCreate);
   const [editForm, setEditForm] = useState<EditForm>(defaultEdit);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data: usersResult, isLoading, isError, error } = useQuery({
     queryKey: ["users", debouncedSearch, roleFilter],
@@ -290,6 +290,9 @@ export default function UsersPage() {
   const users = usersResult?.data ?? [];
   const usersTotal = usersResult?.meta?.total ?? users.length;
 
+  const deleteUser = deleteMutation.mutate;
+  const toggleActiveUser = toggleActiveMutation.mutate;
+
   const columns = useMemo(() => [
     {
       key: "user",
@@ -333,9 +336,10 @@ export default function UsersPage() {
         if (u.role === "ORG_ADMIN" && u.organizationId) {
           return <span className="text-sm text-muted-foreground">{u.organizationId.name}</span>;
         }
+        const count = u.branchIds?.length ?? 0;
         return (
           <span className="text-sm text-muted-foreground">
-            {u.branchIds.length > 0 ? `${u.branchIds.length} branch${u.branchIds.length > 1 ? "es" : ""}` : "—"}
+            {count > 0 ? `${count} branch${count > 1 ? "es" : ""}` : "—"}
           </span>
         );
       },
@@ -378,7 +382,7 @@ export default function UsersPage() {
                 </DropdownMenuItem>
                 {!isSelf && (
                   <DropdownMenuItem
-                    onClick={() => toggleActiveMutation.mutate({ id: u._id, isActive: !u.isActive })}
+                    onClick={() => toggleActiveUser({ id: u._id, isActive: !u.isActive })}
                   >
                     {u.isActive ? (
                       <><UserX className="h-4 w-4 mr-2" />Deactivate</>
@@ -392,7 +396,7 @@ export default function UsersPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => deleteMutation.mutate(u._id)}
+                      onClick={() => deleteUser(u._id)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Remove
@@ -405,7 +409,7 @@ export default function UsersPage() {
         );
       },
     },
-  ], [currentUserId, deleteMutation, toggleActiveMutation, openEdit]);
+  ], [currentUserId, deleteUser, toggleActiveUser, openEdit]);
 
   return (
     <div className="flex flex-col">
