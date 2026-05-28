@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import "@/lib/db/models/Organization"; // must be registered before populate("organizationId") runs
 import { getRolePermissions } from "@/lib/services/role.service";
 import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validations/user.schema";

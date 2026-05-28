@@ -24,7 +24,8 @@ const getHandler = async (req: AuthedRequest) => {
       limit,
       total: result.total,
     });
-  } catch {
+  } catch (err) {
+    console.error("[GET /api/users]", err);
     return serverErrorResponse();
   }
 };
