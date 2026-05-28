@@ -96,7 +96,9 @@ export function ShopPageClient() {
   const addItem = useMarketplaceCartStore((s) => s.addItem);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [category, setCategory] = useState<ProductCategory | "">("");
+  const [category, setCategory] = useState<ProductCategory | "">(() =>
+    parseCategoryParam(searchParams.get("category"))
+  );
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<Row[]>([]);
   const [meta, setMeta] = useState<{ total: number; hasMore: boolean } | null>(null);
@@ -203,10 +205,8 @@ export function ShopPageClient() {
   );
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void load(1);
-    });
-  }, [debounced, category, sort, priceMinApplied, priceMaxApplied, selectedTags, inStockOnly, load]);
+    void load(1);
+  }, [load]);
 
   const total = meta?.total ?? rows.length;
   const catalogTotal = facets?.total ?? total;
