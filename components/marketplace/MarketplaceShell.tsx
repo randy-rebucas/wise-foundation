@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_PUBLIC_APP_SETTINGS, TenantProvider } from "@/components/providers/TenantProvider";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,7 +116,8 @@ export function MarketplaceShell({
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const sessionLoading = status === "loading";
   const count = useMarketplaceCartStore((s) => s.getCount());
   const brand = { ...DEFAULT_PUBLIC_APP_SETTINGS, ...(tenant ?? {}) };
   const isHome = pathname === "/";
@@ -205,6 +207,13 @@ export function MarketplaceShell({
                   <Search className="h-4 w-4" />
                 </Link>
               </Button>
+              {sessionLoading ? (
+                <>
+                  <Skeleton className="h-9 w-9 rounded-full bg-white/40" />
+                  <Skeleton className="h-9 w-9 rounded-full bg-white/40" />
+                </>
+              ) : (
+              <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -375,6 +384,8 @@ export function MarketplaceShell({
                   )}
                 </Link>
               </Button>
+              </>
+              )}
             </div>
           </div>
         </header>

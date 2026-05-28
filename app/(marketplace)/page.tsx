@@ -193,7 +193,7 @@ export default function MarketplaceCatalogPage() {
   }
 
   return (
-    <MarketplacePageShell gap="space-y-8" className="py-8">
+    <MarketplacePageShell gap="space-y-8" className="pt-4 pb-8">
       <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/60 bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[580px] lg:py-12">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_58%_20%,rgba(255,255,255,0.72),transparent_20%),radial-gradient(circle_at_75%_45%,rgba(0,229,255,0.2),transparent_34%),radial-gradient(circle_at_86%_56%,rgba(255,51,204,0.18),transparent_34%)]" />
           <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
