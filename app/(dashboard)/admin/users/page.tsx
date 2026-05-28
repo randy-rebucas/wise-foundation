@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
 import { RoleGuard } from "@/components/layout/RoleGuard";
@@ -139,7 +139,13 @@ export default function UsersPage() {
   const roleFilterSelectOptions = isOrgAdmin ? ORG_ADMIN_ROLE_OPTIONS : ROLE_FILTER_OPTIONS_ADMIN;
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -148,10 +154,10 @@ export default function UsersPage() {
   const [formError, setFormError] = useState("");
 
   const { data: usersResult, isLoading, isError, error } = useQuery({
-    queryKey: ["users", search, roleFilter],
+    queryKey: ["users", debouncedSearch, roleFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (search) params.set("search", search);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (roleFilter && roleFilter !== "all") params.set("role", roleFilter);
       const res = await fetch(`/api/users?${params}`);
       const json = await res.json();
@@ -161,6 +167,8 @@ export default function UsersPage() {
         meta?: { total?: number; page?: number; limit?: number };
       };
     },
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const { data: branches = [] } = useQuery({
@@ -171,6 +179,7 @@ export default function UsersPage() {
       if (!json.success) throw new Error(json.error ?? `Failed to load branches (${res.status})`);
       return (json.data ?? []) as Branch[];
     },
+    staleTime: 5 * 60_000,
   });
 
   const { data: organizations = [] } = useQuery({
@@ -182,6 +191,7 @@ export default function UsersPage() {
       return (json.data ?? []) as { _id: string; name: string; type: string }[];
     },
     enabled: !isOrgAdmin,
+    staleTime: 5 * 60_000,
   });
 
   const createMutation = useMutation({
@@ -256,7 +266,7 @@ export default function UsersPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  function openEdit(user: StaffUser) {
+  const openEdit = useCallback((user: StaffUser) => {
     setEditId(user._id);
     setEditForm({
       name: user.name,
@@ -268,7 +278,7 @@ export default function UsersPage() {
     });
     setFormError("");
     setEditOpen(true);
-  }
+  }, []);
 
   function toggleBranch(branchId: string, form: CreateForm | EditForm, setForm: (f: CreateForm | EditForm) => void) {
     const ids = form.branchIds.includes(branchId)
@@ -280,7 +290,7 @@ export default function UsersPage() {
   const users = usersResult?.data ?? [];
   const usersTotal = usersResult?.meta?.total ?? users.length;
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: "user",
       label: "User",
@@ -395,7 +405,7 @@ export default function UsersPage() {
         );
       },
     },
-  ];
+  ], [currentUserId, deleteMutation, toggleActiveMutation, openEdit]);
 
   return (
     <div className="flex flex-col">

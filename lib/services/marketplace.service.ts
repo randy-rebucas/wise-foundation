@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import type { Types } from "mongoose";
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import { connectDB } from "@/lib/db/connect";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { Branch } from "@/lib/db/models/Branch";
@@ -224,10 +225,10 @@ export async function listMarketplaceProductSlugs(): Promise<
   }));
 }
 
-export async function getMarketplaceFulfillmentContext(): Promise<{
+export const getMarketplaceFulfillmentContext = cache(async (): Promise<{
   branchId: Types.ObjectId;
   organizationId: Types.ObjectId | null;
-}> {
+}> => {
   await connectDB();
   const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
   let branchId = settings?.marketplaceFulfillmentBranchId;
@@ -248,7 +249,7 @@ export async function getMarketplaceFulfillmentContext(): Promise<{
     branchId: branch._id as Types.ObjectId,
     organizationId: (branch.organizationId as Types.ObjectId | null | undefined) ?? null,
   };
-}
+});
 
 export async function resolveMarketplaceCashierId(): Promise<Types.ObjectId> {
   await connectDB();
@@ -279,7 +280,8 @@ export type MarketplaceCategorySampleImages = {
   catalogProduct: CategoryFeaturedProduct | null;
 };
 
-export async function getMarketplaceCategoryShowcase(): Promise<MarketplaceCategoryShowcase> {
+const _cachedCategoryShowcase = unstable_cache(
+  async (): Promise<MarketplaceCategoryShowcase> => {
   await connectDB();
 
   const grouped = await Product.aggregate<{
@@ -340,6 +342,13 @@ export async function getMarketplaceCategoryShowcase(): Promise<MarketplaceCateg
       null;
 
   return { featured, catalog };
+  },
+  ["marketplace-category-showcase"],
+  { revalidate: 120, tags: ["marketplace-products"] }
+);
+
+export async function getMarketplaceCategoryShowcase(): Promise<MarketplaceCategoryShowcase> {
+  return _cachedCategoryShowcase();
 }
 
 export async function getMarketplaceCategorySampleImages(): Promise<MarketplaceCategorySampleImages> {
@@ -359,7 +368,8 @@ export async function getMarketplaceCategorySampleImages(): Promise<MarketplaceC
   };
 }
 
-export async function getMarketplaceShopFacets() {
+const _cachedShopFacets = unstable_cache(
+  async () => {
   await connectDB();
   const [facet] = await Product.aggregate<{
     total: { n: number }[];
@@ -411,6 +421,13 @@ export async function getMarketplaceShopFacets() {
       count: t.count,
     })),
   };
+  },
+  ["marketplace-shop-facets"],
+  { revalidate: 120, tags: ["marketplace-products"] }
+);
+
+export async function getMarketplaceShopFacets() {
+  return _cachedShopFacets();
 }
 
 const _cachedListMarketplaceProducts = unstable_cache(

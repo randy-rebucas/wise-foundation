@@ -27,7 +27,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
-import { PublicReviewsCarousel } from "@/components/marketplace/reviews/PublicReviewsCarousel";
+import dynamic from "next/dynamic";
+const PublicReviewsCarousel = dynamic(
+  () => import("@/components/marketplace/reviews/PublicReviewsCarousel").then((m) => m.PublicReviewsCarousel),
+  { loading: () => <div className="h-48 animate-pulse rounded-2xl bg-white/30" /> }
+);
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
 import { MARKETPLACE_CATEGORY_CARDS } from "@/lib/marketplace/categories";

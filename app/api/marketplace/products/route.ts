@@ -48,9 +48,10 @@ export async function GET(req: Request) {
       inStockOnly,
     });
     const res = successResponse(data, undefined, 200, meta);
-    // Only cache unfiltered first-page requests at the edge; skip for search/filter/pagination
-    if (!search && !category && !sort && !minPrice && !maxPrice && !tags.length && !inStockOnly && page === 1) {
-      res.headers.set("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+    if (!search && !inStockOnly) {
+      // Unfiltered first page: longer edge cache
+      const ttl = !category && !minPrice && !maxPrice && !tags.length && page === 1 ? 30 : 15;
+      res.headers.set("Cache-Control", `public, s-maxage=${ttl}, stale-while-revalidate=120`);
     }
     return res;
   } catch (err) {

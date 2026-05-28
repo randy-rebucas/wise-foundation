@@ -64,6 +64,12 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: buildSecurityHeaders(),
       },
+      {
+        source: "/(:path*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|woff2|woff|ttf|otf))",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
     ];
   },
 };
