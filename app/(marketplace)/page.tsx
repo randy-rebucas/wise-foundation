@@ -190,6 +190,23 @@ export default function MarketplaceCatalogPage() {
 
   const heroProducts = rows.slice(0, 3);
 
+  function ProductCardSkeleton() {
+    return (
+      <div className="overflow-hidden rounded-3xl border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur">
+        <Skeleton className="aspect-[4/3] w-full rounded-none bg-white/60" />
+        <div className="space-y-3 p-4">
+          <Skeleton className="h-3 w-16 rounded-full bg-white/60" />
+          <Skeleton className="h-4 w-full rounded-lg bg-white/60" />
+          <Skeleton className="h-4 w-3/4 rounded-lg bg-white/60" />
+          <div className="flex items-center justify-between pt-1">
+            <Skeleton className="h-6 w-20 rounded-lg bg-white/60" />
+            <Skeleton className="h-7 w-14 rounded-full bg-white/60" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function selectCategory(value: ProductCategory | "") {
     setCategory((prev) => (prev === value && value !== "" ? "" : value));
     setPage(1);
@@ -434,7 +451,7 @@ export default function MarketplaceCatalogPage() {
           {loading && rows.length === 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-80 rounded-3xl bg-white/45" />
+                <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : rows.length === 0 ? (
@@ -532,9 +549,9 @@ export default function MarketplaceCatalogPage() {
                 })}
               </div>
               {loading && rows.length > 0 ? (
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={`more-${i}`} className="h-72 rounded-3xl bg-white/45" />
+                    <ProductCardSkeleton key={`more-${i}`} />
                   ))}
                 </div>
               ) : null}

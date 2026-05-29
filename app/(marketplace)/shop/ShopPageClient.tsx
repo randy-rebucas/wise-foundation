@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Grid3X3,
   Heart,
+  ImageIcon,
   LayoutList,
   Leaf,
   Package,
@@ -708,13 +709,45 @@ export function ShopPageClient() {
               viewMode === "grid" ? (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton key={i} className="h-80 rounded-3xl bg-white/45" />
+                    <div key={i} className="overflow-hidden rounded-3xl border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur">
+                      <div className="relative aspect-square w-full">
+                        <Skeleton className="absolute inset-0 rounded-none bg-white/60" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <ImageIcon className="h-10 w-10 text-[#2A4C6A]/20" />
+                        </div>
+                      </div>
+                      <div className="space-y-3 p-4">
+                        <Skeleton className="h-3 w-16 rounded-full bg-white/60" />
+                        <Skeleton className="h-4 w-full rounded-lg bg-white/60" />
+                        <Skeleton className="h-4 w-3/4 rounded-lg bg-white/60" />
+                        <Skeleton className="h-4 w-20 rounded-lg bg-white/60" />
+                        <Skeleton className="mt-2 h-9 w-full rounded-xl bg-white/60" />
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-36 rounded-2xl bg-white/45 sm:h-40" />
+                    <div key={i} className="overflow-hidden rounded-2xl border border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur">
+                      <div className="flex gap-4 p-4">
+                        <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
+                          <Skeleton className="absolute inset-0 rounded-2xl bg-white/60" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <ImageIcon className="h-8 w-8 text-[#2A4C6A]/20" />
+                          </div>
+                        </div>
+                        <div className="flex flex-1 flex-col justify-between gap-2">
+                          <div className="space-y-2">
+                            <Skeleton className="h-3 w-20 rounded-full bg-white/60" />
+                            <Skeleton className="h-5 w-2/3 rounded-lg bg-white/60" />
+                            <Skeleton className="h-5 w-1/2 rounded-lg bg-white/60" />
+                            <Skeleton className="h-4 w-24 rounded-lg bg-white/60" />
+                          </div>
+                          <Skeleton className="h-10 w-36 rounded-xl bg-white/60" />
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )
