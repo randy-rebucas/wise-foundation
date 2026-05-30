@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, type Document } from "mongoose";
+import { Schema, model, models, type Document } from "mongoose";
 import type { ProductCategory } from "@/types";
 
 export interface IProduct extends Document {
@@ -57,9 +57,4 @@ ProductSchema.index({ marketplaceListed: 1, isActive: 1, deletedAt: 1 });
 ProductSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { deletedAt: null } });
 ProductSchema.index({ name: "text", tags: "text" });
 
-/** Drop stale compiled model (Next.js dev / HMR) so schema changes apply. */
-if (mongoose.models.Product) {
-  mongoose.deleteModel("Product");
-}
-
-export const Product = model<IProduct>("Product", ProductSchema);
+export const Product = models.Product || model<IProduct>("Product", ProductSchema);

@@ -1,4 +1,4 @@
-import mongoose, { Schema, model, type Document, type Types } from "mongoose";
+import { Schema, model, models, type Document, type Types } from "mongoose";
 
 export interface IProductVariant extends Document {
   productId: Types.ObjectId;
@@ -34,11 +34,5 @@ const ProductVariantSchema = new Schema<IProductVariant>(
 
 ProductVariantSchema.index({ productId: 1, deletedAt: 1 });
 
-if (mongoose.models.ProductVariant) {
-  mongoose.deleteModel("ProductVariant");
-}
-
-export const ProductVariant = model<IProductVariant>(
-  "ProductVariant",
-  ProductVariantSchema
-);
+export const ProductVariant =
+  models.ProductVariant || model<IProductVariant>("ProductVariant", ProductVariantSchema);

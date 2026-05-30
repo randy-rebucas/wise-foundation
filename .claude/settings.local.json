@@ -33,7 +33,8 @@
       "Bash(Remove-Item \"C:\\\\Users\\\\corew\\\\wise\\\\middleware.ts\")",
       "Bash(xargs wc -l)",
       "Bash(node -e \"const p = require\\('./node_modules/@tanstack/react-query/package.json'\\); console.log\\(p.version\\)\")",
-      "Bash(node -e \"const rq = require\\('./node_modules/@tanstack/react-query'\\); console.log\\(typeof rq.keepPreviousData\\)\")"
+      "Bash(node -e \"const rq = require\\('./node_modules/@tanstack/react-query'\\); console.log\\(typeof rq.keepPreviousData\\)\")",
+      "Bash(npx next *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\corew\\wise\\app\\api\\users\\[id]"
