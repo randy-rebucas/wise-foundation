@@ -1,12 +1,15 @@
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import { Product } from "@/lib/db/models/Product";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { successResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
+import mongoose from "mongoose";
 
 export type AdminReview = {
   id: string;
+  userId: string;
   reviewerName: string;
   reviewerEmail: string;
   productId: string;
@@ -15,6 +18,8 @@ export type AdminReview = {
   rating: number;
   text: string;
   createdAt: string;
+  images: string[];
+  featured: boolean;
 };
 
 const handler = async (req: AuthedRequest) => {
@@ -30,7 +35,6 @@ const handler = async (req: AuthedRequest) => {
     await connectDB();
 
     const customers = await User.find({
-      role: "CUSTOMER",
       deletedAt: null,
       "marketplace.reviews.0": { $exists: true },
     })
@@ -42,6 +46,7 @@ const handler = async (req: AuthedRequest) => {
       for (const r of user.marketplace?.reviews ?? []) {
         all.push({
           id: r.id,
+          userId: String((user as { _id: unknown })._id),
           reviewerName: user.name,
           reviewerEmail: user.email,
           productId: r.productId,
@@ -50,6 +55,8 @@ const handler = async (req: AuthedRequest) => {
           rating: r.rating,
           text: r.text,
           createdAt: r.createdAt,
+          images: r.images ?? [],
+          featured: r.featured ?? false,
         });
       }
     }
@@ -97,3 +104,74 @@ const handler = async (req: AuthedRequest) => {
 };
 
 export const GET = withStaffAuth(withPermission("manage:users")(handler));
+
+// POST /api/admin/reviews — manually create a review
+const createHandler = async (req: AuthedRequest) => {
+  try {
+    const body = await req.json();
+    const { reviewerName, reviewerEmail, productId, rating, text, featured, images } = body as {
+      reviewerName: string;
+      reviewerEmail: string;
+      productId: string;
+      rating: number;
+      text: string;
+      featured?: boolean;
+      images?: string[];
+    };
+
+    if (!reviewerName?.trim()) return errorResponse("Reviewer name is required", 400);
+    if (!reviewerEmail?.trim()) return errorResponse("Reviewer email is required", 400);
+    if (!productId?.trim()) return errorResponse("Product is required", 400);
+    if (!rating || rating < 1 || rating > 5) return errorResponse("Rating must be 1–5", 400);
+    if (!text?.trim()) return errorResponse("Review text is required", 400);
+
+    await connectDB();
+
+    const product = await Product.findById(productId).select("name slug").lean();
+    if (!product) return errorResponse("Product not found", 404);
+
+    const reviewEntry = {
+      id: new mongoose.Types.ObjectId().toString().slice(-12),
+      productId,
+      productName: product.name as string,
+      productSlug: product.slug as string | undefined,
+      rating,
+      text: text.trim(),
+      createdAt: new Date().toISOString(),
+      images: Array.isArray(images) ? images.filter(Boolean) : [],
+      featured: featured ?? false,
+    };
+
+    // Attach to existing customer or create a generated one
+    const existing = await User.findOne({
+      email: reviewerEmail.trim().toLowerCase(),
+      deletedAt: null,
+    }).select("_id").lean();
+
+    if (existing) {
+      await User.updateOne(
+        { _id: existing._id },
+        { $push: { "marketplace.reviews": reviewEntry } }
+      );
+    } else {
+      await User.collection.insertOne({
+        name: reviewerName.trim(),
+        email: reviewerEmail.trim().toLowerCase(),
+        role: "CUSTOMER",
+        isActive: true,
+        emailVerified: true,
+        deletedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        marketplace: { wishlist: [], savedAddresses: [], paymentMethods: [], reviews: [reviewEntry] },
+      });
+    }
+
+    return successResponse({ ok: true });
+  } catch (err) {
+    console.error("[admin/reviews] POST error", err);
+    return serverErrorResponse();
+  }
+};
+
+export const POST = withStaffAuth(withPermission("manage:users")(createHandler));

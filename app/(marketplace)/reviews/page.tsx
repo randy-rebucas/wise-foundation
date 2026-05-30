@@ -13,7 +13,13 @@ import {
   ReviewsPageHeroStats,
 } from "@/components/marketplace/reviews/ReviewsPageHeroStats";
 import { Button } from "@/components/ui/button";
-import { Heart, Leaf } from "lucide-react";
+import { Heart, Leaf, Sparkles } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const FeaturedReviewsShowcase = dynamic(
+  () => import("@/components/marketplace/reviews/FeaturedReviewsShowcase").then((m) => m.FeaturedReviewsShowcase),
+  { loading: () => <div className="h-72 animate-pulse rounded-2xl bg-white/30" /> }
+);
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
@@ -88,6 +94,17 @@ export default async function ReviewsPage() {
               <ReviewsPageHeroStars />
             </div>
           </div>
+        </section>
+
+        {/* Featured reviews showcase */}
+        <section className="rounded-[2rem] border border-[#d965c9]/25 bg-gradient-to-br from-[#f6def8]/40 to-white/40 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+          <div className="mb-5 flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-[#d965c9]" aria-hidden />
+            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
+              Featured reviews
+            </h2>
+          </div>
+          <FeaturedReviewsShowcase />
         </section>
 
         {/* Reviews list */}

@@ -7,9 +7,10 @@ import { computeReviewStats, type ReviewStats } from "@/lib/marketplace/reviews"
 type UsePublicReviewsOptions = {
   limit?: number;
   productId?: string;
+  featuredOnly?: boolean;
 };
 
-export function usePublicReviews({ limit = 50, productId }: UsePublicReviewsOptions = {}) {
+export function usePublicReviews({ limit = 50, productId, featuredOnly }: UsePublicReviewsOptions = {}) {
   const [reviews, setReviews] = useState<PublicReview[]>([]);
   const [stats, setStats] = useState<ReviewStats>({ averageRating: null, reviewCount: 0 });
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ export function usePublicReviews({ limit = 50, productId }: UsePublicReviewsOpti
       try {
         const params = new URLSearchParams({ limit: String(limit) });
         if (productId) params.set("productId", productId);
+        if (featuredOnly) params.set("featuredOnly", "true");
         const res = await fetch(`/api/marketplace/reviews?${params}`);
         const json = await res.json();
         if (!json.success) throw new Error(json.error ?? "Failed to load reviews");
@@ -52,7 +54,7 @@ export function usePublicReviews({ limit = 50, productId }: UsePublicReviewsOpti
     return () => {
       cancelled = true;
     };
-  }, [limit, productId]);
+  }, [limit, productId, featuredOnly]);
 
   const derivedStats = useMemo(() => {
     if (stats.reviewCount > 0 && stats.averageRating != null) return stats;

@@ -1045,11 +1045,14 @@ export type PublicMarketplaceReview = {
   text: string;
   createdAt: string;
   reviewerName: string;
+  images?: string[];
+  featured?: boolean;
 };
 
 export type ListPublicReviewsOptions = {
   limit?: number;
   productId?: string;
+  featuredOnly?: boolean;
 };
 
 export type ReviewAggregateStats = {
@@ -1073,12 +1076,11 @@ export async function listPublicMarketplaceReviews(
 ): Promise<ListPublicReviewsResult> {
   const opts: ListPublicReviewsOptions =
     typeof options === "number" ? { limit: options } : options;
-  const { limit = 50, productId } = opts;
+  const { limit = 50, productId, featuredOnly } = opts;
 
   await connectDB();
   const cap = Math.min(100, Math.max(1, limit));
   const users = await User.find({
-    role: "CUSTOMER",
     deletedAt: null,
     "marketplace.reviews.0": { $exists: true },
   })
@@ -1090,6 +1092,7 @@ export async function listPublicMarketplaceReviews(
     const reviews = user.marketplace?.reviews ?? [];
     for (const r of reviews) {
       if (productId && r.productId !== productId) continue;
+      if (featuredOnly && !r.featured) continue;
       flat.push({
         id: r.id,
         productId: r.productId,
@@ -1099,11 +1102,17 @@ export async function listPublicMarketplaceReviews(
         text: r.text,
         createdAt: r.createdAt,
         reviewerName: user.name?.split(" ")[0] ?? "Customer",
+        images: r.images ?? [],
+        featured: r.featured ?? false,
       });
     }
   }
 
-  flat.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  flat.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   const reviewCount = flat.length;
   const averageRating =
@@ -1115,6 +1124,38 @@ export async function listPublicMarketplaceReviews(
   return {
     reviews: flat.slice(0, cap),
     stats: { averageRating, reviewCount, fiveStarCount },
+  };
+}
+
+export async function getPublicReviewById(
+  reviewId: string
+): Promise<PublicMarketplaceReview | null> {
+  await connectDB();
+  const user = await User.findOne({
+    deletedAt: null,
+    "marketplace.reviews.id": reviewId,
+  })
+    .select("name marketplace.reviews")
+    .lean();
+
+  if (!user) return null;
+
+  const r = (user.marketplace?.reviews ?? []).find(
+    (rev: { id: string }) => rev.id === reviewId
+  );
+  if (!r) return null;
+
+  return {
+    id: r.id,
+    productId: r.productId,
+    productName: r.productName,
+    productSlug: r.productSlug,
+    rating: r.rating,
+    text: r.text,
+    createdAt: r.createdAt,
+    reviewerName: user.name?.split(" ")[0] ?? "Customer",
+    images: r.images ?? [],
+    featured: r.featured ?? false,
   };
 }
 

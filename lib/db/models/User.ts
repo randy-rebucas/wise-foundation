@@ -95,6 +95,8 @@ const CustomerReviewSchema = new Schema(
     rating: { type: Number, required: true, min: 1, max: 5 },
     text: { type: String, required: true },
     createdAt: { type: String, required: true },
+    images: { type: [String], default: [] },
+    featured: { type: Boolean, default: false },
   },
   { _id: false }
 );

@@ -26,7 +26,7 @@ const textareaClass = cn(
 
 export type MarkdownEditorProps = {
   id?: string;
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -157,7 +157,7 @@ export function MarkdownEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <Label htmlFor={id}>{label}</Label>
+      {label && <Label htmlFor={id}>{label}</Label>}
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as "write" | "preview")}

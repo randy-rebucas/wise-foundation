@@ -41,6 +41,8 @@ export type MarketplaceCustomerReview = {
   rating: number;
   text: string;
   createdAt: string;
+  images?: string[];
+  featured?: boolean;
 };
 
 export const PREMIUM_POINTS_THRESHOLD = 500;

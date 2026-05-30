@@ -10,10 +10,11 @@ import { usePublicReviews } from "@/components/marketplace/reviews/usePublicRevi
 type PublicReviewsCarouselProps = {
   limit?: number;
   showAllLink?: boolean;
+  featuredOnly?: boolean;
 };
 
-export function PublicReviewsCarousel({ limit = 8, showAllLink = true }: PublicReviewsCarouselProps) {
-  const { reviews, loading, error } = usePublicReviews({ limit });
+export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredOnly }: PublicReviewsCarouselProps) {
+  const { reviews, loading, error } = usePublicReviews({ limit, featuredOnly });
   const feedbackRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "prev" | "next") => {
