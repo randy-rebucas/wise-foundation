@@ -104,14 +104,17 @@ export type BuildPageMetadataInput = {
   path: string;
   settings: PublicAppSettings;
   noindex?: boolean;
+  image?: string;
 };
 
 export function buildPageMetadata(input: BuildPageMetadataInput): Metadata {
   const siteUrl = getSiteUrl();
   const description = input.description?.trim() || resolveSiteDescription(input.settings);
   const canonical = absoluteUrl(input.path, siteUrl);
-  const ogImage = resolveDefaultOgImage(input.settings, siteUrl);
-  const social = buildSocialImages(ogImage, input.settings.appName);
+  const ogImage = input.image
+    ? imageAbsoluteUrl(input.image, siteUrl) ?? resolveDefaultOgImage(input.settings, siteUrl)
+    : resolveDefaultOgImage(input.settings, siteUrl);
+  const social = buildSocialImages(ogImage, input.title);
 
   return {
     title: input.title,

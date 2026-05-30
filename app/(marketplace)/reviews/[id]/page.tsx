@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: review.text.replace(/[#*_>`]/g, "").slice(0, 155),
     path: `/reviews/${id}`,
     settings,
+    image: review.images?.[0],
   });
 }
 
