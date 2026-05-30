@@ -9,6 +9,7 @@ interface ShareButtonsProps {
   url: string;
   title: string;
   description?: string;
+  image?: string;
   className?: string;
 }
 
@@ -36,7 +37,7 @@ function WhatsAppIcon() {
   );
 }
 
-export function ShareButtons({ url, title, description, className }: ShareButtonsProps) {
+export function ShareButtons({ url, title, description, image, className }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
 
   const absoluteUrl = url.startsWith("http")
@@ -64,9 +65,22 @@ export function ShareButtons({ url, title, description, className }: ShareButton
   ];
 
   async function handleNativeShare() {
-    if (navigator.share) {
-      await navigator.share({ title, text: description, url: absoluteUrl }).catch(() => {});
+    if (!navigator.share) return;
+    if (image && navigator.canShare) {
+      try {
+        const res = await fetch(image);
+        const blob = await res.blob();
+        const ext = blob.type.includes("png") ? "png" : "jpg";
+        const file = new File([blob], `share.${ext}`, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ title, text: description, url: absoluteUrl, files: [file] });
+          return;
+        }
+      } catch {
+        // fall through to URL-only share
+      }
     }
+    await navigator.share({ title, text: description, url: absoluteUrl }).catch(() => {});
   }
 
   async function handleCopy() {

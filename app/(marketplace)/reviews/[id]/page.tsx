@@ -145,6 +145,7 @@ export default async function ReviewDetailPage({ params }: Props) {
                 url={`/reviews/${review.id}`}
                 title={`${review.reviewerName}'s review of ${review.productName}`}
                 description={review.text.replace(/[#*_>`]/g, "").slice(0, 120)}
+                image={featuredImage}
               />
             </div>
 
