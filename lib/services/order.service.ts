@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db/connect";
 import { Order } from "@/lib/db/models/Order";
 import { OrderItem } from "@/lib/db/models/OrderItem";
+import { Member } from "@/lib/db/models/Member";
 import { Organization } from "@/lib/db/models/Organization";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
