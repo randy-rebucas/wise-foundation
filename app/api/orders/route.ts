@@ -33,6 +33,15 @@ const getHandler = async (req: AuthedRequest) => {
     let branchId: string | undefined;
     if (organizationId) {
       branchId = (await requireBranchAccessIfPresent(req.user, searchParams.get("branchId"))) ?? undefined;
+    } else if (req.user.role === "ADMIN") {
+      // ADMIN may omit branchId to see all orders (including org-scoped B2B with branchId=null).
+      // If an explicit branchId is supplied, validate and scope to it.
+      const raw = searchParams.get("branchId");
+      if (raw) {
+        const resolved = await resolveInventoryBranchId(raw, req.user);
+        if (!resolved) return errorResponse("Branch ID is required");
+        branchId = resolved;
+      }
     } else {
       const resolved = await resolveInventoryBranchId(searchParams.get("branchId"), req.user);
       if (!resolved) return errorResponse("Branch ID is required");

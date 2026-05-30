@@ -324,14 +324,18 @@ export default function OrdersPage() {
   });
 
   async function openDetail(orderId: string) {
-    const res = await fetch(`/api/orders/${orderId}`);
-    const data = await res.json();
-    if (!data.success) {
-      toast({ title: data.error ?? "Could not load order", variant: "destructive" });
-      return;
+    try {
+      const res = await fetch(`/api/orders/${orderId}`);
+      const data = await res.json();
+      if (!data.success) {
+        toast({ title: data.error ?? "Could not load order", variant: "destructive" });
+        return;
+      }
+      setSelectedOrder(data.data);
+      setDetailOpen(true);
+    } catch {
+      toast({ title: "Network error — could not load order", variant: "destructive" });
     }
-    setSelectedOrder(data.data);
-    setDetailOpen(true);
   }
 
   function updateB2BItem(idx: number, field: keyof B2BItem, value: string | number) {
@@ -590,6 +594,7 @@ export default function OrdersPage() {
                 <TabsTrigger value="delivered" className="text-xs sm:text-sm">Delivered</TabsTrigger>
                 <TabsTrigger value="completed" className="text-xs sm:text-sm">Completed</TabsTrigger>
                 <TabsTrigger value="cancelled" className="text-xs sm:text-sm">Cancelled</TabsTrigger>
+                <TabsTrigger value="refunded" className="text-xs sm:text-sm">Refunded</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -1044,7 +1049,12 @@ export default function OrdersPage() {
             <Button variant="outline" onClick={() => setB2bOpen(false)}>Cancel</Button>
             <Button
               onClick={() => b2bMutation.mutate(b2bForm)}
-              disabled={b2bMutation.isPending || !b2bForm.sellerOrganizationId || !b2bForm.buyerOrganizationId}
+              disabled={
+                b2bMutation.isPending ||
+                !b2bForm.sellerOrganizationId ||
+                !b2bForm.buyerOrganizationId ||
+                b2bForm.items.some((i) => !i.productId || i.quantity < 1 || i.unitPrice < 0)
+              }
             >
               {b2bMutation.isPending ? "Creating…" : "Create Order"}
             </Button>
