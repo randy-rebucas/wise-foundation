@@ -15,6 +15,7 @@ import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageSh
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { StarRating } from "@/components/marketplace/reviews/StarRating";
 import { Button } from "@/components/ui/button";
+import { ShareButtons } from "@/components/shared/ShareButtons";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -135,6 +136,15 @@ export default async function ReviewDetailPage({ params }: Props) {
                   </Link>
                 </Button>
               )}
+            </div>
+
+            {/* Share */}
+            <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
+              <ShareButtons
+                url={`/reviews/${review.id}`}
+                title={`${review.reviewerName}'s review of ${review.productName}`}
+                description={review.text.replace(/[#*_>`]/g, "").slice(0, 120)}
+              />
             </div>
 
             {/* CTA card */}

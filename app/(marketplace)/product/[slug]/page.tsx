@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { buildMarketplaceGalleryImages } from "@/lib/products/galleryImages";
 import { resolveProductShortDescriptionMarkdown } from "@/lib/products/productCopy";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
+import { ShareButtons } from "@/components/shared/ShareButtons";
 import { ProductImageGallery } from "@/components/marketplace/ProductImageGallery";
 import { ProductReviewsSection } from "@/components/marketplace/reviews/ProductReviewsSection";
 import { ProductReviewSummary } from "@/components/marketplace/reviews/ProductReviewSummary";
@@ -425,6 +426,13 @@ export default function MarketplaceProductPage() {
                 </Link>
               </Button>
             ) : null}
+
+            <ShareButtons
+              url={`/product/${encodeURIComponent(data.slug)}`}
+              title={data.name}
+              description={data.shortDescription}
+              className="pt-1"
+            />
           </div>
         </div>
       </article>

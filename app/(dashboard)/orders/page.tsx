@@ -260,7 +260,20 @@ export default function OrdersPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["orders"] }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      const label =
+        vars.status === "approved" ? "Order approved" :
+        vars.status === "paid" ? "Order marked as paid" :
+        vars.status === "delivered" ? "Delivery recorded" :
+        vars.status === "completed" ? "Order completed" :
+        vars.status === "cancelled" ? "Order cancelled" :
+        "Order updated";
+      toast({ title: label });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Action failed", description: err.message, variant: "destructive" });
+    },
   });
 
   async function submitDelivery(e: FormEvent) {
@@ -425,9 +438,17 @@ export default function OrdersPage() {
           {canManageOrders && (
             <>
               {o.status === "pending" && (
-                <Select onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}>
+                <Select
+                  key={`${o._id}-pending`}
+                  disabled={statusMutation.isPending && statusMutation.variables?.id === o._id}
+                  onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}
+                >
                   <SelectTrigger className="h-8 w-full text-xs sm:h-6 sm:w-28">
-                    <SelectValue placeholder="Update" />
+                    {statusMutation.isPending && statusMutation.variables?.id === o._id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <SelectValue placeholder="Update" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="approved">Approve</SelectItem>
@@ -436,9 +457,17 @@ export default function OrdersPage() {
                 </Select>
               )}
               {o.status === "approved" && (
-                <Select onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}>
+                <Select
+                  key={`${o._id}-approved`}
+                  disabled={statusMutation.isPending && statusMutation.variables?.id === o._id}
+                  onValueChange={(v) => statusMutation.mutate({ id: o._id, status: v })}
+                >
                   <SelectTrigger className="h-8 w-full text-xs sm:h-6 sm:w-24">
-                    <SelectValue placeholder="Update" />
+                    {statusMutation.isPending && statusMutation.variables?.id === o._id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <SelectValue placeholder="Update" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="paid">Mark Paid</SelectItem>
@@ -452,6 +481,7 @@ export default function OrdersPage() {
                     variant="ghost"
                     size="sm"
                     className="h-8 flex-1 text-xs sm:h-6 sm:flex-none"
+                    disabled={statusMutation.isPending && statusMutation.variables?.id === o._id}
                     onClick={() => {
                       setDeliveryReceipt("");
                       setDeliveryReceivedBy("");
@@ -466,9 +496,12 @@ export default function OrdersPage() {
                     variant="ghost"
                     size="sm"
                     className="h-8 flex-1 text-xs sm:h-6 sm:flex-none"
+                    disabled={statusMutation.isPending && statusMutation.variables?.id === o._id}
                     onClick={() => statusMutation.mutate({ id: o._id, status: "completed" })}
                   >
-                    Complete
+                    {statusMutation.isPending && statusMutation.variables?.id === o._id
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : "Complete"}
                   </Button>
                 </div>
               )}
@@ -477,9 +510,12 @@ export default function OrdersPage() {
                   variant="ghost"
                   size="sm"
                   className="h-8 w-full text-xs sm:h-6 sm:w-auto"
+                  disabled={statusMutation.isPending && statusMutation.variables?.id === o._id}
                   onClick={() => statusMutation.mutate({ id: o._id, status: "completed" })}
                 >
-                  Complete
+                  {statusMutation.isPending && statusMutation.variables?.id === o._id
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : "Complete"}
                 </Button>
               )}
             </>
