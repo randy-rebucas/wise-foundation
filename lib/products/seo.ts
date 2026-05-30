@@ -3,6 +3,7 @@ import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { resolveProductShortDescription } from "@/lib/products/productCopy";
 import { stripMarkdownPlainText } from "@/lib/markdown/stripMarkdown";
 import { absoluteUrl, getSiteUrl, imageAbsoluteUrl } from "@/lib/seo/site";
+import { cloudinaryOgUrl } from "@/lib/utils/cloudinaryTransform";
 
 export type ProductSeoSource = {
   name: string;
@@ -41,9 +42,11 @@ export async function buildProductPageMetadata(
   const title = resolveProductSeoTitle(product, settings.appName);
   const description = resolveProductSeoDescription(product);
   const canonical = absoluteUrl(`/product/${encodeURIComponent(product.slug)}`, siteUrl);
-  const image = imageAbsoluteUrl(product.images?.[0], siteUrl);
+  const rawImage = imageAbsoluteUrl(product.images?.[0], siteUrl);
+  const ogImage = rawImage ? cloudinaryOgUrl(rawImage) : undefined;
 
   return {
+    metadataBase: new URL(siteUrl),
     title,
     description: description || undefined,
     alternates: { canonical },
@@ -53,13 +56,13 @@ export async function buildProductPageMetadata(
       description: description || undefined,
       url: canonical,
       siteName: settings.appName,
-      ...(image ? { images: [{ url: image, alt: product.name }] } : {}),
+      ...(ogImage ? { images: [{ url: ogImage, width: 1200, height: 630, alt: product.name }] } : {}),
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: ogImage ? "summary_large_image" : "summary",
       title,
       description: description || undefined,
-      ...(image ? { images: [image] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }

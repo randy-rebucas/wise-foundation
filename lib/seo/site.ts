@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { resolveAppLogoSrc } from "@/lib/constants/branding";
+import { cloudinaryOgUrl } from "@/lib/utils/cloudinaryTransform";
 import logger from "@/lib/logger";
 
 const LOCALHOST_FALLBACK = "http://localhost:3000";
@@ -57,13 +58,14 @@ function buildSocialImages(
   alt: string
 ): Pick<Metadata, "openGraph" | "twitter"> {
   if (!imageUrl) return {};
+  const ogUrl = cloudinaryOgUrl(imageUrl);
   return {
     openGraph: {
-      images: [{ url: imageUrl, alt }],
+      images: [{ url: ogUrl, width: 1200, height: 630, alt }],
     },
     twitter: {
       card: "summary_large_image",
-      images: [imageUrl],
+      images: [ogUrl],
     },
   };
 }
@@ -117,6 +119,7 @@ export function buildPageMetadata(input: BuildPageMetadataInput): Metadata {
   const social = buildSocialImages(ogImage, input.title);
 
   return {
+    metadataBase: new URL(siteUrl),
     title: input.title,
     description,
     alternates: { canonical },
