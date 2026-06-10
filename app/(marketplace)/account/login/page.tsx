@@ -74,8 +74,6 @@ function AccountLoginForm() {
       <CardHeader className="space-y-1 pb-4">
         <AppBrand
           theme="account"
-          appName="Shop account"
-          appTagline="Sign in to track orders and check out faster"
           className="mb-3"
           priority
         />
