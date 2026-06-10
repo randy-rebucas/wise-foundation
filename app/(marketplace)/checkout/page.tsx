@@ -1080,13 +1080,22 @@ export default function MarketplaceCheckoutPage() {
                     onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
                   />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-[#2A4C6A]/75 sm:col-span-2">
-                  <Checkbox
-                    checked={saveInfo}
-                    onCheckedChange={(checked) => setSaveInfo(checked === true)}
-                  />
-                  Save this information for next time
-                </label>
+                {session?.user?.role === "CUSTOMER" ? (
+                  <label className="flex items-center gap-2 text-sm text-[#2A4C6A]/75 sm:col-span-2">
+                    <Checkbox
+                      checked={saveInfo}
+                      onCheckedChange={(checked) => setSaveInfo(checked === true)}
+                    />
+                    Save this information for next time
+                  </label>
+                ) : sessionStatus === "unauthenticated" ? (
+                  <p className="text-xs text-[#2A4C6A]/60 sm:col-span-2">
+                    <Link href={`/account/login?callbackUrl=/checkout`} className="font-semibold text-[#6ea43f] hover:underline">
+                      Sign in
+                    </Link>{" "}
+                    to save your address and track your order.
+                  </p>
+                ) : null}
               </div>
             </section>
 

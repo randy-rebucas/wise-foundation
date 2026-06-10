@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Heart, Loader2 } from "lucide-react";
+import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -58,10 +58,6 @@ export function WishlistButton({
   }, [checkSaved]);
 
   async function toggle() {
-    if (status !== "authenticated" || session?.user?.role !== "CUSTOMER") {
-      window.location.href = "/account/login";
-      return;
-    }
     setLoading(true);
     try {
       if (saved) {
@@ -95,13 +91,9 @@ export function WishlistButton({
     }
   }
 
-  if (!checked) {
-    return (
-      <Button type="button" variant="outline" size="icon" disabled className={className}>
-        <Loader2 className="h-4 w-4 animate-spin" />
-      </Button>
-    );
-  }
+  if (!checked) return null;
+
+  if (status !== "authenticated" || session?.user?.role !== "CUSTOMER") return null;
 
   return (
     <Button

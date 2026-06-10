@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ChevronRight, Loader2, LogOut } from "lucide-react";
+import { ChevronRight, Loader2, Lock, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ACCOUNT_NAV, isAccountNavActive } from "@/components/marketplace/account/accountNav";
@@ -22,7 +22,7 @@ type ProfileSummary = {
 
 export function AccountShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { ready, user } = useRequireCustomer();
+  const { ready, isGuest, user } = useRequireCustomer();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const isNotificationRead = useMarketplaceNotificationReadsStore((s) => s.isRead);
@@ -55,6 +55,38 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
       });
     }
   }, [ready, loadProfile]);
+
+  if (isGuest) {
+    return (
+      <MarketplacePageShell gap="">
+        <div className="mx-auto w-full max-w-md rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+            Sign in to your account
+          </h2>
+          <p className="mt-2 text-sm text-[#2A4C6A]/70">
+            Access your orders, wishlist, addresses, and more.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href={`/account/login?callbackUrl=${encodeURIComponent(pathname)}`}
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] px-6 py-3 text-sm font-semibold text-white shadow hover:opacity-90"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/account/register"
+              className="inline-flex items-center justify-center rounded-xl border border-white/70 bg-white/65 px-6 py-3 text-sm font-semibold text-[#1e3157] hover:bg-white/80"
+            >
+              Create an account
+            </Link>
+          </div>
+        </div>
+      </MarketplacePageShell>
+    );
+  }
 
   if (!ready || !user) {
     return (

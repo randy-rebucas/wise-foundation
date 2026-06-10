@@ -10,19 +10,19 @@ export function useRequireCustomer() {
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/account/login");
-    } else if (status === "authenticated" && session?.user?.role !== "CUSTOMER") {
+    if (status === "authenticated" && session?.user?.role !== "CUSTOMER") {
       router.replace(getStaffHomePath(session.user));
     }
   }, [status, session, router]);
 
   const ready = status === "authenticated" && session?.user?.role === "CUSTOMER";
+  const isGuest = status === "unauthenticated";
 
   return {
     session,
     status,
     ready,
+    isGuest,
     user: ready ? session.user : null,
   };
 }
