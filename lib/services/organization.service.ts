@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db/connect";
 import { Organization, type OrganizationType, type IOrganizationSettings } from "@/lib/db/models/Organization";
 import { TYPE_DEFAULT_SETTINGS } from "@/lib/organization/typeDefaults";
+import { invalidateOrgCapabilitiesCache } from "@/lib/organization/capabilities";
 import type { SessionUser } from "@/types";
 
 export { TYPE_DEFAULT_SETTINGS };
@@ -92,15 +93,18 @@ export async function updateOrganization(
   }>
 ) {
   await connectDB();
-  return Organization.findOneAndUpdate(
+  const result = await Organization.findOneAndUpdate(
     { _id: id, deletedAt: null },
     { $set: data },
     { new: true }
   ).lean();
+  if (result) invalidateOrgCapabilitiesCache(id);
+  return result;
 }
 
 export async function deleteOrganization(id: string) {
   await connectDB();
+  invalidateOrgCapabilitiesCache(id);
   return Organization.findOneAndUpdate(
     { _id: id, deletedAt: null },
     { $set: { deletedAt: new Date() } }

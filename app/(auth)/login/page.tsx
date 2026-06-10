@@ -23,8 +23,6 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [totp, setTotp] = useState("");
-  const [showTotp, setShowTotp] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -47,17 +45,11 @@ function LoginForm() {
         email,
         password,
         audience: "staff",
-        ...(totp.trim() ? { totp: totp.trim() } : {}),
         redirect: false,
       });
 
       if (result?.error) {
-        setShowTotp(true);
-        setError(
-          showTotp
-            ? "Invalid credentials or 2FA code"
-            : "Invalid email or password. If you have 2FA enabled, enter your code below."
-        );
+        setError("Invalid email or password");
       } else {
         const nextSession = await getSession();
         if (nextSession?.user) {
@@ -135,26 +127,7 @@ function LoginForm() {
               </button>
             </div>
           </div>
-          {showTotp && (
-            <div className="space-y-2">
-              <Label htmlFor="totp">2FA Code</Label>
-              <Input
-                id="totp"
-                type="text"
-                inputMode="numeric"
-                placeholder="6-digit code"
-                maxLength={8}
-                value={totp}
-                onChange={(e) => setTotp(e.target.value)}
-                autoComplete="one-time-code"
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter the code from your authenticator app, or a backup code.
-              </p>
-            </div>
-          )}
-          <Button type="submit" className="w-full" disabled={loading}>
+<Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

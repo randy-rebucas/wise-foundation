@@ -42,18 +42,39 @@ export function resolveOrgCapabilities(org: {
   };
 }
 
+const ORG_CAPS_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+interface CacheEntry {
+  caps: OrgCapabilities | null;
+  expiresAt: number;
+}
+
+const orgCapsCache = new Map<string, CacheEntry>();
+
+export function invalidateOrgCapabilitiesCache(organizationId: string): void {
+  orgCapsCache.delete(organizationId);
+}
+
 export async function loadOrganizationCapabilities(
   organizationId: string
 ): Promise<OrgCapabilities | null> {
+  const now = Date.now();
+  const hit = orgCapsCache.get(organizationId);
+  if (hit && hit.expiresAt > now) return hit.caps;
+
   const { connectDB } = await import("@/lib/db/connect");
   const { Organization } = await import("@/lib/db/models/Organization");
   await connectDB();
   const org = await Organization.findOne({ _id: organizationId, deletedAt: null, isActive: true })
     .select("type settings")
     .lean();
-  if (!org) return null;
-  const caps = resolveOrgCapabilities({ type: org.type, settings: org.settings });
-  return { ...caps, organizationId: org._id.toString() };
+
+  const caps = org
+    ? { ...resolveOrgCapabilities({ type: org.type, settings: org.settings }), organizationId: org._id.toString() }
+    : null;
+
+  orgCapsCache.set(organizationId, { caps, expiresAt: now + ORG_CAPS_TTL_MS });
+  return caps;
 }
 
 export async function loadOrganizationCapabilitiesForUser(

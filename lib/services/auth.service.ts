@@ -47,7 +47,7 @@ export async function verifyCredentials(
   if (!user) return null;
 
   if (audience === "staff" && user.role === "CUSTOMER") return null;
-  if (audience === "customer" && user.role !== "CUSTOMER") return null;
+  if (audience === "customer" && user.role !== "CUSTOMER" && user.role !== "MEMBER") return null;
 
   // Enforce lockout
   if (user.lockedUntil && user.lockedUntil > new Date()) {

@@ -178,13 +178,18 @@ async function routeProxy(req: NextRequest, requestId: string): Promise<NextResp
     return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   }
 
-  if (pathname === "/login" && !isStaffBlockedRole(session.user.role)) {
-    const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
-    const dest = resolveStaffRedirectPath(session.user, callbackUrl);
-    return NextResponse.redirect(new URL(dest, req.url));
+  if (pathname === "/login") {
+    if (session.user.role === "MEMBER") {
+      return NextResponse.redirect(new URL("/account", req.url));
+    }
+    if (!isStaffBlockedRole(session.user.role)) {
+      const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+      const dest = resolveStaffRedirectPath(session.user, callbackUrl);
+      return NextResponse.redirect(new URL(dest, req.url));
+    }
   }
 
-  if (pathname === "/account/login" && session.user.role !== "CUSTOMER") {
+  if (pathname === "/account/login" && session.user.role !== "CUSTOMER" && session.user.role !== "MEMBER") {
     return NextResponse.redirect(new URL(getStaffHomePath(session.user), req.url));
   }
 
