@@ -39,5 +39,5 @@ export const getMaintenanceMode = unstable_cache(
 export async function setMaintenanceMode(enabled: boolean): Promise<void> {
   await connectDB();
   await AppSettings.updateOne({}, { $set: { maintenanceMode: enabled } });
-  revalidateTag("maintenance-mode");
+  revalidateTag("maintenance-mode", "page");
 }
