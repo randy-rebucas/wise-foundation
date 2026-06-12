@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import logger from "@/lib/logger";
 import { redirect } from "next/navigation";
-import { isMaintenanceMode } from "@/lib/utils/maintenance";
+import { getMaintenanceMode } from "@/lib/utils/maintenance";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
@@ -27,7 +27,7 @@ export default async function DashboardLayout({ children }: Props) {
   }
 
   // Ensure no access if maintenance is enabled
-  if (isMaintenanceMode()) {
+  if (await getMaintenanceMode()) {
     redirect("/maintenance");
   }
 

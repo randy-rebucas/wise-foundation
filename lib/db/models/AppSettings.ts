@@ -4,6 +4,8 @@ import type { PurchaseOrderDiscountByOrgType } from "@/lib/purchaseOrders/orgTyp
 export interface IAppSettings extends Document {
   /** Branch that fulfills web marketplace orders (inventory deducted here). */
   marketplaceFulfillmentBranchId?: Types.ObjectId | null;
+  /** When true, all non-admin users are redirected to /maintenance. */
+  maintenanceMode: boolean;
   appName: string;
   /** Short line under the logo (e.g. tagline). */
   appTagline: string;
@@ -53,6 +55,7 @@ const AppSettingsSchema = new Schema<IAppSettings>(
     currency: { type: String, required: true, default: "PHP" },
     timezone: { type: String, required: true, default: "Asia/Manila" },
     setupCompleted: { type: Boolean, default: false },
+    maintenanceMode: { type: Boolean, default: false },
     memberDefaultDiscountPercent: { type: Number, default: 10, min: 0, max: 100 },
     defaultLowStockThreshold: { type: Number, default: 10, min: 1 },
     receiptFooter: { type: String, default: "" },

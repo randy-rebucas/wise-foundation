@@ -26,6 +26,7 @@ import {
   Images,
   Upload,
   Trash2,
+  WrenchIcon,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { AppLogo } from "@/components/branding/AppLogo";
@@ -327,6 +328,44 @@ export default function SettingsPage() {
       toast({ title: "Application settings saved" });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
       router.refresh();
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const {
+    data: maintenanceStatus,
+    isLoading: maintenanceLoading,
+    refetch: refetchMaintenance,
+  } = useQuery({
+    queryKey: ["maintenance-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/maintenance/status");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to load maintenance status");
+      return json.data as { maintenanceMode: boolean };
+    },
+    enabled: isAdmin,
+  });
+
+  const maintenanceMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch("/api/maintenance", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to update maintenance mode");
+      return json.data as { maintenanceMode: boolean };
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["maintenance-status"], data);
+      toast({
+        title: data.maintenanceMode ? "Maintenance mode enabled" : "Maintenance mode disabled",
+        description: data.maintenanceMode
+          ? "All users are now redirected to the maintenance page."
+          : "The app is now accessible to all users.",
+      });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -746,6 +785,72 @@ export default function SettingsPage() {
 
           {isAdmin ? (
             <TabsContent value="application" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <WrenchIcon className="h-4 w-4" />
+                    Maintenance mode
+                  </CardTitle>
+                  <CardDescription>
+                    When enabled, all users are redirected to the maintenance page. Admins cannot
+                    bypass this — disable it here when done.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {maintenanceLoading ? (
+                    <Skeleton className="h-10 w-full" />
+                  ) : (
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Maintenance mode</p>
+                        <p className="text-xs text-muted-foreground">
+                          {maintenanceStatus?.maintenanceMode
+                            ? "Currently active — users see the maintenance page."
+                            : "Currently off — app is accessible normally."}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {maintenanceMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : null}
+                        <Badge variant={maintenanceStatus?.maintenanceMode ? "destructive" : "success"}>
+                          {maintenanceStatus?.maintenanceMode ? "Active" : "Off"}
+                        </Badge>
+                        <Button
+                          type="button"
+                          variant={maintenanceStatus?.maintenanceMode ? "outline" : "destructive"}
+                          size="sm"
+                          disabled={maintenanceMutation.isPending || maintenanceLoading}
+                          onClick={() => {
+                            const next = !maintenanceStatus?.maintenanceMode;
+                            if (
+                              next &&
+                              !window.confirm(
+                                "Enable maintenance mode? All users (including you) will be redirected to the maintenance page. You can disable it here."
+                              )
+                            ) {
+                              return;
+                            }
+                            maintenanceMutation.mutate(next);
+                          }}
+                        >
+                          {maintenanceStatus?.maintenanceMode ? "Disable" : "Enable"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void refetchMaintenance()}
+                          disabled={maintenanceLoading}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">

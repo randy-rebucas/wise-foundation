@@ -1,13 +1,14 @@
 import { auth } from "@/auth";
 import { successResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
-import { isMaintenanceMode } from "@/lib/utils/maintenance";
+import { getMaintenanceMode } from "@/lib/utils/maintenance";
 import logger from "@/lib/logger";
 
 export const GET = auth(async () => {
   try {
+    const maintenanceMode = await getMaintenanceMode();
     return successResponse({
-      maintenanceMode: isMaintenanceMode(),
-      message: isMaintenanceMode()
+      maintenanceMode,
+      message: maintenanceMode
         ? "System is currently under maintenance"
         : "System is running normally",
     });
