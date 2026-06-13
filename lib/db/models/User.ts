@@ -34,6 +34,8 @@ export interface IUser extends Document {
   totpSecret?: string | null;
   totpEnabled: boolean;
   totpBackupCodes?: string[] | null;
+  passwordResetToken?: string | null;
+  passwordResetExpiry?: Date | null;
   marketplace?: IUserMarketplace;
   createdAt: Date;
   updatedAt: Date;
@@ -136,6 +138,8 @@ const UserSchema = new Schema<IUser>(
     totpSecret: { type: String, select: false, default: null },
     totpEnabled: { type: Boolean, default: false },
     totpBackupCodes: { type: [String], select: false, default: null },
+    passwordResetToken: { type: String, select: false, default: null },
+    passwordResetExpiry: { type: Date, select: false, default: null },
     marketplace: { type: MarketplaceSchema, default: () => ({}) },
     deletedAt: { type: Date, default: null },
   },
@@ -146,5 +150,6 @@ UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ role: 1, deletedAt: 1 });
 UserSchema.index({ branchIds: 1, deletedAt: 1 });
 UserSchema.index({ emailVerificationToken: 1 }, { sparse: true });
+UserSchema.index({ passwordResetToken: 1 }, { sparse: true });
 
 export const User = models.User || model<IUser>("User", UserSchema);

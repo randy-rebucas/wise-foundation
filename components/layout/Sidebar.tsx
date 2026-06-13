@@ -156,7 +156,7 @@ export function Sidebar({
       : (initialUser.organizationCapabilities ?? null);
 
   const accessUser = {
-    role: displayUser.role,
+    role: displayUser.role ?? initialUser.role,
     permissions: displayUser.permissions ?? [],
     organizationId:
       "organizationId" in displayUser
@@ -300,7 +300,7 @@ export function Sidebar({
           </Avatar>
           <div className={cn("min-w-0 flex-1", collapsed && "md:sr-only")}>
             <p className="truncate text-sm font-medium">{displayUser?.name}</p>
-            <p className="truncate text-xs opacity-60">{accessUser.role.replace(/_/g, " ")}</p>
+            <p className="truncate text-xs opacity-60">{accessUser.role?.replace(/_/g, " ")}</p>
           </div>
           <Button
             variant="ghost"

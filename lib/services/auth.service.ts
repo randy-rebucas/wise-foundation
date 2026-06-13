@@ -120,7 +120,7 @@ export async function verifyCredentials(
     name: user.name,
     email: user.email,
     role,
-    branchIds: (user.branchIds as Array<{ toString(): string }>).map((b) => b.toString()),
+    branchIds: (user.branchIds as Array<{ toString(): string }> ?? []).map((b) => b.toString()),
     organizationId,
     organizationType,
     organizationCapabilities,
@@ -137,7 +137,7 @@ export async function getUserById(userId: string) {
     name: user.name,
     email: user.email,
     role: user.role,
-    branchIds: (user.branchIds as Array<{ toString(): string }>).map((b) => b.toString()),
+    branchIds: (user.branchIds as Array<{ toString(): string }> ?? []).map((b) => b.toString()),
     permissions: user.permissions,
     avatar: user.avatar,
   };
