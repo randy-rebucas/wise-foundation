@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "@/lib/validations/auth.schema";
 import { verifyCredentials } from "@/lib/services/auth.service";
+import { getUserById } from "@/lib/services/auth.service";
 import { loadOrganizationCapabilities } from "@/lib/organization/capabilities";
 import { effectivePermissions } from "@/lib/permissions";
 import type { UserRole } from "@/types";
@@ -94,12 +95,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
+        token.name = user.name;
+        token.email = user.email;
         token.role = user.role;
         token.branchIds = user.branchIds;
         token.organizationId = user.organizationId ?? null;
         token.organizationType = user.organizationType ?? null;
         token.organizationCapabilities = user.organizationCapabilities ?? null;
         token.permissions = user.permissions;
+      } else if (token.sub && !token.role) {
+        // Stale token missing fields — re-hydrate from DB
+        const fresh = await getUserById(token.sub);
+        if (fresh) {
+          token.name = fresh.name;
+          token.email = fresh.email;
+          token.role = fresh.role;
+          token.branchIds = fresh.branchIds ?? [];
+          token.permissions = fresh.permissions ?? [];
+        }
       }
       return token;
     },
@@ -107,6 +120,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user) {
         const role = token.role as UserRole;
         session.user.id = token.sub!;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
         session.user.role = role;
         session.user.branchIds = token.branchIds as string[];
         session.user.organizationId = (token.organizationId as string | null) ?? null;

@@ -783,8 +783,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {isAdmin ? (
-            <TabsContent value="application" className="space-y-4">
+          <TabsContent value="application" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1352,10 +1351,8 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          ) : null}
 
-          {canManageRoles ? (
-            <TabsContent value="roles" className="space-y-4">
+          <TabsContent value="roles" className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1513,7 +1510,6 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-          ) : null}
 
         </Tabs>
       </div>

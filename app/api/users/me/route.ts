@@ -1,6 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
+import "@/lib/db/models/Organization";
 import { serializeMeUser } from "@/lib/utils/serializeMeUser";
 import { z } from "zod";
 import {
@@ -9,6 +10,7 @@ import {
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
+import logger from "@/lib/logger";
 
 const updateSchema = z.object({
   name: z.string().min(2).max(100).optional(),
@@ -25,7 +27,8 @@ const getHandler = async (req: AuthedRequest) => {
       .lean();
     if (!user) return errorResponse("User not found", 404);
     return successResponse(serializeMeUser(user as Record<string, unknown>));
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "GET /api/users/me error");
     return serverErrorResponse();
   }
 };

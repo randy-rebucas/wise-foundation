@@ -4,6 +4,7 @@ import { canUserAccessOrder, getOrderById, updateOrderStatus } from "@/lib/servi
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrderStatus } from "@/types";
+import logger from "@/lib/logger";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
@@ -12,7 +13,8 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
     if (!order || !canUserAccessOrder(order, req.user)) return notFoundResponse("Order not found");
 
     return successResponse(order);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "GET /api/orders/[id] error");
     return serverErrorResponse();
   }
 };

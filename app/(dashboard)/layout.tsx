@@ -47,7 +47,6 @@ export default async function DashboardLayout({ children }: Props) {
     organizationId: session.user.organizationId ?? null,
     organizationCapabilities: session.user.organizationCapabilities ?? null,
   };
-
   let tenantSettings: PublicAppSettings;
   try {
     tenantSettings = await getPublicAppSettings();

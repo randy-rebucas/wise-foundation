@@ -27,11 +27,6 @@ const ENV_SPECS: EnvSpec[] = [
     description: "PayMongo public key (client-side tokenisation)",
   },
   {
-    key: "NEXT_PUBLIC_SENTRY_DSN",
-    required: false,
-    description: "Sentry DSN for error tracking",
-  },
-  {
     key: "RESEND_API_KEY",
     required: false,
     description: "Resend API key for transactional email (verification, order confirmation)",
