@@ -232,19 +232,18 @@ export const getMarketplaceFulfillmentContext = cache(async (): Promise<{
   await connectDB();
   const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
   let branchId = settings?.marketplaceFulfillmentBranchId;
-  if (!branchId) {
+  let branch = branchId ? await Branch.findById(branchId).lean() : null;
+
+  if (!branch) {
     const hq = await Branch.findOne({ isHeadOffice: true, deletedAt: null, isActive: true }).lean();
-    const fallback =
+    branch =
       hq ?? (await Branch.findOne({ deletedAt: null, isActive: true }).sort({ _id: 1 }).lean());
-    if (!fallback) {
+    if (!branch) {
       throw new Error(
         "No branch is available to fulfill online orders. Create a branch in Admin first."
       );
     }
-    branchId = fallback._id as Types.ObjectId;
   }
-  const branch = await Branch.findById(branchId).lean();
-  if (!branch) throw new Error("Fulfillment branch not found");
   return {
     branchId: branch._id as Types.ObjectId,
     organizationId: (branch.organizationId as Types.ObjectId | null | undefined) ?? null,
