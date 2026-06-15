@@ -26,7 +26,6 @@ const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
     const stats = statSync(filepath);
     const stream = createReadStream(filepath);
 
-    // @ts-expect-error ReadStream is compatible with ReadableStream for NextResponse
     return new NextResponse(stream as unknown as ReadableStream, {
       headers: {
         "Content-Type": "application/gzip",

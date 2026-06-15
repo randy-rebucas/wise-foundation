@@ -7,7 +7,7 @@ import {
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { gunzipSync } from "zlib";
-import mongoose from "mongoose";
+import mongoose, { Types } from "mongoose";
 
 export const maxDuration = 60;
 
@@ -87,8 +87,7 @@ function rehydrateValue(v: unknown): unknown {
     const obj = v as Record<string, unknown>;
     // MongoDB Extended JSON: { "$oid": "..." }
     if ("$oid" in obj && typeof obj.$oid === "string") {
-      const { ObjectId } = require("bson");
-      return new ObjectId(obj.$oid);
+      return new Types.ObjectId(obj.$oid);
     }
     // MongoDB Extended JSON: { "$date": "..." }
     if ("$date" in obj) {
