@@ -3,6 +3,7 @@ import { Schema, model, models, type Document, type Types } from "mongoose";
 export interface IOrganizationInventory extends Document {
   organizationId: Types.ObjectId;
   productId: Types.ObjectId;
+  variantId?: Types.ObjectId | null;
   quantity: number;
   totalReceived: number;
   totalSold: number;
@@ -14,6 +15,7 @@ const OrganizationInventorySchema = new Schema<IOrganizationInventory>(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
+    variantId: { type: Schema.Types.ObjectId, ref: "ProductVariant", default: null },
     quantity: { type: Number, required: true, default: 0, min: 0 },
     totalReceived: { type: Number, default: 0, min: 0 },
     totalSold: { type: Number, default: 0, min: 0 },
@@ -22,7 +24,7 @@ const OrganizationInventorySchema = new Schema<IOrganizationInventory>(
 );
 
 OrganizationInventorySchema.index(
-  { organizationId: 1, productId: 1 },
+  { organizationId: 1, productId: 1, variantId: 1 },
   { unique: true }
 );
 OrganizationInventorySchema.index({ organizationId: 1, quantity: 1 });
