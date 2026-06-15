@@ -28,6 +28,7 @@ import {
   BookOpen,
   Images,
   MessageSquare,
+  DatabaseBackup,
 } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -101,6 +102,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
   { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
   { label: "Reviews", path: "/admin/reviews", icon: MessageSquare, roles: ["ADMIN"] },
+  { label: "Backup & Restore", path: "/admin/backup", icon: DatabaseBackup, roles: ["ADMIN"] },
 ];
 
 export interface SidebarUser {

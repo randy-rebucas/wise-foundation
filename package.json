@@ -17,7 +17,10 @@
     "reset": "tsx --env-file=.env.local scripts/reset.ts",
     "reset-seed": "tsx --env-file=.env.local scripts/reset-and-seed.ts",
     "docs:permissions-matrix": "node scripts/generate-permissions-matrix-image.mjs",
-    "sync:roles": "tsx --env-file=.env.local scripts/sync-roles.ts"
+    "sync:roles": "tsx --env-file=.env.local scripts/sync-roles.ts",
+    "db:backup": "tsx --env-file=.env.local scripts/backup.ts",
+    "db:backup:list": "tsx --env-file=.env.local scripts/backup.ts list",
+    "db:restore": "tsx --env-file=.env.local scripts/backup.ts restore"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
