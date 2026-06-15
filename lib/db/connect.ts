@@ -41,5 +41,14 @@ export async function connectDB(): Promise<typeof mongoose> {
     throw err;
   }
 
+  // Drop the old org-inventory unique index that lacked variantId so the new one can be created
+  try {
+    await cached.conn.connection.db
+      .collection("organizationinventories")
+      .dropIndex("organizationId_1_productId_1");
+  } catch {
+    // index already dropped or never existed — safe to ignore
+  }
+
   return cached.conn;
 }
