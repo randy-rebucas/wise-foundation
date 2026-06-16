@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { connectDB } from "@/lib/db/connect";
 import {
@@ -8,10 +7,8 @@ import {
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createGzip } from "zlib";
-import { pipeline } from "stream/promises";
 import { createWriteStream, mkdirSync, readdirSync, statSync } from "fs";
 import { join } from "path";
-import { Readable } from "stream";
 import mongoose from "mongoose";
 
 const BACKUP_DIR = process.env.BACKUP_DIR ?? join(process.cwd(), "backups");
@@ -53,12 +50,6 @@ const postHandler = async (req: AuthedRequest) => {
     if (!db) return serverErrorResponse("Database not connected");
 
     const collections = await db.listCollections().toArray();
-    const data: Record<string, unknown[]> = {};
-
-    for (const col of collections) {
-      const docs = await db.collection(col.name).find({}).toArray();
-      data[col.name] = docs;
-    }
 
     const timestamp = new Date()
       .toISOString()
@@ -71,12 +62,30 @@ const postHandler = async (req: AuthedRequest) => {
     const filename = `backup_${timestamp}${safeName}.json.gz`;
     const filepath = join(BACKUP_DIR, filename);
 
-    const json = JSON.stringify({ createdAt: new Date(), collections: data });
-    const readable = Readable.from([Buffer.from(json, "utf-8")]);
     const gzip = createGzip();
     const out = createWriteStream(filepath);
+    gzip.pipe(out);
 
-    await pipeline(readable, gzip, out);
+    // Stream each collection via cursor to avoid loading entire DB into memory
+    gzip.write(`{"createdAt":${JSON.stringify(new Date())},"collections":{`);
+    for (let i = 0; i < collections.length; i++) {
+      const colName = collections[i].name;
+      gzip.write(`${i === 0 ? "" : ","}${JSON.stringify(colName)}:[`);
+      let isFirst = true;
+      for await (const doc of db.collection(colName).find({})) {
+        gzip.write(`${isFirst ? "" : ","}${JSON.stringify(doc)}`);
+        isFirst = false;
+      }
+      gzip.write("]");
+    }
+    gzip.write("}}");
+    gzip.end();
+
+    await new Promise<void>((resolve, reject) => {
+      out.on("finish", resolve);
+      out.on("error", reject);
+      gzip.on("error", reject);
+    });
 
     const stats = statSync(filepath);
     return successResponse(
