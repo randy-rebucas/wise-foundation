@@ -11,8 +11,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
-import { Search, Package, ShoppingCart, Loader2 } from "lucide-react";
+import { Search, Package, ShoppingCart, Loader2, Plus, Minus } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import type { ProductCategory } from "@/types";
@@ -64,6 +65,9 @@ export function ProductGrid({ products, branchId }: ProductGridProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [variantProduct, setVariantProduct] = useState<POSProduct | null>(null);
+  const [bulkProduct, setBulkProduct] = useState<POSProduct | null>(null);
+  const [bulkQty, setBulkQty] = useState(1);
+  const [variantQtys, setVariantQtys] = useState<Record<string, number>>({});
   const [searchFocused, setSearchFocused] = useState(false);
   const { addItem, items } = useCartStore();
 
@@ -104,9 +108,11 @@ export function ProductGrid({ products, branchId }: ProductGridProps) {
   function handleProductClick(product: POSProduct) {
     if (product.stock === 0 && product.variants.every((v) => v.stock === 0)) return;
     if (product.variants.length > 0) {
+      setVariantQtys({});
       setVariantProduct(product);
     } else {
-      addBaseToCart(product);
+      setBulkQty(1);
+      setBulkProduct(product);
     }
   }
 
@@ -116,30 +122,45 @@ export function ProductGrid({ products, branchId }: ProductGridProps) {
     setSearchFocused(false);
   }
 
-  function addBaseToCart(product: POSProduct) {
-    if (product.stock === 0) return;
-    addItem({
-      productId: product._id,
-      name: product.name,
-      sku: product.sku,
-      price: product.retailPrice,
-      image: product.images?.[0],
-      maxStock: product.stock,
-    });
+  function confirmBulkAdd() {
+    if (!bulkProduct) return;
+    addItem(
+      {
+        productId: bulkProduct._id,
+        name: bulkProduct.name,
+        sku: bulkProduct.sku,
+        price: bulkProduct.retailPrice,
+        image: bulkProduct.images?.[0],
+        maxStock: bulkProduct.stock,
+      },
+      bulkQty
+    );
+    setBulkProduct(null);
   }
 
   function addVariantToCart(product: POSProduct, variant: POSVariant) {
     if (variant.stock === 0) return;
-    addItem({
-      productId: product._id,
-      variantId: variant._id,
-      name: `${product.name} — ${variant.name}`,
-      sku: variant.sku,
-      price: variant.retailPrice,
-      image: product.images?.[0],
-      maxStock: variant.stock,
-    });
+    const qty = variantQtys[variant._id] ?? 1;
+    addItem(
+      {
+        productId: product._id,
+        variantId: variant._id,
+        name: `${product.name} — ${variant.name}`,
+        sku: variant.sku,
+        price: variant.retailPrice,
+        image: product.images?.[0],
+        maxStock: variant.stock,
+      },
+      qty
+    );
     setVariantProduct(null);
+  }
+
+  function setVariantQty(variantId: string, qty: number, maxStock: number) {
+    setVariantQtys((prev) => ({
+      ...prev,
+      [variantId]: Math.max(1, Math.min(qty, maxStock)),
+    }));
   }
 
   function getCartQty(productId: string, variantId?: string): number {
@@ -306,6 +327,61 @@ export function ProductGrid({ products, branchId }: ProductGridProps) {
         )}
       </div>
 
+      {/* Bulk quantity dialog (base products) */}
+      <Dialog open={!!bulkProduct} onOpenChange={(o) => !o && setBulkProduct(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">{bulkProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              {bulkProduct?.sku} · {bulkProduct?.stock} in stock
+            </p>
+            <div className="flex items-center gap-3 justify-center">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setBulkQty((q) => Math.max(1, q - 1))}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Input
+                type="number"
+                value={bulkQty}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value) || 1;
+                  setBulkQty(Math.max(1, Math.min(v, bulkProduct?.stock ?? 1)));
+                }}
+                className="h-9 w-16 text-center text-base px-1"
+                min={1}
+                max={bulkProduct?.stock}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setBulkQty((q) => Math.min(q + 1, bulkProduct?.stock ?? 1))}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-center text-sm font-semibold text-primary">
+              {bulkProduct && formatMoney(bulkProduct.retailPrice * bulkQty)}
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setBulkProduct(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmBulkAdd} className="flex-1">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Add {bulkQty > 1 ? `×${bulkQty}` : "to Cart"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Variant selection dialog */}
       <Dialog open={!!variantProduct} onOpenChange={(o) => !o && setVariantProduct(null)}>
         <DialogContent className="max-w-sm">
@@ -315,64 +391,100 @@ export function ProductGrid({ products, branchId }: ProductGridProps) {
           <div className="space-y-2 py-2">
             {/* Base product (if it has its own stock) */}
             {variantProduct && variantProduct.stock > 0 && (
-              <button
-                onClick={() => { addBaseToCart(variantProduct); setVariantProduct(null); }}
-                className="w-full flex items-center justify-between rounded-lg border p-3 hover:border-primary hover:bg-muted/50 transition-colors text-left"
-              >
-                <div>
-                  <p className="text-sm font-medium">Base</p>
-                  <p className="text-xs text-muted-foreground">{variantProduct.sku}</p>
-                </div>
-                <div className="text-right">
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Base</p>
+                    <p className="text-xs text-muted-foreground">{variantProduct.sku} · {variantProduct.stock} in stock</p>
+                  </div>
                   <p className="text-sm font-bold text-primary">
-                    {formatMoney(variantProduct.retailPrice)}
+                    {formatMoney(variantProduct.retailPrice * (variantQtys["__base__"] ?? 1))}
                   </p>
-                  <p className="text-xs text-muted-foreground">{variantProduct.stock} in stock</p>
                 </div>
-              </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => setVariantQty("__base__", (variantQtys["__base__"] ?? 1) - 1, variantProduct.stock)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input type="number" value={variantQtys["__base__"] ?? 1}
+                      onChange={(e) => setVariantQty("__base__", parseInt(e.target.value) || 1, variantProduct.stock)}
+                      className="h-7 w-12 text-center text-sm px-1" min={1} max={variantProduct.stock} />
+                    <Button variant="outline" size="icon" className="h-7 w-7"
+                      onClick={() => setVariantQty("__base__", (variantQtys["__base__"] ?? 1) + 1, variantProduct.stock)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Button className="flex-1 h-7 text-xs"
+                    onClick={() => {
+                      const qty = variantQtys["__base__"] ?? 1;
+                      addItem({ productId: variantProduct._id, name: variantProduct.name, sku: variantProduct.sku, price: variantProduct.retailPrice, image: variantProduct.images?.[0], maxStock: variantProduct.stock }, qty);
+                      setVariantProduct(null);
+                    }}>
+                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    Add {(variantQtys["__base__"] ?? 1) > 1 ? `×${variantQtys["__base__"]}` : ""}
+                  </Button>
+                </div>
+              </div>
             )}
 
             {variantProduct?.variants.map((v) => {
               const outOfStock = v.stock === 0;
               const cartQty = getCartQty(variantProduct._id, v._id);
+              const qty = variantQtys[v._id] ?? 1;
               return (
-                <button
+                <div
                   key={v._id}
-                  onClick={() => !outOfStock && addVariantToCart(variantProduct, v)}
-                  disabled={outOfStock}
-                  className={`w-full flex items-center justify-between rounded-lg border p-3 text-left transition-colors ${
-                    outOfStock
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:border-primary hover:bg-muted/50"
-                  }`}
+                  className={`rounded-lg border p-3 space-y-2 ${outOfStock ? "opacity-50" : ""}`}
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{v.name}</p>
-                      {cartQty > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                          {cartQty} in cart
-                        </Badge>
-                      )}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{v.name}</p>
+                        {cartQty > 0 && (
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                            {cartQty} in cart
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-wrap mt-0.5">
+                        {v.attributes.map((a, i) => (
+                          <span key={i} className="text-xs text-muted-foreground">
+                            {a.key}: {a.value}
+                          </span>
+                        ))}
+                      </div>
+                      <p className={`text-xs mt-0.5 ${outOfStock ? "text-destructive" : "text-muted-foreground"}`}>
+                        {outOfStock ? "Out of stock" : `${v.stock} left`}
+                      </p>
                     </div>
-                    <div className="flex gap-1 flex-wrap mt-0.5">
-                      {v.attributes.map((a, i) => (
-                        <span key={i} className="text-xs text-muted-foreground">
-                          {a.key}: {a.value}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{v.sku}</p>
-                  </div>
-                  <div className="text-right">
                     <p className="text-sm font-bold text-primary">
-                      {formatMoney(v.retailPrice)}
-                    </p>
-                    <p className={`text-xs ${outOfStock ? "text-destructive" : "text-muted-foreground"}`}>
-                      {outOfStock ? "Out of stock" : `${v.stock} left`}
+                      {formatMoney(v.retailPrice * qty)}
                     </p>
                   </div>
-                </button>
+                  {!outOfStock && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button variant="outline" size="icon" className="h-7 w-7"
+                          onClick={() => setVariantQty(v._id, qty - 1, v.stock)}>
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <Input type="number" value={qty}
+                          onChange={(e) => setVariantQty(v._id, parseInt(e.target.value) || 1, v.stock)}
+                          className="h-7 w-12 text-center text-sm px-1" min={1} max={v.stock} />
+                        <Button variant="outline" size="icon" className="h-7 w-7"
+                          onClick={() => setVariantQty(v._id, qty + 1, v.stock)}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Button className="flex-1 h-7 text-xs"
+                        onClick={() => addVariantToCart(variantProduct, v)}>
+                        <ShoppingCart className="h-3 w-3 mr-1" />
+                        Add {qty > 1 ? `×${qty}` : ""}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

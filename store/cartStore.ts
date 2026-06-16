@@ -11,7 +11,7 @@ export const useCartStore = create<CartState>()(
       discountPercent: 0,
       branchId: "",
 
-      addItem: (newItem) => {
+      addItem: (newItem, quantity = 1) => {
         set((state) => {
           const existing = state.items.find(
             (i) => i.productId === newItem.productId && i.variantId === newItem.variantId
@@ -20,12 +20,17 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((i) =>
                 i.productId === newItem.productId && i.variantId === newItem.variantId
-                  ? { ...i, quantity: Math.min(i.quantity + 1, i.maxStock) }
+                  ? { ...i, quantity: Math.min(i.quantity + quantity, i.maxStock) }
                   : i
               ),
             };
           }
-          return { items: [...state.items, { ...newItem, quantity: 1 }] };
+          return {
+            items: [
+              ...state.items,
+              { ...newItem, quantity: Math.min(quantity, newItem.maxStock) },
+            ],
+          };
         });
       },
 

@@ -116,7 +116,7 @@ export interface CartState {
   memberName: string | null;
   discountPercent: number;
   branchId: string;
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   removeItem: (productId: string, variantId?: string) => void;
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   setMember: (memberId: string | null, memberName: string | null, discount: number) => void;
