@@ -213,6 +213,7 @@ export default function POSPage() {
         <CartPanel
           onCheckout={() => setCheckoutOpen(true)}
           onMemberSearch={() => setMemberSearchOpen(true)}
+          branchId={branchId}
         />
       </div>
 

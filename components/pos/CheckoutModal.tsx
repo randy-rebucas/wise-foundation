@@ -262,7 +262,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
           <div className="bg-muted rounded-lg p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Items</span>
-              <span>{items.length}</span>
+              <span>{items.reduce((s, i) => s + i.quantity, 0)} ({items.length} {items.length === 1 ? "line" : "lines"})</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
@@ -304,7 +304,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
           {/* Amount Paid (cash only) */}
           {paymentMethod === "cash" && (
             <div className="space-y-2">
-              <Label>Amount Tendered</Label>
+              <Label>Amount Tendered <span className="text-destructive">*</span></Label>
               <Input
                 type="number"
                 min={total}

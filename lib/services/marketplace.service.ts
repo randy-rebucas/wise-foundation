@@ -629,13 +629,43 @@ export async function placeMarketplaceOrder(
 
     const lines: Line[] = [];
 
-    for (const raw of input.items) {
-      const product = await Product.findOne({
-        _id: raw.productId,
-        ...listedFilter,
-      })
+    // Batch-fetch products, variants, and inventory instead of N queries per item
+    const allProductIds = input.items.map((i) => new mongoose.Types.ObjectId(i.productId));
+    const allVariantIds = input.items
+      .filter((i) => i.variantId)
+      .map((i) => new mongoose.Types.ObjectId(i.variantId!));
+
+    const [productDocs, variantDocs, variantCountRows, inventoryDocs] = await Promise.all([
+      Product.find({ _id: { $in: allProductIds }, ...listedFilter })
         .session(session)
-        .lean();
+        .lean(),
+      allVariantIds.length > 0
+        ? ProductVariant.find({ _id: { $in: allVariantIds }, deletedAt: null, isActive: true })
+            .session(session)
+            .lean()
+        : Promise.resolve([]),
+      // Count active variants per product (to detect variant-required products)
+      ProductVariant.aggregate([
+        { $match: { productId: { $in: allProductIds }, deletedAt: null, isActive: true } },
+        { $group: { _id: "$productId", count: { $sum: 1 } } },
+      ]).session(session),
+      Inventory.find({ branchId, productId: { $in: allProductIds } })
+        .session(session)
+        .lean(),
+    ]);
+
+    const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
+    const variantMap = new Map(variantDocs.map((v) => [String(v._id), v]));
+    const variantCountMap = new Map<string, number>(
+      variantCountRows.map((r: { _id: Types.ObjectId; count: number }) => [String(r._id), r.count])
+    );
+    // Key: "productId:variantId" (variantId empty string when null)
+    const invMap = new Map(
+      inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv])
+    );
+
+    for (const raw of input.items) {
+      const product = productMap.get(String(raw.productId));
       if (!product) throw new Error(`Product not available: ${raw.productId}`);
 
       let unitPrice = product.retailPrice;
@@ -643,36 +673,26 @@ export async function placeMarketplaceOrder(
       const name = product.name;
       let variantName: string | undefined;
       let variantId: Types.ObjectId | null = null;
-      let invFilter: { branchId: Types.ObjectId; productId: Types.ObjectId; variantId?: Types.ObjectId | null };
+      let invKey: string;
 
       if (raw.variantId) {
-        const v = await ProductVariant.findOne({
-          _id: raw.variantId,
-          productId: product._id,
-          deletedAt: null,
-          isActive: true,
-        })
-          .session(session)
-          .lean();
-        if (!v) throw new Error(`Invalid variant for product ${product.name}`);
+        const v = variantMap.get(String(raw.variantId));
+        if (!v || String(v.productId) !== String(product._id)) {
+          throw new Error(`Invalid variant for product ${product.name}`);
+        }
         unitPrice = v.retailPrice;
         sku = v.sku;
         variantName = v.name;
         variantId = v._id as Types.ObjectId;
-        invFilter = { branchId, productId: product._id as Types.ObjectId, variantId: v._id };
+        invKey = `${product._id}:${v._id}`;
       } else {
-        const variantCount = await ProductVariant.countDocuments({
-          productId: product._id,
-          deletedAt: null,
-          isActive: true,
-        }).session(session);
-        if (variantCount > 0) {
+        if ((variantCountMap.get(String(product._id)) ?? 0) > 0) {
           throw new Error(`Please choose a variant for ${product.name}`);
         }
-        invFilter = { branchId, productId: product._id as Types.ObjectId, variantId: null };
+        invKey = `${product._id}:`;
       }
 
-      const inv = await Inventory.findOne(invFilter).session(session);
+      const inv = invMap.get(invKey);
       if (!inv || inv.quantity < raw.quantity) {
         throw new Error(`Insufficient stock for ${name}${variantName ? ` (${variantName})` : ""}`);
       }
@@ -886,37 +906,37 @@ export async function placeMarketplaceOrder(
 
     await OrderItem.insertMany(orderItems, { session });
 
-    for (const l of lines) {
-      const invFilter = {
-        branchId,
-        productId: l.productId,
-        variantId: l.variantId ?? null,
-      };
-      const inventoryRecord = await Inventory.findOne(invFilter).session(session);
-      if (!inventoryRecord) throw new Error("Inventory row missing");
-      const previousQty = inventoryRecord.quantity;
-      inventoryRecord.quantity -= l.quantity;
-      await inventoryRecord.save({ session });
+    // Batch inventory deduction + stock movements
+    await Inventory.bulkWrite(
+      lines.map((l) => ({
+        updateOne: {
+          filter: { branchId, productId: l.productId, variantId: l.variantId ?? null },
+          update: { $inc: { quantity: -l.quantity } },
+        },
+      })),
+      { session }
+    );
 
-      await StockMovement.create(
-        [
-          {
-            branchId,
-            organizationId,
-            productId: l.productId,
-            variantId: l.variantId ?? null,
-            type: "OUT",
-            quantity: l.quantity,
-            previousQuantity: previousQty,
-            newQuantity: inventoryRecord.quantity,
-            reference: orderNumber,
-            orderId: order._id,
-            performedBy: cashierId,
-          },
-        ],
-        { session }
-      );
-    }
+    await StockMovement.insertMany(
+      lines.map((l) => {
+        const invKey = `${l.productId}:${l.variantId ?? ""}`;
+        const previousQty = invMap.get(invKey)?.quantity ?? 0;
+        return {
+          branchId,
+          organizationId,
+          productId: l.productId,
+          variantId: l.variantId ?? null,
+          type: "OUT",
+          quantity: l.quantity,
+          previousQuantity: previousQty,
+          newQuantity: previousQty - l.quantity,
+          reference: orderNumber,
+          orderId: order._id,
+          performedBy: cashierId,
+        };
+      }),
+      { session }
+    );
 
     if (paidNow) {
       await Transaction.create(

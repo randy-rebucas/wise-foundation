@@ -138,7 +138,11 @@ export async function getBranchPerformance() {
 
 export async function getInventoryAlerts() {
   await connectDB();
-  return Inventory.find({ $expr: { $lte: ["$quantity", "$lowStockThreshold"] } })
+  // Pre-filter with lowStockThreshold > 0 so the partial index is used before $expr evaluation
+  return Inventory.find({
+    lowStockThreshold: { $gt: 0 },
+    $expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+  })
     .populate("productId", "name sku category")
     .populate("branchId", "name code")
     .limit(20)

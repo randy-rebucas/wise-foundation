@@ -30,5 +30,10 @@ InventorySchema.index(
   { unique: true }
 );
 InventorySchema.index({ branchId: 1, quantity: 1 });
+// Partial index for low-stock alert queries — avoids full collection scan
+InventorySchema.index(
+  { quantity: 1, lowStockThreshold: 1 },
+  { partialFilterExpression: { lowStockThreshold: { $gt: 0 } } }
+);
 
 export const Inventory = models.Inventory || model<IInventory>("Inventory", InventorySchema);
