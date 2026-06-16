@@ -21,9 +21,10 @@ import { useFormatCurrency } from "@/components/providers/TenantProvider";
 interface CartPanelProps {
   onCheckout: () => void;
   onMemberSearch: () => void;
+  branchId?: string;
 }
 
-export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
+export function CartPanel({ onCheckout, onMemberSearch, branchId }: CartPanelProps) {
   const formatMoney = useFormatCurrency();
   const hydrated = useSyncExternalStore(
     () => () => {},
@@ -190,10 +191,13 @@ export function CartPanel({ onCheckout, onMemberSearch }: CartPanelProps) {
           </div>
         </div>
 
+        {!branchId && (
+          <p className="text-xs text-destructive text-center">Select a branch before checkout</p>
+        )}
         <Button
           className="w-full h-12 text-base font-semibold"
           onClick={onCheckout}
-          disabled={hydratedItems.length === 0}
+          disabled={hydratedItems.length === 0 || !branchId}
         >
           <CreditCard className="h-5 w-5 mr-2" />
           Checkout {hydratedItems.length > 0 && `(${hydratedItems.length})`}

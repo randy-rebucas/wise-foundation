@@ -30,8 +30,9 @@ export async function processCheckout(input: CheckoutInput) {
   try {
     session.startTransaction();
 
-    const branch = await Branch.findById(input.branchId).lean();
-    const organizationId = branch?.organizationId ?? null;
+    const branch = await Branch.findById(input.branchId).session(session).lean();
+    if (!branch) throw new Error("Branch not found");
+    const organizationId = branch.organizationId ?? null;
 
     const subtotal = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discountAmount = (subtotal * input.discountPercent) / 100;
