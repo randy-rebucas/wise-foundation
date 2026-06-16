@@ -112,7 +112,7 @@ export async function getOrders(
     ...(organizationId ? { $or: orgClause } : branchId ? { branchId } : {}),
   };
 
-  const [orders, total, pendingCount, approvedCount] = await Promise.all([
+  const [orders, countsResult] = await Promise.all([
     Order.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -121,10 +121,21 @@ export async function getOrders(
       .populate("buyerOrganizationId", "name type")
       .populate("sellerOrganizationId", "name type")
       .lean(),
-    Order.countDocuments(query),
-    Order.countDocuments({ ...pendingBase, status: "pending" } as MongoQuery),
-    Order.countDocuments({ ...pendingBase, status: "approved" } as MongoQuery),
+    Order.aggregate([
+      {
+        $facet: {
+          total: [{ $match: query as Record<string, unknown> }, { $count: "n" }],
+          pending: [{ $match: { ...(pendingBase as Record<string, unknown>), status: "pending" } }, { $count: "n" }],
+          approved: [{ $match: { ...(pendingBase as Record<string, unknown>), status: "approved" } }, { $count: "n" }],
+        },
+      },
+    ]),
   ]);
+
+  const counts = countsResult[0] ?? {};
+  const total = counts.total?.[0]?.n ?? 0;
+  const pendingCount = counts.pending?.[0]?.n ?? 0;
+  const approvedCount = counts.approved?.[0]?.n ?? 0;
 
   return { orders, total, pages: Math.ceil(total / limit), pendingCount, approvedCount };
 }
@@ -337,15 +348,19 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
     if (!seller) throw new Error("Seller organization not found or inactive");
     if (!seller.settings.canDistribute) throw new Error("Seller organization is not authorized to distribute");
 
-    // Validate seller has enough stock for each item
+    // Validate seller has enough stock — batch fetch then validate in memory
+    const sellerStockDocs = await OrganizationInventory.find({
+      organizationId: input.sellerOrganizationId,
+      productId: { $in: input.items.map((i) => i.productId) },
+    }).session(session).lean();
+    const sellerStockKey = (productId: unknown, variantId: unknown) =>
+      `${productId}:${variantId ?? ""}`;
+    const sellerStockMap = new Map(
+      sellerStockDocs.map((s) => [sellerStockKey(s.productId, s.variantId), s.quantity])
+    );
     for (const item of input.items) {
-      const stock = await OrganizationInventory.findOne({
-        organizationId: input.sellerOrganizationId,
-        productId: item.productId,
-        ...(item.variantId ? { variantId: item.variantId } : { variantId: null }),
-      }).session(session);
-
-      if (!stock || stock.quantity < item.quantity) {
+      const qty = sellerStockMap.get(sellerStockKey(item.productId, item.variantId ?? null)) ?? 0;
+      if (qty < item.quantity) {
         throw new Error(`Insufficient stock for product: ${item.productName}`);
       }
     }

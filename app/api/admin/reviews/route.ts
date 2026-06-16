@@ -34,56 +34,79 @@ const handler = async (req: AuthedRequest) => {
 
     await connectDB();
 
-    const customers = await User.find({
-      deletedAt: null,
-      "marketplace.reviews.0": { $exists: true },
-    })
-      .select("name email marketplace.reviews")
-      .lean();
-
-    const all: AdminReview[] = [];
-    for (const user of customers) {
-      for (const r of user.marketplace?.reviews ?? []) {
-        all.push({
-          id: r.id,
-          userId: String((user as { _id: unknown })._id),
-          reviewerName: user.name,
-          reviewerEmail: user.email,
-          productId: r.productId,
-          productName: r.productName,
-          productSlug: r.productSlug,
-          rating: r.rating,
-          text: r.text,
-          createdAt: r.createdAt,
-          images: r.images ?? [],
-          featured: r.featured ?? false,
-        });
-      }
-    }
-
-    all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    // Stats over all reviews (before filters)
-    const totalAll = all.length;
-    const avgAll = totalAll > 0 ? all.reduce((s, r) => s + r.rating, 0) / totalAll : null;
-    const ratingCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const r of all) ratingCounts[r.rating] = (ratingCounts[r.rating] ?? 0) + 1;
-
-    // Apply filters
-    let filtered = all.filter((r) => r.rating >= minRating && r.rating <= maxRating);
-    if (productId) filtered = filtered.filter((r) => r.productId === productId);
+    // Match filter applied after $unwind on raw document fields
+    const postUnwindMatch: Record<string, unknown> = {
+      "marketplace.reviews.rating": { $gte: minRating, $lte: maxRating },
+    };
+    if (productId) postUnwindMatch["marketplace.reviews.productId"] = productId;
     if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.productName.toLowerCase().includes(q) ||
-          r.reviewerName.toLowerCase().includes(q) ||
-          r.text.toLowerCase().includes(q)
-      );
+      postUnwindMatch.$or = [
+        { "marketplace.reviews.productName": { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
+        { "marketplace.reviews.text": { $regex: search, $options: "i" } },
+      ];
     }
 
-    const total = filtered.length;
-    const data = filtered.slice((page - 1) * limit, page * limit);
+    const [statsResult, pageResult] = await Promise.all([
+      // Compute overall stats across ALL reviews (unfiltered)
+      User.aggregate([
+        { $match: { deletedAt: null, "marketplace.reviews.0": { $exists: true } } },
+        { $unwind: "$marketplace.reviews" },
+        {
+          $group: {
+            _id: null,
+            totalAll: { $sum: 1 },
+            sumRating: { $sum: "$marketplace.reviews.rating" },
+            r1: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 1] }, 1, 0] } },
+            r2: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 2] }, 1, 0] } },
+            r3: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 3] }, 1, 0] } },
+            r4: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 4] }, 1, 0] } },
+            r5: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 5] }, 1, 0] } },
+          },
+        },
+      ]),
+      // Filtered, sorted, paginated
+      User.aggregate([
+        { $match: { deletedAt: null, "marketplace.reviews.0": { $exists: true } } },
+        { $unwind: "$marketplace.reviews" },
+        { $match: postUnwindMatch },
+        { $sort: { "marketplace.reviews.createdAt": -1 } },
+        {
+          $facet: {
+            data: [
+              { $skip: (page - 1) * limit },
+              { $limit: limit },
+              {
+                $project: {
+                  _id: 0,
+                  id: "$marketplace.reviews.id",
+                  userId: { $toString: "$_id" },
+                  reviewerName: "$name",
+                  reviewerEmail: "$email",
+                  productId: "$marketplace.reviews.productId",
+                  productName: "$marketplace.reviews.productName",
+                  productSlug: "$marketplace.reviews.productSlug",
+                  rating: "$marketplace.reviews.rating",
+                  text: "$marketplace.reviews.text",
+                  createdAt: "$marketplace.reviews.createdAt",
+                  images: { $ifNull: ["$marketplace.reviews.images", []] },
+                  featured: { $ifNull: ["$marketplace.reviews.featured", false] },
+                },
+              },
+            ],
+            totalCount: [{ $count: "count" }],
+          },
+        },
+      ]),
+    ]);
+
+    const s = statsResult[0] ?? { totalAll: 0, sumRating: 0, r1: 0, r2: 0, r3: 0, r4: 0, r5: 0 };
+    const ratingCounts = { 1: s.r1, 2: s.r2, 3: s.r3, 4: s.r4, 5: s.r5 };
+    const avgAll = s.totalAll > 0 ? s.sumRating / s.totalAll : null;
+
+    const facet = pageResult[0] ?? { data: [], totalCount: [] };
+    const total: number = facet.totalCount[0]?.count ?? 0;
+    const data = facet.data as AdminReview[];
 
     return successResponse(data, undefined, 200, {
       page,
@@ -91,7 +114,7 @@ const handler = async (req: AuthedRequest) => {
       total,
       totalPages: Math.ceil(total / limit),
       stats: {
-        totalAll,
+        totalAll: s.totalAll,
         averageRating: avgAll !== null ? Math.round(avgAll * 10) / 10 : null,
         ratingCounts,
         negativeCount: (ratingCounts[1] ?? 0) + (ratingCounts[2] ?? 0) + (ratingCounts[3] ?? 0),

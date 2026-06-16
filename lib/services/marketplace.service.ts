@@ -1079,50 +1079,56 @@ export async function listPublicMarketplaceReviews(
 
   await connectDB();
   const cap = Math.min(100, Math.max(1, limit));
-  const users = await User.find({
-    deletedAt: null,
-    "marketplace.reviews.0": { $exists: true },
-  })
-    .select("name marketplace.reviews")
-    .lean();
 
-  const flat: PublicMarketplaceReview[] = [];
-  for (const user of users) {
-    const reviews = user.marketplace?.reviews ?? [];
-    for (const r of reviews) {
-      if (productId && r.productId !== productId) continue;
-      if (featuredOnly && !r.featured) continue;
-      flat.push({
-        id: r.id,
-        productId: r.productId,
-        productName: r.productName,
-        productSlug: r.productSlug,
-        rating: r.rating,
-        text: r.text,
-        createdAt: r.createdAt,
-        reviewerName: user.name?.split(" ")[0] ?? "Customer",
-        images: r.images ?? [],
-        featured: r.featured ?? false,
-      });
-    }
-  }
+  const postUnwindMatch: Record<string, unknown> = {};
+  if (productId) postUnwindMatch["marketplace.reviews.productId"] = productId;
+  if (featuredOnly) postUnwindMatch["marketplace.reviews.featured"] = true;
 
-  flat.sort((a, b) => {
-    if (a.featured && !b.featured) return -1;
-    if (!a.featured && b.featured) return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const [reviews, statsResult] = await Promise.all([
+    User.aggregate([
+      { $match: { deletedAt: null, "marketplace.reviews.0": { $exists: true } } },
+      { $unwind: "$marketplace.reviews" },
+      ...(Object.keys(postUnwindMatch).length ? [{ $match: postUnwindMatch }] : []),
+      { $sort: { "marketplace.reviews.featured": -1, "marketplace.reviews.createdAt": -1 } },
+      { $limit: cap },
+      {
+        $project: {
+          _id: 0,
+          id: "$marketplace.reviews.id",
+          productId: "$marketplace.reviews.productId",
+          productName: "$marketplace.reviews.productName",
+          productSlug: "$marketplace.reviews.productSlug",
+          rating: "$marketplace.reviews.rating",
+          text: "$marketplace.reviews.text",
+          createdAt: "$marketplace.reviews.createdAt",
+          reviewerName: { $arrayElemAt: [{ $split: ["$name", " "] }, 0] },
+          images: { $ifNull: ["$marketplace.reviews.images", []] },
+          featured: { $ifNull: ["$marketplace.reviews.featured", false] },
+        },
+      },
+    ]),
+    User.aggregate([
+      { $match: { deletedAt: null, "marketplace.reviews.0": { $exists: true } } },
+      { $unwind: "$marketplace.reviews" },
+      ...(productId ? [{ $match: { "marketplace.reviews.productId": productId } }] : []),
+      {
+        $group: {
+          _id: null,
+          reviewCount: { $sum: 1 },
+          sumRating: { $sum: "$marketplace.reviews.rating" },
+          fiveStarCount: { $sum: { $cond: [{ $eq: ["$marketplace.reviews.rating", 5] }, 1, 0] } },
+        },
+      },
+    ]),
+  ]);
 
-  const reviewCount = flat.length;
+  const s = statsResult[0] ?? { reviewCount: 0, sumRating: 0, fiveStarCount: 0 };
   const averageRating =
-    reviewCount > 0
-      ? Math.round((flat.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10
-      : null;
-  const fiveStarCount = flat.filter((r) => r.rating === 5).length;
+    s.reviewCount > 0 ? Math.round((s.sumRating / s.reviewCount) * 10) / 10 : null;
 
   return {
-    reviews: flat.slice(0, cap),
-    stats: { averageRating, reviewCount, fiveStarCount },
+    reviews: reviews as PublicMarketplaceReview[],
+    stats: { averageRating, reviewCount: s.reviewCount, fiveStarCount: s.fiveStarCount },
   };
 }
 
@@ -1164,38 +1170,28 @@ export async function getProductReviewSummaries(
 ): Promise<Record<string, ProductReviewSummary>> {
   const unique = [...new Set(productIds.filter(Boolean))];
   const out: Record<string, ProductReviewSummary> = {};
-  for (const id of unique) {
-    out[id] = { averageRating: null, reviewCount: 0 };
-  }
+  for (const id of unique) out[id] = { averageRating: null, reviewCount: 0 };
   if (!unique.length) return out;
 
   await connectDB();
-  const idSet = new Set(unique);
-  const users = await User.find({
-    role: "CUSTOMER",
-    deletedAt: null,
-    "marketplace.reviews.0": { $exists: true },
-  })
-    .select("marketplace.reviews")
-    .lean();
 
-  const buckets = new Map<string, { sum: number; count: number }>();
-  for (const user of users) {
-    for (const r of user.marketplace?.reviews ?? []) {
-      if (!idSet.has(r.productId)) continue;
-      const prev = buckets.get(r.productId) ?? { sum: 0, count: 0 };
-      prev.sum += r.rating;
-      prev.count += 1;
-      buckets.set(r.productId, prev);
-    }
-  }
+  const rows = await User.aggregate<{ _id: string; count: number; sum: number }>([
+    { $match: { deletedAt: null, "marketplace.reviews.0": { $exists: true } } },
+    { $unwind: "$marketplace.reviews" },
+    { $match: { "marketplace.reviews.productId": { $in: unique } } },
+    {
+      $group: {
+        _id: "$marketplace.reviews.productId",
+        count: { $sum: 1 },
+        sum: { $sum: "$marketplace.reviews.rating" },
+      },
+    },
+  ]);
 
-  for (const id of unique) {
-    const b = buckets.get(id);
-    if (!b || b.count === 0) continue;
-    out[id] = {
-      averageRating: Math.round((b.sum / b.count) * 10) / 10,
-      reviewCount: b.count,
+  for (const row of rows) {
+    out[row._id] = {
+      averageRating: Math.round((row.sum / row.count) * 10) / 10,
+      reviewCount: row.count,
     };
   }
   return out;

@@ -10,7 +10,6 @@ import { Branch } from "@/lib/db/models/Branch";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { generateOrderNumber } from "@/lib/utils";
 import type { CartItem } from "@/types";
-import type { ClientSession } from "mongoose";
 
 interface CheckoutInput {
   branchId: string;
@@ -23,19 +22,6 @@ interface CheckoutInput {
   notes?: string;
 }
 
-async function deductOrgInventory(
-  organizationId: string,
-  productId: string,
-  variantId: string | null | undefined,
-  quantity: number,
-  session: ClientSession
-) {
-  await OrganizationInventory.findOneAndUpdate(
-    { organizationId, productId, variantId: variantId ?? null },
-    { $inc: { quantity: -quantity, totalSold: quantity } },
-    { session }
-  );
-}
 
 export async function processCheckout(input: CheckoutInput) {
   await connectDB();
@@ -64,55 +50,77 @@ export async function processCheckout(input: CheckoutInput) {
       memberName = member.name;
     }
 
+    // Batch-fetch all inventory records, validate, then bulk-update
+    const inventoryDocs = await Inventory.find({
+      branchId: input.branchId,
+      productId: { $in: input.items.map((i) => i.productId) },
+    }).session(session).lean();
+
+    const invMap = new Map(
+      inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv])
+    );
+
     for (const item of input.items) {
-      const inventoryRecord = await Inventory.findOne({
-        branchId: input.branchId,
-        productId: item.productId,
-        variantId: item.variantId ?? null,
-      }).session(session);
-
-      if (!inventoryRecord) {
-        throw new Error(`No inventory record for product: ${item.name}`);
-      }
-
-      if (inventoryRecord.quantity < item.quantity) {
+      const inv = invMap.get(`${item.productId}:${item.variantId ?? ""}`);
+      if (!inv) throw new Error(`No inventory record for product: ${item.name}`);
+      if (inv.quantity < item.quantity) {
         throw new Error(
-          `Insufficient stock for "${item.name}". Available: ${inventoryRecord.quantity}, Requested: ${item.quantity}`
+          `Insufficient stock for "${item.name}". Available: ${inv.quantity}, Requested: ${item.quantity}`
         );
       }
+    }
 
-      const previousQty = inventoryRecord.quantity;
-      inventoryRecord.quantity -= item.quantity;
-      await inventoryRecord.save({ session });
-
-      if (organizationId) {
-        await deductOrgInventory(
-          organizationId.toString(),
-          item.productId,
-          item.variantId,
-          item.quantity,
-          session
-        );
-      }
-
-      await StockMovement.create(
-        [
-          {
+    // Batch deduct branch inventory
+    await Inventory.bulkWrite(
+      input.items.map((item) => ({
+        updateOne: {
+          filter: {
             branchId: input.branchId,
-            organizationId,
             productId: item.productId,
             variantId: item.variantId ?? null,
-            type: "OUT",
-            quantity: item.quantity,
-            previousQuantity: previousQty,
-            newQuantity: inventoryRecord.quantity,
-            reference: orderNumber,
-            performedBy: input.cashierId,
           },
-        ],
+          update: { $inc: { quantity: -item.quantity } },
+        },
+      })),
+      { session }
+    );
+
+    // Batch deduct org inventory (if applicable)
+    if (organizationId) {
+      await OrganizationInventory.bulkWrite(
+        input.items.map((item) => ({
+          updateOne: {
+            filter: {
+              organizationId,
+              productId: item.productId,
+              variantId: item.variantId ?? null,
+            },
+            update: { $inc: { quantity: -item.quantity, totalSold: item.quantity } },
+          },
+        })),
         { session }
       );
     }
+
+    // Batch create stock movements
+    await StockMovement.insertMany(
+      input.items.map((item) => {
+        const inv = invMap.get(`${item.productId}:${item.variantId ?? ""}`)!;
+        return {
+          branchId: input.branchId,
+          organizationId,
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          type: "OUT",
+          quantity: item.quantity,
+          previousQuantity: inv.quantity,
+          newQuantity: inv.quantity - item.quantity,
+          reference: orderNumber,
+          performedBy: input.cashierId,
+        };
+      }),
+      { session }
+    );
 
     const [order] = await Order.create(
       [

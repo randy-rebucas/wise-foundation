@@ -306,15 +306,16 @@ export async function getDistributionSummary(days = 30) {
   startDate.setDate(startDate.getDate() - days);
   startDate.setHours(0, 0, 0, 0);
 
-  const orgs = await Organization.find({ deletedAt: null, isActive: true })
-    .select("name type commissionRate settings")
-    .lean();
-
+  const orgTypeCounts = await Organization.aggregate<{ _id: string; count: number }>([
+    { $match: { deletedAt: null, isActive: true } },
+    { $group: { _id: "$type", count: { $sum: 1 } } },
+  ]);
+  const orgTypeMap = new Map(orgTypeCounts.map((r) => [r._id, r.count]));
   const orgsByType = {
-    distributor: orgs.filter((o) => o.type === "distributor").length,
-    franchise: orgs.filter((o) => o.type === "franchise").length,
-    partner: orgs.filter((o) => o.type === "partner").length,
-    headquarters: orgs.filter((o) => o.type === "headquarters").length,
+    distributor: orgTypeMap.get("distributor") ?? 0,
+    franchise: orgTypeMap.get("franchise") ?? 0,
+    partner: orgTypeMap.get("partner") ?? 0,
+    headquarters: orgTypeMap.get("headquarters") ?? 0,
   };
 
   const matchBase = {
@@ -375,38 +376,43 @@ export async function getDistributionSummary(days = 30) {
 export async function getOrgInventorySummary(organizationId?: string) {
   await connectDB();
 
-  const filter: Record<string, unknown> = {};
+  const match: Record<string, unknown> = {};
   if (organizationId && mongoose.Types.ObjectId.isValid(organizationId))
-    filter.organizationId = new mongoose.Types.ObjectId(organizationId);
+    match.organizationId = new mongoose.Types.ObjectId(organizationId);
 
-  const items = await OrganizationInventory.find(filter)
-    .populate("organizationId", "name type")
-    .populate("productId", "name sku category")
-    .lean();
+  const rows = await OrganizationInventory.aggregate<{
+    orgId: string;
+    orgName: string;
+    orgType: string;
+    totalProducts: number;
+    totalUnits: number;
+    lowStockCount: number;
+  }>([
+    ...(Object.keys(match).length ? [{ $match: match }] : []),
+    {
+      $lookup: {
+        from: "organizations",
+        localField: "organizationId",
+        foreignField: "_id",
+        as: "org",
+        pipeline: [{ $project: { name: 1, type: 1 } }],
+      },
+    },
+    { $unwind: "$org" },
+    {
+      $group: {
+        _id: "$organizationId",
+        orgName: { $first: "$org.name" },
+        orgType: { $first: "$org.type" },
+        totalProducts: { $sum: 1 },
+        totalUnits: { $sum: "$quantity" },
+        lowStockCount: { $sum: { $cond: [{ $lte: ["$quantity", 5] }, 1, 0] } },
+      },
+    },
+    { $addFields: { orgId: { $toString: "$_id" } } },
+    { $sort: { totalUnits: -1 } },
+    { $project: { _id: 0, orgId: 1, orgName: 1, orgType: 1, totalProducts: 1, totalUnits: 1, lowStockCount: 1 } },
+  ]);
 
-  const grouped: Record<
-    string,
-    { orgId: string; orgName: string; orgType: string; totalProducts: number; totalUnits: number; lowStockCount: number }
-  > = {};
-
-  for (const item of items) {
-    const org = item.organizationId as { _id: { toString(): string }; name: string; type: string } | null;
-    if (!org) continue;
-    const key = org._id.toString();
-    if (!grouped[key]) {
-      grouped[key] = {
-        orgId: key,
-        orgName: org.name,
-        orgType: org.type,
-        totalProducts: 0,
-        totalUnits: 0,
-        lowStockCount: 0,
-      };
-    }
-    grouped[key].totalProducts++;
-    grouped[key].totalUnits += item.quantity;
-    if (item.quantity <= 5) grouped[key].lowStockCount++;
-  }
-
-  return Object.values(grouped).sort((a, b) => b.totalUnits - a.totalUnits);
+  return rows;
 }

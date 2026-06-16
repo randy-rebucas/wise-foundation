@@ -176,18 +176,27 @@ export async function getPurchaseOrders(
 async function normalizePurchaseOrderItems(
   items: PurchaseOrderItemInput[]
 ): Promise<PurchaseOrderItemInput[]> {
-  const normalized: PurchaseOrderItemInput[] = [];
-
-  for (const item of items) {
+  items.forEach((item) => {
     assertValidObjectId(item.productId, "product id");
-    const product = await Product.findOne({
-      _id: item.productId,
-      deletedAt: null,
-      isActive: true,
-    }).lean();
-    if (!product) {
-      throw new Error(`Product not found (${item.productId})`);
-    }
+    if (item.variantId) assertValidObjectId(item.variantId, "variant id");
+  });
+
+  const productIds = items.map((i) => i.productId);
+  const variantIds = items.filter((i) => i.variantId).map((i) => i.variantId!);
+
+  const [productDocs, variantDocs] = await Promise.all([
+    Product.find({ _id: { $in: productIds }, deletedAt: null, isActive: true }).lean(),
+    variantIds.length > 0
+      ? ProductVariant.find({ _id: { $in: variantIds }, deletedAt: null, isActive: true }).lean()
+      : Promise.resolve([]),
+  ]);
+
+  const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
+  const variantMap = new Map(variantDocs.map((v) => [String(v._id), v]));
+
+  return items.map((item) => {
+    const product = productMap.get(item.productId);
+    if (!product) throw new Error(`Product not found (${item.productId})`);
 
     let sku = product.sku;
     let productName = product.name;
@@ -195,14 +204,8 @@ async function normalizePurchaseOrderItems(
     let variantId: string | undefined;
 
     if (item.variantId) {
-      assertValidObjectId(item.variantId, "variant id");
-      const variant = await ProductVariant.findOne({
-        _id: item.variantId,
-        productId: product._id,
-        deletedAt: null,
-        isActive: true,
-      }).lean();
-      if (!variant) {
+      const variant = variantMap.get(item.variantId);
+      if (!variant || String(variant.productId) !== String(product._id)) {
         throw new Error(`Variant not found for ${product.name}`);
       }
       variantId = String(variant._id);
@@ -218,17 +221,8 @@ async function normalizePurchaseOrderItems(
     const unitCost =
       submittedCost !== undefined ? submittedCost : defaultProcurementUnitCost(retailPrice);
 
-    normalized.push({
-      productId: String(product._id),
-      variantId,
-      productName,
-      sku,
-      quantity: item.quantity,
-      unitCost,
-    });
-  }
-
-  return normalized;
+    return { productId: String(product._id), variantId, productName, sku, quantity: item.quantity, unitCost };
+  });
 }
 
 function resolveBranchIdForCreate(
@@ -729,82 +723,109 @@ export async function receivePurchaseOrder(
       })
     );
 
-    for (const receiveItem of input.items) {
-      const poItem = poItems.find((i) => String(i._id) === receiveItem.itemId);
-      if (!poItem) continue;
+    // Build a map for quick poItem lookup
+    const poItemMap = new Map(poItems.map((i) => [String(i._id), i]));
+    const validItems = input.items
+      .map((ri) => ({ ri, poItem: poItemMap.get(ri.itemId) }))
+      .filter((x): x is { ri: typeof x.ri; poItem: NonNullable<typeof x.poItem> } => !!x.poItem);
 
-      if (!po.branchId) {
-        // Org PO — update received quantities and upsert org inventory
-        await PurchaseOrderItem.findByIdAndUpdate(
-          receiveItem.itemId,
-          { $set: { receivedQuantity: receiveItem.receivedQuantity } },
+    if (!po.branchId) {
+      // Org PO — batch update PO items and org inventory
+      const orgSettings = (po.organizationId as unknown as { settings?: { hasInventory?: boolean } })?.settings;
+      const orgHasInventory = orgSettings?.hasInventory !== false;
+
+      await PurchaseOrderItem.bulkWrite(
+        validItems.map(({ ri, poItem }) => ({
+          updateOne: {
+            filter: { _id: poItem._id },
+            update: { $set: { receivedQuantity: ri.receivedQuantity } },
+          },
+        })),
+        { session }
+      );
+
+      const orgInvItems = validItems.filter(
+        ({ ri }) => po.organizationId && ri.receivedQuantity > 0 && orgHasInventory
+      );
+      if (orgInvItems.length > 0) {
+        await OrganizationInventory.bulkWrite(
+          orgInvItems.map(({ ri, poItem }) => ({
+            updateOne: {
+              filter: { organizationId: po.organizationId, productId: poItem.productId },
+              update: {
+                $inc: { quantity: ri.receivedQuantity, totalReceived: ri.receivedQuantity },
+              },
+              upsert: true,
+            },
+          })),
           { session }
         );
-        const orgSettings = (po.organizationId as unknown as { settings?: { hasInventory?: boolean } })?.settings;
-        const orgHasInventory = orgSettings?.hasInventory !== false;
-        if (po.organizationId && receiveItem.receivedQuantity > 0 && orgHasInventory) {
-        if (poItem) {
-            await OrganizationInventory.findOneAndUpdate(
-              { organizationId: po.organizationId, productId: poItem.productId },
-              {
-                $inc: {
-                  quantity: receiveItem.receivedQuantity,
-                  totalReceived: receiveItem.receivedQuantity,
+      }
+    } else {
+      // Branch PO — batch fetch inventory, then bulkWrite + insertMany stock movements
+      const branchItems = validItems.filter(({ ri }) => ri.receivedQuantity > 0);
+      const invDocs = await Inventory.find({
+        branchId: po.branchId,
+        productId: { $in: branchItems.map(({ poItem }) => poItem.productId) },
+      }).session(session).lean();
+      const invMap = new Map(
+        invDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv.quantity])
+      );
+
+      if (branchItems.length > 0) {
+        // Upsert inventory increments
+        await Inventory.bulkWrite(
+          branchItems.map(({ ri, poItem }) => ({
+            updateOne: {
+              filter: {
+                branchId: po.branchId,
+                productId: poItem.productId,
+                variantId: poItem.variantId ?? null,
+              },
+              update: {
+                $inc: { quantity: ri.receivedQuantity },
+                $setOnInsert: {
+                  reservedQuantity: 0,
+                  lowStockThreshold: defaultLowStockThreshold,
                 },
               },
-              { upsert: true, new: true, session }
-            );
-          }
-        }
-        continue;
+              upsert: true,
+            },
+          })),
+          { session }
+        );
+
+        await StockMovement.insertMany(
+          branchItems.map(({ ri, poItem }) => {
+            const prevKey = `${poItem.productId}:${poItem.variantId ?? ""}`;
+            const previousQuantity = invMap.get(prevKey) ?? 0;
+            return {
+              branchId: po.branchId,
+              productId: poItem.productId,
+              variantId: poItem.variantId ?? null,
+              type: "IN",
+              quantity: ri.receivedQuantity,
+              previousQuantity,
+              newQuantity: previousQuantity + ri.receivedQuantity,
+              unitCost: poItem.unitCost,
+              reference: po.poNumber,
+              notes: `Received from PO ${po.poNumber}`,
+              performedBy: userId,
+            };
+          }),
+          { session }
+        );
+
+        await PurchaseOrderItem.bulkWrite(
+          branchItems.map(({ ri, poItem }) => ({
+            updateOne: {
+              filter: { _id: poItem._id },
+              update: { $set: { receivedQuantity: ri.receivedQuantity } },
+            },
+          })),
+          { session }
+        );
       }
-      if (receiveItem.receivedQuantity === 0) continue;
-
-      const inventoryFilter = {
-        branchId: po.branchId,
-        productId: poItem.productId,
-        variantId: poItem.variantId ?? null,
-      };
-
-      let inventory = await Inventory.findOne(inventoryFilter).session(session);
-      if (!inventory) {
-        inventory = new Inventory({
-          ...inventoryFilter,
-          quantity: 0,
-          reservedQuantity: 0,
-          lowStockThreshold: defaultLowStockThreshold,
-        });
-      }
-
-      const previousQuantity = inventory.quantity;
-      const newQuantity = previousQuantity + receiveItem.receivedQuantity;
-      inventory.quantity = newQuantity;
-      await inventory.save({ session });
-
-      await StockMovement.create(
-        [
-          {
-            branchId: po.branchId,
-            productId: poItem.productId,
-            variantId: poItem.variantId ?? null,
-            type: "IN",
-            quantity: receiveItem.receivedQuantity,
-            previousQuantity,
-            newQuantity,
-            unitCost: poItem.unitCost,
-            reference: po.poNumber,
-            notes: `Received from PO ${po.poNumber}`,
-            performedBy: userId,
-          },
-        ],
-        { session }
-      );
-
-      await PurchaseOrderItem.findByIdAndUpdate(
-        poItem._id,
-        { $set: { receivedQuantity: receiveItem.receivedQuantity } },
-        { session }
-      );
     }
 
     await PurchaseOrder.findByIdAndUpdate(

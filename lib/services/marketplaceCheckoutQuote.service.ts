@@ -77,63 +77,60 @@ export async function quoteMarketplaceCheckout(
     branchId = fallback._id as Types.ObjectId;
   }
 
+  // Batch-fetch all products, variants, variant counts, and inventory in one round
+  const allProductIds = input.items.map((i) => i.productId);
+  const allVariantIds = input.items.filter((i) => i.variantId).map((i) => i.variantId!);
+
+  const [productDocs, variantDocs, variantCountRows, inventoryDocs] = await Promise.all([
+    Product.find({ _id: { $in: allProductIds }, ...listedFilter }).lean(),
+    allVariantIds.length > 0
+      ? ProductVariant.find({ _id: { $in: allVariantIds }, deletedAt: null, isActive: true }).lean()
+      : Promise.resolve([]),
+    ProductVariant.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { productId: { $in: allProductIds }, deletedAt: null, isActive: true } },
+      { $group: { _id: "$productId", count: { $sum: 1 } } },
+    ]),
+    Inventory.find({ branchId, productId: { $in: allProductIds } }).lean(),
+  ]);
+
+  const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
+  const variantMap = new Map(variantDocs.map((v) => [String(v._id), v]));
+  const variantCountMap = new Map(variantCountRows.map((r) => [String(r._id), r.count]));
+  const invMap = new Map(
+    inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv])
+  );
+
+  // Validate each item using the pre-fetched maps
   for (const raw of input.items) {
-    const product = await Product.findOne({
-      _id: raw.productId,
-      ...listedFilter,
-    }).lean();
+    const product = productMap.get(raw.productId);
     if (!product) throw new Error(`Product not available: ${raw.productId}`);
 
-    let name = product.name;
     let variantName: string | undefined;
-    let invFilter: {
-      branchId: Types.ObjectId;
-      productId: Types.ObjectId;
-      variantId?: Types.ObjectId | null;
-    };
+    let invKey: string;
 
     if (raw.variantId) {
-      const v = await ProductVariant.findOne({
-        _id: raw.variantId,
-        productId: product._id,
-        deletedAt: null,
-        isActive: true,
-      }).lean();
-      if (!v) throw new Error(`Invalid variant for product ${product.name}`);
+      const v = variantMap.get(raw.variantId);
+      if (!v || String(v.productId) !== String(product._id)) {
+        throw new Error(`Invalid variant for product ${product.name}`);
+      }
       variantName = v.name;
-      invFilter = { branchId, productId: product._id as Types.ObjectId, variantId: v._id };
+      invKey = `${product._id}:${v._id}`;
     } else {
-      const variantCount = await ProductVariant.countDocuments({
-        productId: product._id,
-        deletedAt: null,
-        isActive: true,
-      });
-      if (variantCount > 0) {
+      if ((variantCountMap.get(String(product._id)) ?? 0) > 0) {
         throw new Error(`Please choose a variant for ${product.name}`);
       }
-      invFilter = { branchId, productId: product._id as Types.ObjectId, variantId: null };
+      invKey = `${product._id}:`;
     }
 
-    const inv = await Inventory.findOne({ ...invFilter, branchId }).lean();
+    const inv = invMap.get(invKey);
     if (!inv || inv.quantity < raw.quantity) {
-      throw new Error(`Insufficient stock for ${name}${variantName ? ` (${variantName})` : ""}`);
+      throw new Error(
+        `Insufficient stock for ${product.name}${variantName ? ` (${variantName})` : ""}`
+      );
     }
   }
 
-  const products = await Product.find({
-    _id: { $in: input.items.map((i) => i.productId) },
-    ...listedFilter,
-  }).lean();
-
-  const variantIds = input.items.filter((i) => i.variantId).map((i) => i.variantId!);
-  const variants =
-    variantIds.length > 0
-      ? await ProductVariant.find({ _id: { $in: variantIds }, deletedAt: null }).lean()
-      : [];
-
-  const productMap = new Map(products.map((p) => [String(p._id), p]));
-  const variantMap = new Map(variants.map((v) => [String(v._id), v]));
-
+  // Compute subtotal from already-fetched maps (no second round of queries)
   let subtotal = 0;
   for (const raw of input.items) {
     const product = productMap.get(raw.productId);

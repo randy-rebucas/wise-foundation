@@ -73,12 +73,23 @@ export async function getMembers(
   }
 
   const skip = (page - 1) * limit;
-  const [members, total, activeCount, inactiveCount] = await Promise.all([
+  const [members, countsResult] = await Promise.all([
     Member.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Member.countDocuments(query),
-    Member.countDocuments({ ...baseFilter, status: "active" }),
-    Member.countDocuments({ ...baseFilter, status: { $in: ["inactive", "suspended"] } }),
+    Member.aggregate([
+      {
+        $facet: {
+          total: [{ $match: query }, { $count: "n" }],
+          active: [{ $match: { ...(baseFilter as Record<string, unknown>), status: "active" } }, { $count: "n" }],
+          inactive: [{ $match: { ...(baseFilter as Record<string, unknown>), status: { $in: ["inactive", "suspended"] } } }, { $count: "n" }],
+        },
+      },
+    ]),
   ]);
+
+  const counts = countsResult[0] ?? {};
+  const total = counts.total?.[0]?.n ?? 0;
+  const activeCount = counts.active?.[0]?.n ?? 0;
+  const inactiveCount = counts.inactive?.[0]?.n ?? 0;
 
   return { members, total, pages: Math.ceil(total / limit), activeCount, inactiveCount };
 }
