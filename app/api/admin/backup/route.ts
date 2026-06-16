@@ -1,6 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { connectDB } from "@/lib/db/connect";
-import { successResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createGzip } from "zlib";
 import { createWriteStream, mkdirSync, readdirSync, statSync } from "fs";
@@ -14,6 +14,7 @@ function ensureBackupDir() {
 }
 
 const getHandler = async (_req: AuthedRequest) => {
+  if (_req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     ensureBackupDir();
     const files = readdirSync(BACKUP_DIR)
@@ -35,6 +36,7 @@ const getHandler = async (_req: AuthedRequest) => {
 };
 
 const postHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const body = await req.json().catch(() => ({}));
     const label: string = body?.label ?? "";

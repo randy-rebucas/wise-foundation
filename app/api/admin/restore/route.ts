@@ -4,14 +4,17 @@ import {
   errorResponse,
   serverErrorResponse,
   successResponse,
+  forbiddenResponse,
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { gunzipSync } from "zlib";
 import mongoose, { Types } from "mongoose";
+import { writeAuditLog } from "@/lib/services/audit.service";
 
 export const maxDuration = 60;
 
 const postHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const formData = await req.formData().catch(() => null);
     if (!formData) return errorResponse("Invalid form data", 400);
@@ -61,6 +64,12 @@ const postHandler = async (req: AuthedRequest) => {
 
       results[colName] = docs.length;
     }
+
+    void writeAuditLog({
+      action: "db.restored",
+      actor: { id: req.user.id, name: req.user.name },
+      metadata: { collections: results, filename: file.name },
+    });
 
     return successResponse(
       { collections: results },

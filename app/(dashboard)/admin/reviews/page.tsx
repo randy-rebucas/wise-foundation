@@ -196,7 +196,7 @@ export default function AdminReviewsPage() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
-        limit: "20",
+        limit: "10",
         minRating: String(selectedFilter.min),
         maxRating: String(selectedFilter.max),
       });

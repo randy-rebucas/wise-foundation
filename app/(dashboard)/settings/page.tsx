@@ -87,6 +87,22 @@ interface SyncRolesResult {
   roleNames: string[];
 }
 
+interface CloudinaryAdminStatus {
+  configured: boolean;
+  backend: "cloudinary" | "local";
+  cloudinary: { configured: boolean; ok: boolean; error?: string };
+  mediaLibraryFolder: string;
+  productCatalogFolder: string;
+  storagePath: string;
+  env: {
+    hasCloudinaryUrl: boolean;
+    hasCloudName: boolean;
+    hasApiKey: boolean;
+    hasApiSecret: boolean;
+    cloudinaryConfigured: boolean;
+  };
+}
+
 function permissionsKey(perms: string[]): string {
   return [...perms].sort().join("\0");
 }
@@ -142,21 +158,6 @@ export default function SettingsPage() {
     }
   }, [meUser, user?.name]);
 
-  interface CloudinaryAdminStatus {
-    configured: boolean;
-    backend: "cloudinary" | "local";
-    cloudinary: { configured: boolean; ok: boolean; error?: string };
-    mediaLibraryFolder: string;
-    productCatalogFolder: string;
-    storagePath: string;
-    env: {
-      hasCloudinaryUrl: boolean;
-      hasCloudName: boolean;
-      hasApiKey: boolean;
-      hasApiSecret: boolean;
-      cloudinaryConfigured: boolean;
-    };
-  }
 
   const {
     data: cloudinaryStatus,
@@ -776,9 +777,6 @@ export default function SettingsPage() {
                     </span>
                   </div>
                 ))}
-                <p className="text-xs text-muted-foreground pt-2 border-t">
-                  Notification and email preferences are not available yet.
-                </p>
               </CardContent>
             </Card>
           </TabsContent>

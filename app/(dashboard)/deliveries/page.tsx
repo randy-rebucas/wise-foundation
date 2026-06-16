@@ -62,7 +62,7 @@ export default function DeliveriesPage() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
-        limit: "20",
+        limit: "10",
         status: statusFilter,
       });
       const res = await fetch(`/api/deliveries?${params}`);
@@ -238,7 +238,7 @@ export default function DeliveriesPage() {
               : "No fulfilled deliveries yet."
           }
           page={page}
-          totalPages={Math.ceil(total / 20) || 1}
+          totalPages={Math.ceil(total / 10) || 1}
           onPageChange={setPage}
         />
       </div>

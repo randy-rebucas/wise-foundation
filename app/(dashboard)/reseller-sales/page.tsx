@@ -151,7 +151,7 @@ export default function ResellerSalesPage() {
     queryFn: async () => {
       const params = new URLSearchParams({
         page: "1",
-        limit: "40",
+        limit: "10",
         search: debouncedProductSuggest,
         isActive: "true",
       });
@@ -355,7 +355,7 @@ export default function ResellerSalesPage() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {resellerOrders.length} sale{resellerOrders.length !== 1 ? "s" : ""} recorded
+          Showing latest {resellerOrders.length} sale{resellerOrders.length !== 1 ? "s" : ""}
         </p>
 
         <DataTable

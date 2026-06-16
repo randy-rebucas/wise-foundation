@@ -200,7 +200,7 @@ export default function InventoryPage() {
   } = useQuery({
     queryKey: ["inventory", branchIdForInventory, session?.user?.organizationId, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (!orgWarehouseMode && branchIdForInventory) {
         params.set("branchId", branchIdForInventory);
       }
@@ -242,7 +242,7 @@ export default function InventoryPage() {
   } = useQuery({
     queryKey: ["movements", branchIdForInventory, session?.user?.organizationId, movPage],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(movPage), limit: "20" });
+      const params = new URLSearchParams({ page: String(movPage), limit: "10" });
       if (!orgWarehouseMode && branchIdForInventory) {
         params.set("branchId", branchIdForInventory);
       }
@@ -558,7 +558,7 @@ export default function InventoryPage() {
               data={inventoryItems}
               loading={inventoryLoading}
               page={page}
-              totalPages={Math.ceil(totalInventory / 20)}
+              totalPages={Math.ceil(totalInventory / 10)}
               onPageChange={setPage}
             />
           </TabsContent>
@@ -568,7 +568,7 @@ export default function InventoryPage() {
               data={movements}
               loading={movementsLoading}
               page={movPage}
-              totalPages={Math.ceil((movementsData?.meta?.total ?? 0) / 20)}
+              totalPages={Math.ceil((movementsData?.meta?.total ?? 0) / 10)}
               onPageChange={setMovPage}
             />
           </TabsContent>
@@ -629,7 +629,7 @@ export default function InventoryPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {orgInventory.map((item) => (
+                      {orgInventory.slice(0, 10).map((item) => (
                         <tr key={item._id} className="hover:bg-muted/50">
                           <td className="px-4 py-3">
                             <p className="font-medium">{item.organizationId?.name}</p>

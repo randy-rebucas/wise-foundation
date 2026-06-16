@@ -91,7 +91,7 @@ export default function PurchaseOrdersPage() {
     queryKey: [purchaseOrderQueryKeys.list, statusFilter, page],
     ...purchaseOrderFreshQueryOptions,
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/purchase-orders?${params}`, purchaseOrderFetchInit);
       const json = await res.json();
@@ -498,7 +498,7 @@ export default function PurchaseOrdersPage() {
           keyExtractor={(o) => o._id}
           emptyMessage="No purchase orders found."
           page={page}
-          totalPages={Math.ceil(total / 20)}
+          totalPages={Math.ceil(total / 10)}
           onPageChange={setPage}
         />
       </div>

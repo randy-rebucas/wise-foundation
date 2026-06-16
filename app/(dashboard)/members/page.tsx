@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
+import { ListPagination } from "@/components/shared/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,7 +115,7 @@ export default function MembersPage() {
   const { data: result, isLoading, isError, error } = useQuery({
     queryKey: ["members", search, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (search) params.set("search", search);
       const res = await fetch(`/api/members?${params}`);
       const json = await res.json();
@@ -420,7 +421,7 @@ export default function MembersPage() {
           keyExtractor={(m) => m._id}
           emptyMessage="No members found."
           page={page}
-          totalPages={Math.ceil(total / 20)}
+          totalPages={Math.ceil(total / 10)}
           onPageChange={setPage}
         />
       </div>
@@ -564,31 +565,11 @@ export default function MembersPage() {
               </div>
             )}
 
-            {ordersTotal > 10 && (
-              <div className="flex justify-between items-center text-sm pt-1">
-                <span className="text-muted-foreground">
-                  Page {historyPage} of {Math.ceil(ordersTotal / 10)}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHistoryPage((p) => p - 1)}
-                    disabled={historyPage === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setHistoryPage((p) => p + 1)}
-                    disabled={historyPage >= Math.ceil(ordersTotal / 10)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            <ListPagination
+              page={historyPage}
+              totalPages={Math.ceil(ordersTotal / 10)}
+              onPageChange={setHistoryPage}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setHistoryMember(null)}>

@@ -1,11 +1,6 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { Bell, Search } from "lucide-react";
-import { AppLogo } from "@/components/branding/AppLogo";
-import { useTenant } from "@/components/providers/TenantProvider";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
@@ -17,7 +12,6 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, action, className }: HeaderProps) {
   const { data: session } = useSession();
-  const { appName } = useTenant();
 
   return (
     <header
@@ -36,13 +30,6 @@ export function Header({ title, subtitle, action, className }: HeaderProps) {
       </div>
       <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
         {action && <div className="shrink-0">{action}</div>}
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search..." className="h-9 w-48 pl-9 md:w-64" />
-        </div>
-        <Button variant="ghost" size="icon" className="relative shrink-0">
-          <Bell className="h-5 w-5" />
-        </Button>
         <div className="hidden min-w-0 text-right sm:block">
           <p className="max-w-[10rem] truncate text-sm font-medium md:max-w-none">{session?.user?.name}</p>
           <p className="truncate text-xs text-muted-foreground">

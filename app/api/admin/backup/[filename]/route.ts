@@ -3,6 +3,7 @@ import {
   errorResponse,
   serverErrorResponse,
   successResponse,
+  forbiddenResponse,
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createReadStream, existsSync, unlinkSync, statSync } from "fs";
@@ -14,6 +15,7 @@ const BACKUP_DIR = process.env.BACKUP_DIR ?? join(process.cwd(), "backups");
 type Ctx = { params: Promise<{ filename: string }> };
 
 const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
+  if (_req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { filename } = await (ctx as Ctx).params;
     if (!filename.endsWith(".json.gz") || filename.includes("/") || filename.includes("..")) {
@@ -39,6 +41,7 @@ const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
 };
 
 const deleteHandler = async (_req: AuthedRequest, ctx?: unknown) => {
+  if (_req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { filename } = await (ctx as Ctx).params;
     if (!filename.endsWith(".json.gz") || filename.includes("/") || filename.includes("..")) {

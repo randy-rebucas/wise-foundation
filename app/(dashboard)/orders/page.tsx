@@ -207,7 +207,7 @@ export default function OrdersPage() {
   const { data: result, isLoading, isError, error } = useQuery({
     queryKey: ["orders", branchId, statusFilter, page],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      const params = new URLSearchParams({ page: String(page), limit: "10" });
       if (branchId) params.set("branchId", branchId);
       if (statusFilter !== "all") params.set("status", statusFilter);
       const res = await fetch(`/api/orders?${params}`);
@@ -621,7 +621,7 @@ export default function OrdersPage() {
           keyExtractor={(o) => o._id}
           emptyMessage="No orders found."
           page={page}
-          totalPages={Math.ceil(total / 20)}
+          totalPages={Math.ceil(total / 10)}
           onPageChange={setPage}
         />
       </div>

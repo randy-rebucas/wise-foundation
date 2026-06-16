@@ -43,7 +43,7 @@ import {
 } from "@/lib/products/catalog";
 import type { ProductCategory } from "@/types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 interface Product {
   _id: string;
