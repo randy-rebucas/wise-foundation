@@ -97,6 +97,70 @@ async function paymongoRequest<T>(
   );
 }
 
+export type PaymongoCheckoutSessionAttributes = {
+  checkout_url: string;
+  status: string;
+  payments: {
+    id: string;
+    attributes: {
+      status: string;
+      amount: number;
+      currency: string;
+      payment_method_used?: string;
+    };
+  }[];
+  line_items?: { name: string; amount: number; quantity: number; currency: string }[];
+  payment_method_types?: string[];
+  metadata?: Record<string, string>;
+};
+
+export async function createCheckoutSession(params: {
+  amountCentavos: number;
+  description: string;
+  lineItems: { name: string; amount: number; quantity: number; currency?: string }[];
+  paymentMethodTypes: string[];
+  successUrl: string;
+  cancelUrl: string;
+  metadata?: Record<string, string>;
+}) {
+  if (params.amountCentavos < 2000) {
+    throw new Error("PayMongo minimum charge is ₱20.00");
+  }
+
+  const body = {
+    data: {
+      attributes: {
+        line_items: params.lineItems.map((item) => ({
+          ...item,
+          currency: item.currency ?? "PHP",
+        })),
+        payment_method_types: params.paymentMethodTypes,
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        description: params.description.slice(0, 255),
+        metadata: params.metadata,
+      },
+    },
+  };
+
+  const res = await paymongoRequest<PaymongoResponse<PaymongoCheckoutSessionAttributes>>(
+    "/checkout_sessions",
+    { method: "POST", body }
+  );
+  return res.data;
+}
+
+export async function retrieveCheckoutSession(sessionId: string) {
+  const res = await paymongoRequest<PaymongoResponse<PaymongoCheckoutSessionAttributes>>(
+    `/checkout_sessions/${sessionId}`
+  );
+  return res.data;
+}
+
+export function checkoutSessionIsPaid(session: { attributes: PaymongoCheckoutSessionAttributes }): boolean {
+  return session.attributes.payments?.some((p) => p.attributes.status === "paid") ?? false;
+}
+
 export async function createPaymentIntent(params: {
   amountCentavos: number;
   description: string;

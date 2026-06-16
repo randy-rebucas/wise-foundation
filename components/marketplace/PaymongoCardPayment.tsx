@@ -12,7 +12,7 @@ import { CreditCard, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const PAYMONGO_SCRIPT = "https://js.paymongo.com/v1";
+import { loadPaymongoScript } from "@/lib/paymongo/loadScript";
 
 export type PaymongoCheckoutPayload = {
   items: { productId: string; variantId?: string | null; quantity: number }[];
@@ -28,26 +28,6 @@ export type PaymongoCheckoutPayload = {
   };
   shippingMethod: string;
 };
-
-function loadPaymongoScript(): Promise<void> {
-  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
-  if (window.Paymongo) return Promise.resolve();
-
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${PAYMONGO_SCRIPT}"]`);
-    if (existing) {
-      existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("PayMongo.js failed to load")));
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = PAYMONGO_SCRIPT;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("PayMongo.js failed to load"));
-    document.body.appendChild(script);
-  });
-}
 
 export type PaymongoCardPaymentHandle = {
   pay: (checkout: PaymongoCheckoutPayload) => Promise<{
@@ -88,7 +68,10 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
             return;
           }
           await loadPaymongoScript();
-          if (cancelled || !window.Paymongo) return;
+          if (cancelled) return;
+          if (!window.Paymongo) {
+            throw new Error("PayMongo.js did not initialize. Check your public key.");
+          }
           paymongoRef.current = new window.Paymongo(json.data.publicKey);
           const elements = paymongoRef.current.elements();
           const card = elements.create("card", {

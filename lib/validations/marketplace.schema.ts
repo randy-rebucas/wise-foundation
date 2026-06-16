@@ -58,30 +58,34 @@ export const marketplaceCheckoutSchema = z.object({
     .max(50),
   shipping: marketplaceShippingSchema,
   shippingMethod: z.enum(shippingMethodIds),
-  paymentMethod: z.enum(["cash", "gcash", "card", "bank_transfer", "credit"]),
+  paymentMethod: z.enum(["cash", "gcash", "maya", "grab_pay", "card", "bank_transfer", "credit"]),
   savedPaymentMethodId: z.string().min(1).max(64).optional(),
   cardPayment: marketplaceCardPaymentSchema.optional(),
   gcashPayment: marketplaceGcashPaymentSchema.optional(),
   bankTransferPayment: marketplaceBankTransferPaymentSchema.optional(),
   codPayment: marketplaceCodPaymentSchema.optional(),
-  /** Verified PayMongo Payment Intent id (card / GCash when PayMongo is enabled). */
+  /** PayMongo Checkout Session id (card / GCash / Maya / GrabPay via hosted checkout). */
+  paymongoSessionId: z.string().min(1).max(128).optional(),
+  /** @deprecated Legacy PaymentIntent id — kept for backwards compat. */
   paymongoPaymentIntentId: z.string().min(1).max(64).optional(),
   notes: z.string().max(500).optional(),
   saveAddress: z.boolean().optional(),
   savePaymentMethod: z.boolean().optional(),
 }).superRefine((data, ctx) => {
-  if (data.paymentMethod === "card" && data.paymongoPaymentIntentId) {
-    return;
-  }
+  const isPaymongoSession =
+    !!(data.paymongoSessionId ?? data.paymongoPaymentIntentId) &&
+    (data.paymentMethod === "card" ||
+      data.paymentMethod === "gcash" ||
+      data.paymentMethod === "maya" ||
+      data.paymentMethod === "grab_pay");
+  if (isPaymongoSession) return;
+
   if (data.paymentMethod === "card" && !data.savedPaymentMethodId && !data.cardPayment) {
     ctx.addIssue({
       code: "custom",
       message: "Select a saved card or enter card details",
       path: ["cardPayment"],
     });
-  }
-  if (data.paymentMethod === "gcash" && data.paymongoPaymentIntentId) {
-    return;
   }
   if (data.paymentMethod === "gcash" && !data.savedPaymentMethodId && !data.gcashPayment) {
     ctx.addIssue({

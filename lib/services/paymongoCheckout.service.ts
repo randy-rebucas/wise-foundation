@@ -1,7 +1,10 @@
 import {
+  checkoutSessionIsPaid,
+  createCheckoutSession,
   createPaymentIntent,
   mapPaymongoBrand,
   paymentIntentIsPaid,
+  retrieveCheckoutSession,
   retrievePaymentIntent,
   retrievePaymentMethod,
 } from "@/lib/paymongo/api";
@@ -13,7 +16,7 @@ import type { CardBrand } from "@/lib/utils/cardPayment";
 export async function createMarketplacePaymentIntent(
   input: Pick<MarketplaceCheckoutInput, "items" | "shippingMethod" | "shipping">,
   customerUserId: string | null,
-  paymentMethodAllowed: ("card" | "gcash")[]
+  paymentMethodAllowed: ("card" | "gcash" | "paymaya" | "grab_pay")[]
 ) {
   if (!isPaymongoConfigured()) {
     throw new Error("PayMongo is not configured");
@@ -91,5 +94,77 @@ export async function verifyMarketplacePaymongoPayment(params: {
     cardBrand,
     cardLast4,
     cardholderName,
+  };
+}
+
+export async function createMarketplaceCheckoutSession(
+  input: Pick<MarketplaceCheckoutInput, "items" | "shippingMethod" | "shipping"> & {
+    paymentMethod: "gcash" | "maya" | "grab_pay" | "card";
+  },
+  customerUserId: string | null,
+  successUrl: string,
+  cancelUrl: string
+) {
+  if (!isPaymongoConfigured()) {
+    throw new Error("PayMongo is not configured");
+  }
+
+  const pmMethod =
+    input.paymentMethod === "maya"
+      ? "paymaya"
+      : input.paymentMethod === "grab_pay"
+        ? "grab_pay"
+        : input.paymentMethod; // "gcash" | "card"
+
+  const quote = await quoteMarketplaceCheckout(
+    { ...input, paymentMethod: input.paymentMethod },
+    customerUserId
+  );
+
+  const session = await createCheckoutSession({
+    amountCentavos: quote.amountCentavos,
+    description: `Glowish order — ${input.shipping.email}`,
+    lineItems: [
+      {
+        name: "Glowish order",
+        amount: quote.amountCentavos,
+        quantity: 1,
+      },
+    ],
+    paymentMethodTypes: [pmMethod],
+    successUrl,
+    cancelUrl,
+    metadata: {
+      channel: "marketplace",
+      email: input.shipping.email,
+    },
+  });
+
+  return {
+    quote,
+    sessionId: session.id,
+    checkoutUrl: session.attributes.checkout_url,
+  };
+}
+
+export async function verifyMarketplaceCheckoutSession(params: {
+  sessionId: string;
+  expectedAmountCentavos: number;
+}) {
+  const session = await retrieveCheckoutSession(params.sessionId);
+
+  if (!checkoutSessionIsPaid(session)) {
+    throw new Error("Payment not completed. Please try again.");
+  }
+
+  const paidPayment = session.attributes.payments.find((p) => p.attributes.status === "paid");
+  if (paidPayment && paidPayment.attributes.amount !== params.expectedAmountCentavos) {
+    throw new Error("Payment amount does not match order total");
+  }
+
+  return {
+    sessionId: session.id,
+    paymentId: paidPayment?.id,
+    status: "paid" as const,
   };
 }

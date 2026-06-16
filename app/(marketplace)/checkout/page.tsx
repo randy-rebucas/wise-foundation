@@ -47,11 +47,7 @@ import type { CardPaymentFields } from "@/components/marketplace/CardPaymentSect
 import type { GcashPaymentFields } from "@/components/marketplace/GcashPaymentSection";
 import type { BankTransferPaymentFields } from "@/components/marketplace/BankTransferPaymentSection";
 import type { CodPaymentFields } from "@/components/marketplace/CodPaymentSection";
-import type {
-  PaymongoCardPaymentHandle,
-  PaymongoCheckoutPayload,
-} from "@/components/marketplace/PaymongoCardPayment";
-import type { PaymongoGcashPaymentHandle } from "@/components/marketplace/PaymongoGcashPayment";
+import type { PaymongoCheckoutPayload } from "@/components/marketplace/PaymongoCardPayment";
 
 const CardPaymentSection = dynamic(() =>
   import("@/components/marketplace/CardPaymentSection").then((m) => m.CardPaymentSection),
@@ -69,15 +65,8 @@ const CodPaymentSection = dynamic(() =>
   import("@/components/marketplace/CodPaymentSection").then((m) => m.CodPaymentSection),
   { ssr: false }
 );
-const PaymongoCardPaymentForm = dynamic(() =>
-  import("@/components/marketplace/PaymongoCardPayment").then((m) => m.PaymongoCardPaymentForm),
-  { ssr: false }
-);
-const PaymongoGcashPaymentForm = dynamic(() =>
-  import("@/components/marketplace/PaymongoGcashPayment").then((m) => m.PaymongoGcashPaymentForm),
-  { ssr: false }
-);
 import { MARKETPLACE_DEPOSIT_BANK_ACCOUNTS } from "@/lib/constants/marketplaceBankAccounts";
+import { PAYMONGO_CHECKOUT_STORAGE_KEY } from "@/lib/constants/paymongoCheckout";
 import type {
   MarketplacePaymentMethod,
   MarketplaceSavedAddress,
@@ -116,6 +105,8 @@ const PAYMENT_OPTIONS = [
   { id: "cash" as const, label: "Cash on Delivery", badges: ["COD"] },
   { id: "card" as const, label: "Credit / Debit Card", badges: ["Visa", "Mastercard"] },
   { id: "gcash" as const, label: "GCash", badges: ["GCash"] },
+  { id: "maya" as const, label: "Maya", badges: ["Maya"] },
+  { id: "grab_pay" as const, label: "GrabPay", badges: ["GrabPay"] },
   { id: "bank_transfer" as const, label: "Bank Transfer", badges: ["Bank"] },
 ] as const;
 
@@ -124,6 +115,7 @@ function isCheckoutPaymentOptionEnabled(
   paymongoEnabled: boolean
 ): boolean {
   if (optionId === "cash") return true;
+  if (optionId === "bank_transfer") return true;
   return paymongoEnabled;
 }
 
@@ -137,7 +129,7 @@ const EMPTY_FORM = {
   region: "",
   postalCode: "",
   country: "Philippines",
-  paymentMethod: "cash" as "cash" | "gcash" | "card" | "bank_transfer" | "credit",
+  paymentMethod: "cash" as "cash" | "gcash" | "maya" | "grab_pay" | "card" | "bank_transfer",
   notes: "",
 };
 
@@ -209,11 +201,6 @@ export default function MarketplaceCheckoutPage() {
     prepareChangeFor: "",
   });
   const [paymongoEnabled, setPaymongoEnabled] = useState(false);
-  const [pmBillingName, setPmBillingName] = useState("");
-  const [pmBillingEmail, setPmBillingEmail] = useState("");
-  const [pmBillingPhone, setPmBillingPhone] = useState("");
-  const paymongoCardRef = useRef<PaymongoCardPaymentHandle>(null);
-  const paymongoGcashRef = useRef<PaymongoGcashPaymentHandle>(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
@@ -379,11 +366,6 @@ export default function MarketplaceCheckoutPage() {
     })();
   }, []);
 
-  useEffect(() => {
-    setPmBillingName((n) => n || form.fullName);
-    setPmBillingEmail((e) => e || form.email);
-    setPmBillingPhone((p) => p || form.phone);
-  }, [form.fullName, form.email, form.phone]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -463,31 +445,6 @@ export default function MarketplaceCheckoutPage() {
 
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
 
-  function buildPaymongoQuotePayload(): PaymongoCheckoutPayload {
-    return {
-      items: items.map((i) => ({
-        productId: i.productId,
-        variantId: i.variantId,
-        quantity: i.quantity,
-      })),
-      shipping: {
-        fullName: form.fullName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        line1: form.line1.trim(),
-        line2: form.line2.trim() || undefined,
-        city: form.city.trim(),
-        region: form.region.trim(),
-        postalCode: form.postalCode.trim(),
-      },
-      shippingMethod,
-    };
-  }
-
-  function paymongoReturnUrl() {
-    if (typeof window === "undefined") return "/checkout/paymongo-return";
-    return `${window.location.origin}/checkout/paymongo-return`;
-  }
 
   function lineImage(url: string | undefined) {
     return url || catalogFallback;
@@ -499,10 +456,15 @@ export default function MarketplaceCheckoutPage() {
       toast({ title: "Cart is empty", variant: "destructive" });
       return;
     }
-    if (!paymongoEnabled && form.paymentMethod !== "cash") {
+    const requiresPaymongo =
+      form.paymentMethod === "card" ||
+      form.paymentMethod === "gcash" ||
+      form.paymentMethod === "maya" ||
+      form.paymentMethod === "grab_pay";
+    if (!paymongoEnabled && requiresPaymongo) {
       toast({
         title: "Online payments unavailable",
-        description: "Use Cash on Delivery, or configure PayMongo API keys.",
+        description: "Use Cash on Delivery, Bank Transfer, or configure PayMongo API keys.",
         variant: "destructive",
       });
       return;
@@ -625,48 +587,73 @@ export default function MarketplaceCheckoutPage() {
       }
     }
 
-    if (paymongoEnabled && form.paymentMethod === "card") {
-      if (!paymongoCardRef.current?.isReady) {
-        toast({ title: "Card form is still loading", variant: "destructive" });
-        return;
-      }
-    }
+    const isPaymongoMethod =
+      form.paymentMethod === "card" ||
+      form.paymentMethod === "gcash" ||
+      form.paymentMethod === "maya" ||
+      form.paymentMethod === "grab_pay";
 
     setLoading(true);
     try {
-      let paymongoPaymentIntentId: string | undefined;
+      // PayMongo Checkout Session — redirect to PayMongo hosted page
+      if (paymongoEnabled && isPaymongoMethod) {
+        const origin = window.location.origin;
+        const returnBase = `${origin}/checkout/paymongo-return`;
+        const successUrl = `${returnBase}?session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${origin}/checkout`;
 
-      if (paymongoEnabled && form.paymentMethod === "card") {
-        const paid = await paymongoCardRef.current!.pay(buildPaymongoQuotePayload());
-        if (paid.pendingRedirect) return;
-        paymongoPaymentIntentId = paid.paymentIntentId;
-      }
-
-      if (paymongoEnabled && form.paymentMethod === "gcash") {
-        if (!paymongoGcashRef.current?.isReady) {
-          throw new Error("GCash checkout is still loading");
-        }
-        await paymongoGcashRef.current.pay(buildPaymongoQuotePayload(), {
-          items: items.map((i) => ({
-            productId: i.productId,
-            variantId: i.variantId,
-            quantity: i.quantity,
-          })),
-          shipping: {
-            fullName: form.fullName.trim(),
-            email: form.email.trim(),
-            phone: form.phone.trim(),
-            line1: form.line1.trim(),
-            line2: form.line2.trim() || undefined,
-            city: form.city.trim(),
-            region: form.region.trim(),
-            postalCode: form.postalCode.trim(),
-          },
-          shippingMethod,
-          paymentMethod: "gcash",
-          notes: form.notes.trim() || undefined,
-          saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
+        const sessionRes = await fetch("/api/marketplace/paymongo/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+            shipping: {
+              fullName: form.fullName.trim(),
+              email: form.email.trim(),
+              phone: form.phone.trim(),
+              line1: form.line1.trim(),
+              line2: form.line2.trim() || undefined,
+              city: form.city.trim(),
+              region: form.region.trim(),
+              postalCode: form.postalCode.trim(),
+            },
+            shippingMethod,
+            paymentMethod: form.paymentMethod,
+            successUrl,
+            cancelUrl,
+          }),
         });
+        const sessionJson = await sessionRes.json();
+        if (!sessionJson.success) throw new Error(sessionJson.error ?? "Could not start payment");
+
+        const { sessionId, checkoutUrl } = sessionJson.data as {
+          sessionId: string;
+          checkoutUrl: string;
+        };
+
+        // Store pending order in sessionStorage before redirecting
+        sessionStorage.setItem(
+          PAYMONGO_CHECKOUT_STORAGE_KEY,
+          JSON.stringify({
+            items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+            shipping: {
+              fullName: form.fullName.trim(),
+              email: form.email.trim(),
+              phone: form.phone.trim(),
+              line1: form.line1.trim(),
+              line2: form.line2.trim() || undefined,
+              city: form.city.trim(),
+              region: form.region.trim(),
+              postalCode: form.postalCode.trim(),
+            },
+            shippingMethod,
+            paymentMethod: form.paymentMethod,
+            notes: form.notes.trim() || undefined,
+            saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
+            sessionId,
+          })
+        );
+        window.location.href = checkoutUrl;
         return;
       }
 
@@ -691,56 +678,6 @@ export default function MarketplaceCheckoutPage() {
         notes: form.notes.trim() || undefined,
         saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
       };
-
-      if (paymongoPaymentIntentId) {
-        payload.paymongoPaymentIntentId = paymongoPaymentIntentId;
-      }
-
-      if (form.paymentMethod === "card" && !paymongoEnabled) {
-        if (cardPayment.mode === "saved" && cardPayment.savedMethodId) {
-          payload.savedPaymentMethodId = cardPayment.savedMethodId;
-        } else {
-          const validated = validateNewCardEntry({
-            cardholderName: cardPayment.cardholderName,
-            cardNumber: cardPayment.cardNumber,
-            expMonth: cardPayment.expMonth,
-            expYear: cardPayment.expYear,
-            cvv: cardPayment.cvv,
-          });
-          if (validated.ok) {
-            payload.cardPayment = {
-              cardholderName: validated.resolved.cardholderName,
-              cardLast4: validated.resolved.cardLast4,
-              cardBrand: validated.resolved.cardBrand,
-              expMonth: validated.resolved.expMonth!,
-              expYear: validated.resolved.expYear!,
-            };
-            if (session?.user?.role === "CUSTOMER" && cardPayment.saveCard) {
-              payload.savePaymentMethod = true;
-            }
-          }
-        }
-      }
-
-      if (form.paymentMethod === "gcash" && !paymongoEnabled) {
-        if (gcashPayment.mode === "saved" && gcashPayment.savedMethodId) {
-          payload.savedPaymentMethodId = gcashPayment.savedMethodId;
-        } else {
-          const validated = validateGcashEntry({
-            accountName: gcashPayment.accountName,
-            mobileNumber: gcashPayment.mobileNumber,
-          });
-          if (validated.ok) {
-            payload.gcashPayment = {
-              accountName: validated.resolved.accountName,
-              mobileNumber: validated.resolved.mobileNumber,
-            };
-            if (session?.user?.role === "CUSTOMER" && gcashPayment.saveWallet) {
-              payload.savePaymentMethod = true;
-            }
-          }
-        }
-      }
 
       if (form.paymentMethod === "bank_transfer") {
         const depositId =
@@ -1244,8 +1181,8 @@ export default function MarketplaceCheckoutPage() {
               </h2>
               {!paymongoEnabled ? (
                 <p className="mt-2 text-xs leading-5 text-[#2A4C6A]/65">
-                  Card, GCash, and bank transfer unlock when PayMongo API keys are configured.
-                  Cash on delivery is available now.
+                  Card, GCash, Maya, and GrabPay unlock when PayMongo API keys are configured.
+                  Cash on Delivery and Bank Transfer are available now.
                 </p>
               ) : null}
               <div className="mt-4 space-y-3">
@@ -1292,19 +1229,14 @@ export default function MarketplaceCheckoutPage() {
                 })}
               </div>
 
-              {form.paymentMethod === "card" && paymongoEnabled ? (
-                <PaymongoCardPaymentForm
-                  ref={paymongoCardRef}
-                  billingName={pmBillingName}
-                  billingEmail={pmBillingEmail}
-                  billingPhone={pmBillingPhone}
-                  onBillingChange={(field, value) => {
-                    if (field === "billingName") setPmBillingName(value);
-                    if (field === "billingEmail") setPmBillingEmail(value);
-                    if (field === "billingPhone") setPmBillingPhone(value);
-                  }}
-                  returnUrl={paymongoReturnUrl()}
-                />
+              {(form.paymentMethod === "card" ||
+                form.paymentMethod === "gcash" ||
+                form.paymentMethod === "maya" ||
+                form.paymentMethod === "grab_pay") && paymongoEnabled ? (
+                <div className="mt-4 rounded-2xl border border-violet-200/80 bg-violet-50/40 px-4 py-3 text-xs leading-5 text-[#2A4C6A]/70">
+                  You will be redirected to PayMongo&#39;s secure checkout page to complete your
+                  payment. Your payment details are handled entirely by PayMongo.
+                </div>
               ) : null}
 
               {form.paymentMethod === "card" && !paymongoEnabled ? (
@@ -1313,16 +1245,6 @@ export default function MarketplaceCheckoutPage() {
                   value={cardPayment}
                   onChange={setCardPayment}
                   showSaveOption={session?.user?.role === "CUSTOMER"}
-                />
-              ) : null}
-
-              {form.paymentMethod === "gcash" && paymongoEnabled ? (
-                <PaymongoGcashPaymentForm
-                  ref={paymongoGcashRef}
-                  billingName={pmBillingName}
-                  billingEmail={pmBillingEmail}
-                  billingPhone={pmBillingPhone}
-                  returnUrl={paymongoReturnUrl()}
                 />
               ) : null}
 
@@ -1335,7 +1257,7 @@ export default function MarketplaceCheckoutPage() {
                 />
               ) : null}
 
-              {form.paymentMethod === "bank_transfer" && paymongoEnabled ? (
+              {form.paymentMethod === "bank_transfer" ? (
                 <BankTransferPaymentSection
                   savedMethods={savedPaymentMethods}
                   value={bankTransferPayment}
@@ -1373,11 +1295,15 @@ export default function MarketplaceCheckoutPage() {
                       ? "Pay with card"
                       : form.paymentMethod === "gcash"
                         ? "Pay with GCash"
-                        : form.paymentMethod === "bank_transfer"
-                          ? "Place order & get bank details"
-                          : form.paymentMethod === "cash"
-                            ? "Place COD order"
-                            : "Place order"}
+                        : form.paymentMethod === "maya"
+                          ? "Pay with Maya"
+                          : form.paymentMethod === "grab_pay"
+                            ? "Pay with GrabPay"
+                            : form.paymentMethod === "bank_transfer"
+                              ? "Place order & get bank details"
+                              : form.paymentMethod === "cash"
+                                ? "Place COD order"
+                                : "Place order"}
                   </>
                 )}
               </Button>

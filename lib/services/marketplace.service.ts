@@ -57,7 +57,10 @@ import {
   marketplaceOrderStatusForPayment,
 } from "@/lib/utils/marketplaceShipping";
 import { isPaymongoConfigured, phpAmountToCentavos } from "@/lib/paymongo/config";
-import { verifyMarketplacePaymongoPayment } from "@/lib/services/paymongoCheckout.service";
+import {
+  verifyMarketplaceCheckoutSession,
+  verifyMarketplacePaymongoPayment,
+} from "@/lib/services/paymongoCheckout.service";
 import { quoteMarketplaceCheckout } from "@/lib/services/marketplaceCheckoutQuote.service";
 
 function inferBrandFromPaymentLabel(label: string): CardBrand {
@@ -580,16 +583,17 @@ export async function placeMarketplaceOrder(
     | undefined;
 
   const paymongoEnabled = isPaymongoConfigured();
-  if (!paymongoEnabled && input.paymentMethod !== "cash") {
+  const isPaymongoMethod =
+    input.paymentMethod === "card" ||
+    input.paymentMethod === "gcash" ||
+    input.paymentMethod === "maya" ||
+    input.paymentMethod === "grab_pay";
+  if (!paymongoEnabled && isPaymongoMethod) {
     throw new Error(
-      "Only cash on delivery is available until PayMongo API keys are configured"
+      "Only cash on delivery and bank transfer are available until PayMongo API keys are configured"
     );
   }
-  if (
-    paymongoEnabled &&
-    (input.paymentMethod === "card" || input.paymentMethod === "gcash") &&
-    !input.paymongoPaymentIntentId
-  ) {
+  if (paymongoEnabled && isPaymongoMethod && !input.paymongoSessionId && !input.paymongoPaymentIntentId) {
     throw new Error("Complete payment with PayMongo before placing your order");
   }
 
@@ -736,6 +740,30 @@ export async function placeMarketplaceOrder(
       codPaymentRecord = await resolveMarketplaceCodPayment(input, total);
     }
 
+    if (input.paymongoSessionId) {
+      const quote = await quoteMarketplaceCheckout(
+        { items: input.items, shippingMethod: input.shippingMethod, shipping: input.shipping, paymentMethod: input.paymentMethod },
+        customerUserId
+      );
+      if (quote.total !== total) {
+        throw new Error("Order total changed. Refresh checkout and try again.");
+      }
+      const verified = await verifyMarketplaceCheckoutSession({
+        sessionId: input.paymongoSessionId,
+        expectedAmountCentavos: phpAmountToCentavos(total),
+      });
+      paymongoRecord = { paymentIntentId: verified.sessionId, paymentId: verified.paymentId, status: verified.status };
+      if (input.paymentMethod === "gcash") {
+        gcashPaymentRecord = { accountName: input.shipping.fullName, mobileLast4: "0000", mobileMasked: "GCash (PayMongo)" };
+      }
+      if (input.paymentMethod === "maya") {
+        gcashPaymentRecord = { accountName: input.shipping.fullName, mobileLast4: "0000", mobileMasked: "Maya (PayMongo)" };
+      }
+      if (input.paymentMethod === "grab_pay") {
+        gcashPaymentRecord = { accountName: input.shipping.fullName, mobileLast4: "0000", mobileMasked: "GrabPay (PayMongo)" };
+      }
+    }
+
     if (input.paymongoPaymentIntentId) {
       const quote = await quoteMarketplaceCheckout(
         {
@@ -777,7 +805,7 @@ export async function placeMarketplaceOrder(
     }
 
     const orderNumber = generateOrderNumber();
-    const paidNow = input.paymongoPaymentIntentId
+    const paidNow = (input.paymongoSessionId ?? input.paymongoPaymentIntentId)
       ? true
       : isMarketplacePaymentCaptured(input.paymentMethod);
     const status = paidNow ? "paid" : marketplaceOrderStatusForPayment(input.paymentMethod);

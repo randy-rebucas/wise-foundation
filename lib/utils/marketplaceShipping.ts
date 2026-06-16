@@ -52,6 +52,8 @@ export type MarketplaceShippingMethodId =
 export type MarketplacePaymentMethodForShipping =
   | "cash"
   | "gcash"
+  | "maya"
+  | "grab_pay"
   | "card"
   | "bank_transfer"
   | "credit";
@@ -175,7 +177,12 @@ export function computeMarketplaceOrderTotal(
 export function isMarketplacePaymentCaptured(
   paymentMethod: MarketplacePaymentMethodForShipping
 ): boolean {
-  return paymentMethod === "card" || paymentMethod === "gcash";
+  return (
+    paymentMethod === "card" ||
+    paymentMethod === "gcash" ||
+    paymentMethod === "maya" ||
+    paymentMethod === "grab_pay"
+  );
 }
 
 export function marketplaceOrderStatusForPayment(

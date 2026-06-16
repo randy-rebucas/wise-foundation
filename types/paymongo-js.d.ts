@@ -40,7 +40,7 @@ interface PaymongoInstance {
     }
   ): Promise<PaymongoPaymentMethodResult>;
   createPaymentMethod(
-    type: "gcash",
+    type: "gcash" | "paymaya" | "grab_pay",
     options: {
       billing: { name: string; email: string; phone?: string };
     }

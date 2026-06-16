@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { createMarketplacePaymentIntent } from "@/lib/services/paymongoCheckout.service";
+import { createMarketplaceCheckoutSession } from "@/lib/services/paymongoCheckout.service";
 import { z } from "zod";
 import { marketplaceShippingSchema } from "@/lib/validations/marketplace.schema";
 import { MARKETPLACE_SHIPPING_METHODS } from "@/lib/utils/marketplaceShipping";
@@ -10,7 +10,7 @@ const shippingMethodIds = MARKETPLACE_SHIPPING_METHODS.map((m) => m.id) as [
   ...string[],
 ];
 
-const intentBodySchema = z.object({
+const sessionBodySchema = z.object({
   items: z
     .array(
       z.object({
@@ -23,13 +23,15 @@ const intentBodySchema = z.object({
     .max(50),
   shipping: marketplaceShippingSchema,
   shippingMethod: z.enum(shippingMethodIds),
-  paymentType: z.enum(["card", "gcash", "paymaya", "grab_pay"]),
+  paymentMethod: z.enum(["card", "gcash", "maya", "grab_pay"]),
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
 });
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const parsed = intentBodySchema.safeParse(body);
+    const parsed = sessionBodySchema.safeParse(body);
     if (!parsed.success) {
       return errorResponse(parsed.error.issues[0]?.message ?? "Invalid request", 422);
     }
@@ -37,21 +39,25 @@ export async function POST(req: Request) {
     const session = await auth();
     const customerUserId = session?.user?.role === "CUSTOMER" ? session.user.id : null;
 
-    const result = await createMarketplacePaymentIntent(
-      parsed.data,
+    const result = await createMarketplaceCheckoutSession(
+      {
+        items: parsed.data.items,
+        shipping: parsed.data.shipping,
+        shippingMethod: parsed.data.shippingMethod,
+        paymentMethod: parsed.data.paymentMethod,
+      },
       customerUserId,
-      [parsed.data.paymentType]
+      parsed.data.successUrl,
+      parsed.data.cancelUrl
     );
 
     return successResponse({
-      paymentIntentId: result.paymentIntentId,
-      clientKey: result.clientKey,
-      status: result.status,
+      sessionId: result.sessionId,
+      checkoutUrl: result.checkoutUrl,
       total: result.quote.total,
-      amountCentavos: result.quote.amountCentavos,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not create payment";
+    const msg = err instanceof Error ? err.message : "Could not create checkout session";
     const status = msg.toLowerCase().includes("not configured") ? 503 : 400;
     return errorResponse(msg, status);
   }

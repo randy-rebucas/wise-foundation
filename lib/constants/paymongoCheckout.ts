@@ -13,8 +13,8 @@ export type PaymongoPendingCheckout = {
     postalCode: string;
   };
   shippingMethod: string;
-  paymentMethod: "card" | "gcash";
+  paymentMethod: "card" | "gcash" | "maya" | "grab_pay";
   notes?: string;
   saveAddress?: boolean;
-  paymentIntentId: string;
+  sessionId: string;
 };

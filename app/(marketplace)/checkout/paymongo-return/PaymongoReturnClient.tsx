@@ -21,8 +21,6 @@ export function PaymongoReturnClient() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const intentFromUrl = searchParams.get("payment_intent_id");
-
     void (async () => {
       try {
         const raw = sessionStorage.getItem(PAYMONGO_CHECKOUT_STORAGE_KEY);
@@ -32,8 +30,10 @@ export function PaymongoReturnClient() {
         }
 
         const pending = JSON.parse(raw) as PaymongoPendingCheckout;
-        const paymentIntentId = intentFromUrl ?? pending.paymentIntentId;
-        if (!paymentIntentId) {
+
+        // Checkout Sessions: session_id comes from PayMongo success_url substitution
+        const sessionId = searchParams.get("session_id") ?? pending.sessionId;
+        if (!sessionId) {
           setError("Missing payment confirmation. Try checkout again.");
           return;
         }
@@ -46,7 +46,7 @@ export function PaymongoReturnClient() {
             shipping: pending.shipping,
             shippingMethod: pending.shippingMethod,
             paymentMethod: pending.paymentMethod,
-            paymongoPaymentIntentId: paymentIntentId,
+            paymongoSessionId: sessionId,
             notes: pending.notes,
             saveAddress: pending.saveAddress,
           }),
