@@ -11,7 +11,8 @@ export type AuditAction =
   | "organization.created"
   | "organization.updated"
   | "organization.deleted"
-  | "db.restored";
+  | "db.restored"
+  | "db.transferred";
 
 export interface IAuditLog extends Document {
   action: AuditAction;

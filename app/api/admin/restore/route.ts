@@ -33,7 +33,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse("Failed to decompress backup file", 400);
     }
 
-    let parsed: { collections: Record<string, unknown[]> };
+    let parsed: { collections: Record<string, unknown[] | { docs: unknown[]; indexes?: IndexInfo[] }> };
     try {
       parsed = JSON.parse(json);
     } catch {
@@ -50,8 +50,9 @@ const postHandler = async (req: AuthedRequest) => {
 
     const results: Record<string, number> = {};
 
-    for (const [colName, docs] of Object.entries(parsed.collections)) {
-      if (!Array.isArray(docs)) continue;
+    for (const [colName, entry] of Object.entries(parsed.collections)) {
+      const { docs, indexes } = normalizeCollectionEntry(entry);
+      if (!docs) continue;
 
       const col = db.collection(colName);
       await col.deleteMany({});
@@ -60,6 +61,10 @@ const postHandler = async (req: AuthedRequest) => {
         // Rehydrate extended JSON _id and date fields
         const rehydrated = docs.map((doc) => rehydrateDoc(doc as Record<string, unknown>));
         await col.insertMany(rehydrated, { ordered: false });
+      }
+
+      if (indexes) {
+        await recreateIndexes(col, indexes);
       }
 
       results[colName] = docs.length;
@@ -80,6 +85,33 @@ const postHandler = async (req: AuthedRequest) => {
     return serverErrorResponse("Restore failed");
   }
 };
+
+type IndexInfo = { key: Record<string, number | string>; name: string; [opt: string]: unknown };
+
+// Backups written before index capture was added store `colName: docs[]` directly;
+// newer backups store `colName: { docs, indexes }`. Support both.
+function normalizeCollectionEntry(
+  entry: unknown[] | { docs: unknown[]; indexes?: IndexInfo[] }
+): { docs: unknown[] | null; indexes: IndexInfo[] | null } {
+  if (Array.isArray(entry)) return { docs: entry, indexes: null };
+  if (entry && Array.isArray(entry.docs)) return { docs: entry.docs, indexes: entry.indexes ?? null };
+  return { docs: null, indexes: null };
+}
+
+async function recreateIndexes(
+  col: ReturnType<NonNullable<typeof mongoose.connection.db>["collection"]>,
+  indexes: IndexInfo[]
+): Promise<void> {
+  for (const idx of indexes) {
+    if (idx.name === "_id_") continue; // created automatically
+    const { key, name, ...options } = idx;
+    try {
+      await col.createIndex(key as Record<string, 1 | -1>, { name, ...options });
+    } catch (err) {
+      console.error(`[restore] failed to recreate index ${name} on ${col.collectionName}`, err);
+    }
+  }
+}
 
 function rehydrateDoc(doc: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};

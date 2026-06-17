@@ -47,7 +47,10 @@ const postHandler = async (req: AuthedRequest) => {
     const db = mongoose.connection.db;
     if (!db) return serverErrorResponse("Database not connected");
 
-    const collections = await db.listCollections().toArray();
+    // Only real collections are backed up; views are derived and have no data of their own to restore.
+    const collections = (await db.listCollections().toArray()).filter(
+      (c) => c.type === undefined || c.type === "collection"
+    );
 
     const timestamp = new Date()
       .toISOString()
@@ -64,17 +67,19 @@ const postHandler = async (req: AuthedRequest) => {
     const out = createWriteStream(filepath);
     gzip.pipe(out);
 
-    // Stream each collection via cursor so the entire DB is never held in memory
+    // Stream each collection via cursor so the entire DB is never held in memory.
+    // Indexes are captured too so a restore into an empty database recreates them.
     gzip.write(`{"createdAt":${JSON.stringify(new Date())},"collections":{`);
     for (let i = 0; i < collections.length; i++) {
       const colName = collections[i].name;
-      gzip.write(`${i === 0 ? "" : ","}${JSON.stringify(colName)}:[`);
+      const indexes = await db.collection(colName).indexes();
+      gzip.write(`${i === 0 ? "" : ","}${JSON.stringify(colName)}:{"indexes":${JSON.stringify(indexes)},"docs":[`);
       let first = true;
       for await (const doc of db.collection(colName).find({})) {
         gzip.write(`${first ? "" : ","}${JSON.stringify(doc)}`);
         first = false;
       }
-      gzip.write("]");
+      gzip.write("]}");
     }
     gzip.write("}}");
     gzip.end();

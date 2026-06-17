@@ -33,10 +33,12 @@ import {
 import {
   Database,
   Download,
+  Eye,
   Loader2,
   MoreHorizontal,
   Plus,
   RefreshCw,
+  Send,
   Trash2,
   Upload,
   AlertTriangle,
@@ -48,6 +50,19 @@ interface BackupFile {
   filename: string;
   size: number;
   createdAt: string;
+}
+
+interface BackupPreviewCollection {
+  name: string;
+  count: number;
+  indexCount: number;
+  sample: unknown;
+}
+
+interface BackupPreview {
+  filename: string;
+  createdAt: string | null;
+  collections: BackupPreviewCollection[];
 }
 
 function formatBytes(bytes: number) {
@@ -90,6 +105,24 @@ async function restoreBackup(file: File): Promise<void> {
   if (!json.success) throw new Error(json.error ?? "Restore failed");
 }
 
+async function previewBackup(filename: string): Promise<BackupPreview> {
+  const res = await fetch(`/api/admin/backup/${encodeURIComponent(filename)}/preview`);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error ?? "Failed to preview backup");
+  return json.data;
+}
+
+async function transferBackup(filename: string, connectionString: string): Promise<Record<string, number>> {
+  const res = await fetch(`/api/admin/backup/${encodeURIComponent(filename)}/transfer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connectionString }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error ?? "Transfer failed");
+  return json.data.collections;
+}
+
 export default function BackupPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -100,6 +133,9 @@ export default function BackupPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<File | null>(null);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState<string | null>(null);
+  const [transferTarget, setTransferTarget] = useState<string | null>(null);
+  const [transferConnectionString, setTransferConnectionString] = useState("");
 
   const { data: backups = [], isLoading, error } = useQuery({
     queryKey: ["admin-backups"],
@@ -141,6 +177,25 @@ export default function BackupPage() {
     onError: (err: Error) => {
       setRestoreConfirmOpen(false);
       toast({ title: "Restore failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const { data: preview, isLoading: previewLoading, error: previewError } = useQuery({
+    queryKey: ["admin-backup-preview", previewTarget],
+    queryFn: () => previewBackup(previewTarget as string),
+    enabled: !!previewTarget,
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: () => transferBackup(transferTarget as string, transferConnectionString.trim()),
+    onSuccess: (collections) => {
+      const total = Object.values(collections).reduce((sum, n) => sum + n, 0);
+      setTransferTarget(null);
+      setTransferConnectionString("");
+      toast({ title: "Transfer complete", description: `${total} documents transferred.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Transfer failed", description: err.message, variant: "destructive" });
     },
   });
 
@@ -244,9 +299,17 @@ export default function BackupPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setPreviewTarget(b.filename)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDownload(b.filename)}>
                             <Download className="mr-2 h-4 w-4" />
                             Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setTransferTarget(b.filename)}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Transfer
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -362,6 +425,102 @@ export default function BackupPage() {
               >
                 {restoreMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Yes, Restore
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Preview Dialog */}
+        <Dialog open={!!previewTarget} onOpenChange={() => setPreviewTarget(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Preview Backup</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground font-mono">{previewTarget}</p>
+            {previewLoading ? (
+              <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+            ) : previewError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{(previewError as Error).message}</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="max-h-96 overflow-y-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Collection</TableHead>
+                      <TableHead>Documents</TableHead>
+                      <TableHead>Indexes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preview?.collections.map((c) => (
+                      <TableRow key={c.name}>
+                        <TableCell className="font-mono text-sm">{c.name}</TableCell>
+                        <TableCell>{c.count}</TableCell>
+                        <TableCell>{c.indexCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPreviewTarget(null)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transfer Dialog */}
+        <Dialog
+          open={!!transferTarget}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTransferTarget(null);
+              setTransferConnectionString("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Transfer Backup</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              File: <span className="font-mono font-medium">{transferTarget}</span>
+            </p>
+            <Alert variant="destructive">
+              <AlertDescription>
+                This will insert the backup&apos;s data into the target database. Existing data with matching IDs will cause insert errors and be skipped.
+              </AlertDescription>
+            </Alert>
+            <div className="space-y-2">
+              <Label htmlFor="connectionString">Target MongoDB connection string</Label>
+              <Input
+                id="connectionString"
+                type="password"
+                placeholder="mongodb+srv://user:pass@host/db"
+                value={transferConnectionString}
+                onChange={(e) => setTransferConnectionString(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTransferTarget(null);
+                  setTransferConnectionString("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={transferMutation.isPending || !transferConnectionString.trim()}
+                onClick={() => transferMutation.mutate()}
+              >
+                {transferMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Transfer
               </Button>
             </DialogFooter>
           </DialogContent>
