@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/shared/DataTable";
+import { RoleGuard } from "@/components/layout/RoleGuard";
 import { AlertTriangle, Package } from "lucide-react";
 
 interface InventoryItem {
@@ -25,9 +28,60 @@ interface StockTableProps {
   page?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;
+  onUpdateThreshold?: (item: InventoryItem, value: number) => void;
+  updatingThresholdId?: string | null;
 }
 
-export function StockTable({ data, loading, page, totalPages, onPageChange }: StockTableProps) {
+function ThresholdCell({
+  item,
+  onUpdateThreshold,
+  updating,
+}: {
+  item: InventoryItem;
+  onUpdateThreshold?: (item: InventoryItem, value: number) => void;
+  updating?: boolean;
+}) {
+  const [value, setValue] = useState(String(item.lowStockThreshold));
+
+  if (!onUpdateThreshold) {
+    return <span className="text-sm text-muted-foreground">{item.lowStockThreshold}</span>;
+  }
+  const handleUpdate = onUpdateThreshold;
+
+  function commit() {
+    const n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 0) {
+      setValue(String(item.lowStockThreshold));
+      return;
+    }
+    if (n !== item.lowStockThreshold) handleUpdate(item, n);
+  }
+
+  return (
+    <Input
+      type="number"
+      min={0}
+      value={value}
+      disabled={updating}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+      className="h-8 w-20 text-sm"
+    />
+  );
+}
+
+export function StockTable({
+  data,
+  loading,
+  page,
+  totalPages,
+  onPageChange,
+  onUpdateThreshold,
+  updatingThresholdId,
+}: StockTableProps) {
   const columns = [
     {
       key: "product",
@@ -81,7 +135,16 @@ export function StockTable({ data, loading, page, totalPages, onPageChange }: St
       key: "threshold",
       label: "Min. Stock",
       render: (item: InventoryItem) => (
-        <span className="text-sm text-muted-foreground">{item.lowStockThreshold}</span>
+        <RoleGuard
+          requiredPermissions={["manage:inventory"]}
+          fallback={<span className="text-sm text-muted-foreground">{item.lowStockThreshold}</span>}
+        >
+          <ThresholdCell
+            item={item}
+            onUpdateThreshold={onUpdateThreshold}
+            updating={updatingThresholdId === item._id}
+          />
+        </RoleGuard>
       ),
     },
     {

@@ -71,6 +71,10 @@ const postHandler = async (req: AuthedRequest) => {
     const payload = { ...parsed.data, discountPercent };
     if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
       payload.organizationId = req.user.organizationId;
+    } else if (req.user.role !== "ADMIN") {
+      // Only platform admins may tag a member with an arbitrary organization; other
+      // branch-scoped roles have no organization context of their own to assign from.
+      payload.organizationId = undefined;
     }
 
     const member = await createMember(payload);

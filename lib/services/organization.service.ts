@@ -93,6 +93,37 @@ export async function updateOrganization(
   }>
 ) {
   await connectDB();
+
+  if (data.type === "headquarters") {
+    const existingHq = await Organization.findOne({
+      type: "headquarters",
+      deletedAt: null,
+      _id: { $ne: id },
+    }).lean();
+    if (existingHq) throw new Error("A headquarters organization already exists");
+  }
+
+  if (data.parentOrganizationId) {
+    if (data.parentOrganizationId === id) {
+      throw new Error("An organization cannot be its own parent");
+    }
+    // Walk up the proposed parent's ancestry to make sure it doesn't loop back to this org.
+    let cursor: string | null = data.parentOrganizationId;
+    const visited = new Set<string>();
+    while (cursor) {
+      if (cursor === id) throw new Error("That parent assignment would create a circular hierarchy");
+      if (visited.has(cursor)) break;
+      visited.add(cursor);
+      const ancestor: { parentOrganizationId?: unknown } | null = await Organization.findOne({
+        _id: cursor,
+        deletedAt: null,
+      })
+        .select("parentOrganizationId")
+        .lean();
+      cursor = ancestor?.parentOrganizationId ? String(ancestor.parentOrganizationId) : null;
+    }
+  }
+
   const result = await Organization.findOneAndUpdate(
     { _id: id, deletedAt: null },
     { $set: data },

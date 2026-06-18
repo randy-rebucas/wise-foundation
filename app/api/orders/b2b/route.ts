@@ -18,6 +18,7 @@ const postHandler = async (req: AuthedRequest) => {
       ...parsed.data,
       items: parsed.data.items.map((i) => ({ ...i, variantId: i.variantId ?? undefined })),
       createdBy: req.user.id,
+      actingUser: { role: req.user.role, organizationId: req.user.organizationId },
     });
 
     return successResponse(order, "B2B order created", 201);

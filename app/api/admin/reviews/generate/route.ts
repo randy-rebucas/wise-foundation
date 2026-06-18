@@ -3,9 +3,11 @@ import { User } from "@/lib/db/models/User";
 import { Product } from "@/lib/db/models/Product";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const REVIEWER_POOL = [
   { name: "Maria Santos",     email: "maria.s@generated.glowish.demo" },
@@ -123,7 +125,8 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-const handler = async (_req: AuthedRequest) => {
+const handler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     await connectDB();
 
@@ -184,16 +187,18 @@ const handler = async (_req: AuthedRequest) => {
     );
 
     if (docs.length > 0) {
-      await User.collection.insertMany(
+      // Use the model (not a raw insertMany) so schema validation/defaults apply —
+      // password is a required field and these fabricated accounts need an unusable
+      // hash rather than none at all, which would violate the schema's invariants.
+      const unusablePassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+      await User.create(
         docs.map((r) => ({
           name: r.name,
           email: r.email,
+          password: unusablePassword,
           role: "CUSTOMER",
           isActive: true,
           emailVerified: true,
-          deletedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
           marketplace: {
             wishlist: [],
             savedAddresses: [],

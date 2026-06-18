@@ -6,14 +6,19 @@ import {
   errorResponse,
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
+import { assertBranchAccess } from "@/lib/utils/branchAccess";
+import { branchAccessErrorResponse } from "@/lib/utils/apiBranchErrors";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    await assertBranchAccess(req.user, id);
     const users = await getBranchUsers(id);
     return successResponse(users);
-  } catch {
+  } catch (error) {
+    const branchErr = branchAccessErrorResponse(error);
+    if (branchErr) return branchErr;
     return serverErrorResponse();
   }
 };
@@ -21,11 +26,14 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    await assertBranchAccess(req.user, id);
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
     await assignUserToBranch(body.userId, id);
     return successResponse(null, "User assigned to branch");
   } catch (error) {
+    const branchErr = branchAccessErrorResponse(error);
+    if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }
@@ -34,11 +42,14 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    await assertBranchAccess(req.user, id);
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
     await removeUserFromBranch(body.userId, id);
     return successResponse(null, "User removed from branch");
   } catch (error) {
+    const branchErr = branchAccessErrorResponse(error);
+    if (branchErr) return branchErr;
     if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }

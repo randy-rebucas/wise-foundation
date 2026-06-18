@@ -6,6 +6,7 @@ import { Member } from "@/lib/db/models/Member";
 import { Organization } from "@/lib/db/models/Organization";
 import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
 import { StockMovement } from "@/lib/db/models/StockMovement";
+import { Transaction } from "@/lib/db/models/Transaction";
 import mongoose from "mongoose";
 import type { ClientSession } from "mongoose";
 import type { OrderStatus, SessionUser } from "@/types";
@@ -180,6 +181,13 @@ export async function updateOrderStatus(
     if (!receipt) {
       throw new Error("Delivery receipt number is required to mark an order as delivered");
     }
+    const duplicate = await Order.findOne({
+      _id: { $ne: orderId },
+      deliveryReceiptNumber: receipt,
+    }).lean();
+    if (duplicate) {
+      throw new Error(`Delivery receipt number "${receipt}" is already used by order ${duplicate.orderNumber}`);
+    }
   }
 
   const updates: Record<string, unknown> = { status: newStatus };
@@ -219,6 +227,22 @@ export async function updateOrderStatus(
         );
       }
 
+      await Transaction.create(
+        [
+          {
+            branchId: null,
+            organizationId: order.sellerOrganizationId,
+            orderId: order._id,
+            type: "SALE",
+            amount: order.total,
+            paymentMethod: order.paymentMethod,
+            reference: order.orderNumber,
+            performedBy: userId,
+          },
+        ],
+        { session }
+      );
+
       await session.commitTransaction();
       return Order.findById(orderId).lean();
     } catch (err) {
@@ -229,7 +253,67 @@ export async function updateOrderStatus(
     }
   }
 
-  return Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true }).lean();
+  // B2B orders: a refund after payment reverses the earlier seller-to-buyer transfer,
+  // otherwise the buyer keeps stock they were refunded for and the seller never gets it back.
+  if (newStatus === "refunded" && order.type === "B2B" && order.status === "paid" &&
+      order.sellerOrganizationId && order.buyerOrganizationId) {
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+
+      await Order.findByIdAndUpdate(orderId, { $set: updates }, { session });
+
+      const items = await OrderItem.find({ orderId }).session(session).lean();
+      for (const item of items) {
+        await transferOrgStock(
+          {
+            fromOrganizationId: order.buyerOrganizationId.toString(),
+            toOrganizationId: order.sellerOrganizationId.toString(),
+            productId: item.productId.toString(),
+            variantId: item.variantId?.toString() ?? null,
+            quantity: item.quantity,
+            reference: `${order.orderNumber}-REFUND`,
+            notesPrefix: "B2B refund",
+          },
+          userId,
+          session
+        );
+      }
+
+      await Transaction.create(
+        [
+          {
+            branchId: null,
+            organizationId: order.sellerOrganizationId,
+            orderId: order._id,
+            type: "REFUND",
+            amount: order.total,
+            paymentMethod: order.paymentMethod,
+            reference: `${order.orderNumber}-REFUND`,
+            performedBy: userId,
+          },
+        ],
+        { session }
+      );
+
+      await session.commitTransaction();
+      return Order.findById(orderId).lean();
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  try {
+    return await Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true }).lean();
+  } catch (err) {
+    if (newStatus === "delivered" && err instanceof Error && /E11000/.test(err.message)) {
+      throw new Error(`Delivery receipt number "${updates.deliveryReceiptNumber}" is already in use`);
+    }
+    throw err;
+  }
 }
 
 async function transferOrgStock(
@@ -240,10 +324,12 @@ async function transferOrgStock(
     variantId: string | null;
     quantity: number;
     reference?: string;
+    notesPrefix?: string;
   },
   performedBy: string,
   session: ClientSession
 ) {
+  const notesPrefix = input.notesPrefix ?? "B2B";
   const sourceInv = await OrganizationInventory.findOne({
     organizationId: input.fromOrganizationId,
     productId: input.productId,
@@ -292,7 +378,7 @@ async function transferOrgStock(
         previousQuantity: sourcePrev,
         newQuantity: sourceNew,
         reference: input.reference,
-        notes: `B2B fulfillment: ${input.reference}`,
+        notes: `${notesPrefix} fulfillment: ${input.reference}`,
         performedBy,
       },
       {
@@ -307,7 +393,7 @@ async function transferOrgStock(
         previousQuantity: destPrev,
         newQuantity: destPrev + input.quantity,
         reference: input.reference,
-        notes: `B2B receipt: ${input.reference}`,
+        notes: `${notesPrefix} receipt: ${input.reference}`,
         performedBy,
       },
     ],
@@ -330,10 +416,22 @@ export interface CreateB2BOrderInput {
   paymentMethod: "cash" | "gcash" | "card" | "bank_transfer" | "credit";
   notes?: string;
   createdBy: string;
+  actingUser: Pick<SessionUser, "role" | "organizationId">;
 }
 
 export async function createB2BOrder(input: CreateB2BOrderInput) {
   await connectDB();
+
+  // A non-admin must be transacting on behalf of one of the two organizations —
+  // otherwise an ORG_ADMIN could pair two unrelated orgs and, once the order they're
+  // party to is marked paid, siphon stock between organizations they don't belong to.
+  if (input.actingUser.role !== "ADMIN") {
+    const ownOrgId = input.actingUser.organizationId;
+    if (!ownOrgId || (ownOrgId !== input.sellerOrganizationId && ownOrgId !== input.buyerOrganizationId)) {
+      throw new Error("You may only create B2B orders where your organization is the buyer or seller");
+    }
+  }
+
   const session = await mongoose.startSession();
 
   try {
@@ -347,6 +445,14 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
     }).session(session).lean();
     if (!seller) throw new Error("Seller organization not found or inactive");
     if (!seller.settings.canDistribute) throw new Error("Seller organization is not authorized to distribute");
+
+    const buyer = await Organization.findOne({
+      _id: input.buyerOrganizationId,
+      isActive: true,
+      deletedAt: null,
+    }).session(session).lean();
+    if (!buyer) throw new Error("Buyer organization not found or inactive");
+    if (!buyer.settings.canSubmitOrders) throw new Error("Buyer organization is not authorized to submit orders");
 
     // Validate seller has enough stock — batch fetch then validate in memory
     const sellerStockDocs = await OrganizationInventory.find({

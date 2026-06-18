@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
@@ -97,6 +98,9 @@ const defaultSaleItem: SaleItem = {
 export default function ResellerSalesPage() {
   const money = useFormatCurrency();
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const isOrgAdmin = session?.user?.role === "ORG_ADMIN";
+  const ownOrganizationId = session?.user?.organizationId;
 
   const [saleOpen, setSaleOpen] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState("");
@@ -440,12 +444,15 @@ export default function ResellerSalesPage() {
                         <SelectValue placeholder="Select organization" />
                       </SelectTrigger>
                       <SelectContent>
-                        {organizations.filter((o) => o.settings?.hasInventory).map((org) => (
-                          <SelectItem key={org._id} value={org._id}>
-                            {org.name}
-                            <span className="text-muted-foreground capitalize ml-1">({org.type})</span>
-                          </SelectItem>
-                        ))}
+                        {organizations
+                          .filter((o) => o.settings?.hasInventory)
+                          .filter((o) => !isOrgAdmin || o._id === ownOrganizationId)
+                          .map((org) => (
+                            <SelectItem key={org._id} value={org._id}>
+                              {org.name}
+                              <span className="text-muted-foreground capitalize ml-1">({org.type})</span>
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>

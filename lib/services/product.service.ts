@@ -214,14 +214,12 @@ export async function updateProduct(productId: string, data: Partial<IProduct>) 
 export async function deleteProduct(productId: string) {
   await connectDB();
 
-  const existing = await Product.findOne({ _id: productId }).select("images").lean();
-  if (existing?.images?.length) {
-    await deleteMediaAssetsByUrls(existing.images as string[]);
-  }
-
-  const variants = await ProductVariant.find({ productId }).select("images").lean();
-  const variantUrls = variants.flatMap((v) => (v.images as string[] | undefined) ?? []);
-  if (variantUrls.length) await deleteMediaAssetsByUrls(variantUrls);
+  // Soft delete: the product (and its images) may still be referenced by historical
+  // orders/invoices, so storage assets are left in place rather than deleted here.
+  await ProductVariant.updateMany(
+    { productId, deletedAt: null },
+    { $set: { deletedAt: new Date(), isActive: false } }
+  );
 
   return Product.findOneAndUpdate(
     { _id: productId },
@@ -267,11 +265,8 @@ export async function updateProductVariant(variantId: string, data: Partial<Crea
 export async function deleteProductVariant(variantId: string) {
   await connectDB();
 
-  const existing = await ProductVariant.findOne({ _id: variantId }).select("images").lean();
-  if (existing?.images?.length) {
-    await deleteMediaAssetsByUrls(existing.images as string[]);
-  }
-
+  // Soft delete: leave storage assets in place since historical orders may still
+  // reference this variant's images (see deleteProduct for the same reasoning).
   return ProductVariant.findOneAndUpdate(
     { _id: variantId },
     { $set: { deletedAt: new Date(), isActive: false } },
@@ -344,7 +339,9 @@ const CSV_HEADERS_EXPORT = [
   "description",
   "seotitle",
   "seodescription",
-  ...CSV_HEADERS_REQUIRED.slice(2),
+  ...CSV_HEADERS_REQUIRED.slice(2, -1),
+  "marketplacelisted",
+  ...CSV_HEADERS_REQUIRED.slice(-1),
 ] as const;
 
 function normalizeCsvHeader(h: string): string {
@@ -387,6 +384,7 @@ export async function exportProductsToCsv(): Promise<string> {
     p.barcode ?? "",
     String(p.retailPrice),
     p.isActive ? "true" : "false",
+    p.marketplaceListed !== false ? "true" : "false",
     (p.tags ?? []).join("; "),
   ]);
   return "\uFEFF" + serializeCsv([[...CSV_HEADERS_EXPORT], ...dataRows]);
@@ -465,6 +463,7 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
     const barcode = get("barcode").trim();
     const retailPrice = parsePriceCell(get("retailprice"));
     const isActive = parseBoolCell(get("isactive"), true);
+    const marketplaceListed = parseBoolCell(get("marketplacelisted"), true);
     const tags = parseTagsCell(get("tags"));
 
     if (retailPrice === null) {
@@ -483,6 +482,7 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
       barcode: barcode || undefined,
       retailPrice,
       isActive,
+      marketplaceListed,
       tags,
       images: [] as string[],
     };

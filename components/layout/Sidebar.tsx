@@ -118,7 +118,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
     ],
   },
-  { kind: "link", label: "Reviews", path: "/admin/reviews", icon: MessageSquare, permission: "manage:users" },
+  { kind: "link", label: "Reviews", path: "/admin/reviews", icon: MessageSquare, roles: ["ADMIN"] },
   { kind: "link", label: "Backup & Restore", path: "/admin/backup", icon: DatabaseBackup, roles: ["ADMIN"] },
   { kind: "link", label: "Help & guides", path: "/help", icon: BookOpen, allAuthenticated: true },
   { kind: "link", label: "Settings", path: "/settings", icon: Settings },

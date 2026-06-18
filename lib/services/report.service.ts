@@ -303,7 +303,7 @@ export async function getTopOrganizations(days = 30) {
   }));
 }
 
-export async function getDistributionSummary(days = 30) {
+export async function getDistributionSummary(days = 30, organizationId?: string) {
   await connectDB();
 
   const startDate = new Date();
@@ -355,7 +355,12 @@ export async function getDistributionSummary(days = 30) {
   }
 
   const [totalCommissions] = await Commission.aggregate([
-    { $match: { status: { $in: ["pending", "paid"] } } },
+    {
+      $match: {
+        status: { $in: ["pending", "paid"] },
+        ...(organizationId ? { organizationId } : {}),
+      },
+    },
     {
       $group: {
         _id: null,

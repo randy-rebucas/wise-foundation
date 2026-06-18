@@ -1,7 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processResellerSale } from "@/lib/services/organizationInventory.service";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const VALID_PAYMENT = ["cash", "gcash", "card", "bank_transfer", "credit"];
@@ -11,6 +11,9 @@ const postHandler = async (req: AuthedRequest) => {
     const body = await req.json();
 
     if (!body.organizationId) return errorResponse("Organization is required");
+    if (req.user.role === "ORG_ADMIN" && body.organizationId !== req.user.organizationId) {
+      return forbiddenResponse("You can only record sales for your own organization");
+    }
     if (!Array.isArray(body.items) || body.items.length === 0) {
       return errorResponse("At least one item is required");
     }

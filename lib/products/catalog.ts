@@ -15,9 +15,9 @@ export const PRODUCT_CATEGORY_COLORS: Record<ProductCategory, string> = {
 };
 
 export const PRODUCTS_CSV_TEMPLATE =
-  "sku,name,shortdescription,description,seotitle,seodescription,category,barcode,retailprice,isactive,tags\r\n" +
+  "sku,name,shortdescription,description,seotitle,seodescription,category,barcode,retailprice,isactive,marketplacelisted,tags\r\n" +
   "EX-SKU-001,Example Product,Short summary for listings.,Full product details here.,,," +
-  "homecare,,12.99,true,demo\r\n";
+  "homecare,,12.99,true,true,demo\r\n";
 
 const SKU_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 

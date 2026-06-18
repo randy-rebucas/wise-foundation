@@ -17,7 +17,9 @@ const getHandler = async (req: AuthedRequest) => {
     const organizationId =
       req.user.role === "ORG_ADMIN"
         ? (req.user.organizationId ?? undefined)
-        : (searchParams.get("organizationId") ?? undefined);
+        : req.user.role === "ADMIN"
+          ? (searchParams.get("organizationId") ?? undefined)
+          : undefined;
 
     const result = await getBranches(page, limit, organizationId);
     return successResponse(result.branches, undefined, 200, {
@@ -39,7 +41,16 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const branch = await createBranch(parsed.data as CreateBranchData);
+    const data = { ...parsed.data } as CreateBranchData;
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId) {
+      data.organizationId = req.user.organizationId;
+      data.isHeadOffice = false;
+    } else if (req.user.role !== "ADMIN") {
+      data.organizationId = undefined;
+      data.isHeadOffice = false;
+    }
+
+    const branch = await createBranch(data);
     return successResponse(branch, "Branch created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

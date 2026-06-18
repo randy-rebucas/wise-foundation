@@ -121,7 +121,7 @@ const OrderSchema = new Schema<IOrder>(
     approvedAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
-    deliveryReceiptNumber: { type: String },
+    deliveryReceiptNumber: { type: String, trim: true },
     receivedByName: { type: String },
     deliveredAt: { type: Date, default: null },
     deliveredBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
@@ -192,5 +192,9 @@ OrderSchema.index({ memberId: 1, createdAt: -1 });
 OrderSchema.index({ createdAt: -1 });
 OrderSchema.index({ type: 1, marketplaceCustomerUserId: 1, createdAt: -1 });
 OrderSchema.index({ cashierId: 1, createdAt: -1 });
+OrderSchema.index(
+  { deliveryReceiptNumber: 1 },
+  { unique: true, partialFilterExpression: { deliveryReceiptNumber: { $type: "string" } } }
+);
 
 export const Order = models.Order || model<IOrder>("Order", OrderSchema);

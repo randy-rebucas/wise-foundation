@@ -3,6 +3,7 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { getOrganizationById, updateOrganization, deleteOrganization } from "@/lib/services/organization.service";
 import {
   successResponse,
+  errorResponse,
   notFoundResponse,
   serverErrorResponse,
   forbiddenResponse,
@@ -23,6 +24,12 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   }
 };
 
+// Fields an ORG_ADMIN may edit on their own organization — profile/contact info only.
+// type, settings (capability flags), commissionRate, parentOrganizationId, and isActive
+// are platform-admin-controlled: letting an org self-grant capabilities or reparent
+// itself would be a privilege escalation, not a profile edit.
+const ORG_ADMIN_EDITABLE_FIELDS = ["name", "contactPerson", "email", "phone", "address", "notes"] as const;
+
 const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
@@ -30,10 +37,19 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
       return notFoundResponse("Organization not found");
     }
     const body = await req.json();
-    const updated = await updateOrganization(id, body);
+    const data =
+      req.user.role === "ADMIN"
+        ? body
+        : Object.fromEntries(
+            Object.entries(body).filter(([key]) =>
+              (ORG_ADMIN_EDITABLE_FIELDS as readonly string[]).includes(key)
+            )
+          );
+    const updated = await updateOrganization(id, data);
     if (!updated) return notFoundResponse("Organization not found");
     return successResponse(updated, "Organization updated");
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }
 };

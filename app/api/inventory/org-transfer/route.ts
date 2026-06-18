@@ -2,10 +2,14 @@ import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { processOrgTransfer } from "@/lib/services/inventory.service";
 import { orgTransferSchema } from "@/lib/validations/inventory.schema";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const postHandler = async (req: AuthedRequest) => {
+  // Moving stock between two organizations is a platform-admin action (matches the
+  // Org Transfer button, which is only rendered for isAdmin in the inventory page) —
+  // branch-scoped manage:inventory roles have no legitimate org-to-org transfer use case.
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const body = await req.json();
     const parsed = orgTransferSchema.safeParse(body);

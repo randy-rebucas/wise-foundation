@@ -8,8 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
 import { ListPagination } from "@/components/shared/ListPagination";
+import { LoadingState } from "@/components/shared/LoadingState";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 interface Column<T> {
   key: string;
@@ -57,14 +58,14 @@ export function DataTable<T>({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                <TableCell colSpan={columns.length} className="p-0">
+                  <LoadingState size="md" className="py-8" />
                 </TableCell>
               </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  {emptyMessage}
+                <TableCell colSpan={columns.length} className="p-0">
+                  <EmptyState title={emptyMessage} className="py-8" />
                 </TableCell>
               </TableRow>
             ) : (

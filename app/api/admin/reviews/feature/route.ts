@@ -2,12 +2,13 @@ import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { successResponse, serverErrorResponse, errorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, serverErrorResponse, errorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 // PATCH /api/admin/reviews/feature
 // Body: { userId, reviewId, featured, images? }
 const handler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const body = await req.json();
     const { userId, reviewId, featured, images } = body as {

@@ -4,11 +4,12 @@ import { useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Layers, Loader2, Package } from "lucide-react";
+import { ArrowLeft, Layers, Package } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoadingState } from "@/components/shared/LoadingState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { ProductForm } from "@/components/products/ProductForm";
 import { ProductVariantsPanel } from "@/components/products/ProductVariantsPanel";
 import { productToFormValues } from "@/lib/products/productForm";
@@ -44,6 +45,7 @@ export default function EditProductPage() {
     isLoading,
     isError,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["product", id],
     queryFn: async () => {
@@ -89,18 +91,10 @@ export default function EditProductPage() {
             </Link>
           </Button>
 
-          {isLoading && (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
+          {isLoading && <LoadingState />}
 
           {isError && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {error instanceof Error ? error.message : "Unable to load product."}
-              </AlertDescription>
-            </Alert>
+            <ErrorState error={error} fallback="Unable to load product." onRetry={() => refetch()} />
           )}
 
           {product && (

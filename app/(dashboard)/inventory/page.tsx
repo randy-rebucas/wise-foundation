@@ -396,6 +396,24 @@ export default function InventoryPage() {
     onError: (err: Error) => setOrgTransferError(err.message),
   });
 
+  const thresholdMutation = useMutation({
+    mutationFn: async ({ id, lowStockThreshold }: { id: string; lowStockThreshold: number }) => {
+      const res = await fetch(`/api/inventory/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lowStockThreshold }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? `Update failed (${res.status})`);
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast({ title: "Low stock threshold updated" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   const inventoryItems = inventoryData?.data ?? [];
   const movements = movementsData?.data ?? [];
   const totalInventory = inventoryData?.meta?.total ?? 0;
@@ -560,6 +578,12 @@ export default function InventoryPage() {
               page={page}
               totalPages={Math.ceil(totalInventory / 10)}
               onPageChange={setPage}
+              onUpdateThreshold={
+                orgWarehouseMode
+                  ? undefined
+                  : (item, value) => thresholdMutation.mutate({ id: item._id, lowStockThreshold: value })
+              }
+              updatingThresholdId={thresholdMutation.isPending ? thresholdMutation.variables?.id ?? null : null}
             />
           </TabsContent>
 

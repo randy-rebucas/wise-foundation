@@ -3,9 +3,11 @@ import { User } from "@/lib/db/models/User";
 import { Product } from "@/lib/db/models/Product";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export type AdminReview = {
   id: string;
@@ -23,6 +25,7 @@ export type AdminReview = {
 };
 
 const handler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { searchParams } = req.nextUrl;
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -130,6 +133,7 @@ export const GET = withStaffAuth(withPermission("manage:users")(handler));
 
 // POST /api/admin/reviews — manually create a review
 const createHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const body = await req.json();
     const { reviewerName, reviewerEmail, productId, rating, text, featured, images } = body as {
@@ -177,15 +181,19 @@ const createHandler = async (req: AuthedRequest) => {
         { $push: { "marketplace.reviews": reviewEntry } }
       );
     } else {
-      await User.collection.insertOne({
+      // Use the model (not a raw insertOne) so schema validation/defaults apply, and give
+      // it an unusable random password hash — otherwise this fabricated account has no
+      // password at all, which both violates the schema's required field and would
+      // permanently block the real owner of this email from ever registering (the
+      // registration check only looks for an existing, non-deleted user with that email).
+      const unusablePassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+      await User.create({
         name: reviewerName.trim(),
         email: reviewerEmail.trim().toLowerCase(),
+        password: unusablePassword,
         role: "CUSTOMER",
         isActive: true,
         emailVerified: true,
-        deletedAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
         marketplace: { wishlist: [], savedAddresses: [], paymentMethods: [], reviews: [reviewEntry] },
       });
     }

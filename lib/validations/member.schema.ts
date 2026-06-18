@@ -12,7 +12,7 @@ export const createMemberSchema = z.object({
 });
 
 export const updateMemberSchema = createMemberSchema
-  .omit({ branchId: true })
+  .omit({ branchId: true, organizationId: true })
   .extend({
     status: z.enum(["active", "inactive", "suspended"]).optional(),
   })

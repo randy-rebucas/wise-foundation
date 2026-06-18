@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ErrorState } from "@/components/shared/ErrorState";
 import {
   Plus,
   Pencil,
@@ -80,6 +81,7 @@ export default function ProductsPage() {
     isLoading,
     isError: isProductsError,
     error: productsError,
+    refetch: refetchProducts,
   } = useQuery({
     queryKey: ["products", activeCategory, search, page],
     queryFn: async () => {
@@ -335,11 +337,11 @@ export default function ProductsPage() {
       <Header title="Products" subtitle="Manage your product catalog" />
       <div className="flex-1 space-y-4 p-4 sm:p-6">
         {isProductsError && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {productsError instanceof Error ? productsError.message : "Unable to load products."}
-            </AlertDescription>
-          </Alert>
+          <ErrorState
+            error={productsError}
+            fallback="Unable to load products."
+            onRetry={() => refetchProducts()}
+          />
         )}
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
           <div className="relative w-full sm:w-72">
@@ -423,7 +425,7 @@ export default function ProductsPage() {
                 sku, name, category, retailprice
               </span>
               . Optional: shortdescription, description (Markdown), seotitle, seodescription, barcode,
-              isactive (true/false), tags (separate with{" "}
+              isactive (true/false), marketplacelisted (true/false), tags (separate with{" "}
               <code className="text-xs">;</code>).
             </p>
             <p className="text-foreground">

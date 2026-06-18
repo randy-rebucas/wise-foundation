@@ -106,6 +106,7 @@ export async function processResellerSale(input: ResellerSaleInput) {
       [
         {
           branchId: null,
+          organizationId: input.organizationId,
           orderNumber,
           type: "DISTRIBUTOR",
           status: "paid",

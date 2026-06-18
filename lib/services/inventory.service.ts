@@ -178,18 +178,24 @@ export async function processStockMovement(
 
     let inventory = await Inventory.findOne(inventoryFilter).session(session);
 
+    if (!inventory && (input.type === "IN" || input.type === "ADJUSTMENT")) {
+      inventory = await Inventory.findOneAndUpdate(
+        inventoryFilter,
+        {
+          $setOnInsert: {
+            ...inventoryFilter,
+            branchId,
+            organizationId,
+            quantity: 0,
+            reservedQuantity: 0,
+            lowStockThreshold: defaultLowStockThreshold,
+          },
+        },
+        { upsert: true, new: true, session }
+      );
+    }
     if (!inventory) {
-      if (input.type !== "IN" && input.type !== "ADJUSTMENT") {
-        throw new Error("Inventory record not found for this product");
-      }
-      inventory = new Inventory({
-        ...inventoryFilter,
-        branchId,
-        organizationId,
-        quantity: 0,
-        reservedQuantity: 0,
-        lowStockThreshold: defaultLowStockThreshold,
-      });
+      throw new Error("Inventory record not found for this product");
     }
 
     const previousQuantity = inventory.quantity;
@@ -238,18 +244,16 @@ export async function processStockMovement(
           productId: input.productId,
           variantId: input.variantId ?? null,
         };
-        let destInventory = await Inventory.findOne(destFilter).session(session);
-        if (!destInventory) {
-          destInventory = new Inventory({
-            ...destFilter,
-            quantity: 0,
-            reservedQuantity: 0,
-            lowStockThreshold: defaultLowStockThreshold,
-          });
-        }
-        const destPrev = destInventory.quantity;
-        destInventory.quantity = destPrev + input.quantity;
-        await destInventory.save({ session });
+        const destPrevDoc = await Inventory.findOne(destFilter).session(session).lean();
+        const destPrev = destPrevDoc?.quantity ?? 0;
+        await Inventory.findOneAndUpdate(
+          destFilter,
+          {
+            $inc: { quantity: input.quantity },
+            $setOnInsert: { ...destFilter, reservedQuantity: 0, lowStockThreshold: defaultLowStockThreshold },
+          },
+          { upsert: true, session }
+        );
 
         const destOrgId = await getOrgIdForBranch(input.toBranchId);
 
@@ -284,8 +288,11 @@ export async function processStockMovement(
       }
     }
 
-    inventory.quantity = newQuantity;
-    await inventory.save({ session });
+    await Inventory.updateOne(
+      inventoryFilter,
+      { $set: { quantity: newQuantity } },
+      { session }
+    );
 
     await StockMovement.create(
       [
@@ -317,6 +324,25 @@ export async function processStockMovement(
   } finally {
     await session.endSession();
   }
+}
+
+export async function getInventoryById(inventoryId: string) {
+  await connectDB();
+  return Inventory.findById(inventoryId).lean();
+}
+
+export async function updateLowStockThreshold(inventoryId: string, lowStockThreshold: number) {
+  await connectDB();
+  const updated = await Inventory.findByIdAndUpdate(
+    inventoryId,
+    { $set: { lowStockThreshold } },
+    { new: true, runValidators: true }
+  )
+    .populate("productId", "name sku category images retailPrice")
+    .populate("variantId", "name sku attributes")
+    .lean();
+  if (!updated) throw new Error("Inventory record not found");
+  return updated;
 }
 
 export async function getLowStockAlerts(branchId?: string) {

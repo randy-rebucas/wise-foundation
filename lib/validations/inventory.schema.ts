@@ -22,8 +22,6 @@ export const orgTransferSchema = z.object({
 });
 
 export const updateThresholdSchema = z.object({
-  productId: z.string().min(1),
-  variantId: z.string().optional(),
   lowStockThreshold: z.number().int().min(0),
 });
 
