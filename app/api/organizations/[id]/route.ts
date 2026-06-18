@@ -5,6 +5,7 @@ import {
   successResponse,
   notFoundResponse,
   serverErrorResponse,
+  forbiddenResponse,
 } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
@@ -25,6 +26,9 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
+    if (req.user.role === "ORG_ADMIN" && req.user.organizationId !== id) {
+      return notFoundResponse("Organization not found");
+    }
     const body = await req.json();
     const updated = await updateOrganization(id, body);
     if (!updated) return notFoundResponse("Organization not found");
@@ -35,6 +39,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
 };
 
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const deleted = await deleteOrganization(id);

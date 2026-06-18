@@ -1,13 +1,14 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getOrganizations, createOrganization } from "@/lib/services/organization.service";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrganizationType } from "@/lib/db/models/Organization";
 
 const VALID_TYPES: OrganizationType[] = ["distributor", "franchise", "partner", "headquarters"];
 
 const getHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { searchParams } = new URL(req.url);
     const rawType = searchParams.get("type");
@@ -23,6 +24,7 @@ const getHandler = async (req: AuthedRequest) => {
 };
 
 const postHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const body = await req.json();
     if (!body.name?.trim()) return errorResponse("Organization name is required");

@@ -1,7 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { getOrgPermissions, setOrgPermission } from "@/lib/services/orgPermission.service";
-import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { successResponse, errorResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrgPermissionKey } from "@/lib/db/models/OrgPermission";
 
@@ -14,6 +14,7 @@ const VALID_PERMISSIONS: OrgPermissionKey[] = [
 ];
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const permissions = await getOrgPermissions(id);
@@ -24,6 +25,7 @@ const getHandler = async (req: AuthedRequest, ctx: unknown) => {
 };
 
 const postHandler = async (req: AuthedRequest, ctx: unknown) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();

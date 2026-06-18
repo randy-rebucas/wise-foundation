@@ -17,6 +17,7 @@ import {
   LogOut,
   Settings,
   ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeft,
   Truck,
@@ -58,51 +59,74 @@ interface NavItem {
   allAuthenticated?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
-  { label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
-  { label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
-  { label: "Online store", path: "/", icon: Globe2, allAuthenticated: true },
-  { label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos", requireOrgPos: true },
-  { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
-  { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
+/** A standalone link, or a collapsible group of related links (grouped by usage/purpose). */
+type NavEntry = ({ kind: "link" } & NavItem) | { kind: "group"; label: string; icon: React.ElementType; children: NavItem[] };
+
+const NAV_ENTRIES: NavEntry[] = [
+  { kind: "link", label: "Dashboard", path: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN"] },
+  { kind: "link", label: "Org Dashboard", path: "/org-dashboard", icon: LayoutGrid, roles: ["ORG_ADMIN"] },
+  { kind: "link", label: "My Panel", path: "/org-panel", icon: Building2, roles: ["ORG_ADMIN"] },
   {
-    label: "Inventory",
-    path: "/inventory",
-    icon: Boxes,
-    permission: "manage:inventory",
-    requireOrgInventory: true,
-  },
-  { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
-  {
-    label: "Purchase Orders",
-    path: "/purchase-orders",
+    kind: "group",
+    label: "Products",
     icon: Package,
-    anyPermission: ["manage:inventory", "submit:org_orders"],
+    children: [
+      { label: "Products", path: "/products", icon: Package, permission: "manage:products" },
+      { label: "Inventory", path: "/inventory", icon: Boxes, permission: "manage:inventory", requireOrgInventory: true },
+      { label: "Media", path: "/media", icon: Images, permission: "manage:products" },
+      {
+        label: "Purchase Orders",
+        path: "/purchase-orders",
+        icon: ClipboardList,
+        anyPermission: ["manage:inventory", "submit:org_orders"],
+      },
+    ],
   },
   {
-    label: "Deliveries",
-    path: "/deliveries",
-    icon: Truck,
-    roles: ["ADMIN"],
-    excludeRoles: ["ORG_ADMIN"],
-    hideForOrgUsers: true,
+    kind: "group",
+    label: "Orders",
+    icon: ClipboardList,
+    children: [
+      { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
+      {
+        label: "Deliveries",
+        path: "/deliveries",
+        icon: Truck,
+        anyPermission: ["manage:inventory", "submit:org_orders"],
+      },
+    ],
   },
-  { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
-  { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
-  { label: "Members", path: "/members", icon: Users, permission: "manage:members" },
-  { label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
-  { label: "Help & guides", path: "/help", icon: BookOpen, allAuthenticated: true },
-  { label: "Settings", path: "/settings", icon: Settings },
+  {
+    kind: "group",
+    label: "Reseller",
+    icon: Percent,
+    children: [
+      { label: "Reseller Sales", path: "/reseller-sales", icon: Store, roles: ["ADMIN", "ORG_ADMIN"] },
+      { label: "Commissions", path: "/commissions", icon: Percent, roles: ["ADMIN", "ORG_ADMIN"] },
+    ],
+  },
+  { kind: "link", label: "Members", path: "/members", icon: Users, permission: "manage:members" },
+  { kind: "link", label: "Reports", path: "/reports", icon: BarChart3, permission: "view:reports" },
+  {
+    kind: "group",
+    label: "Organization",
+    icon: Building2,
+    children: [
+      { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
+      { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
+      { label: "Users", path: "/admin/users", icon: Users, roles: ["ADMIN"] },
+      { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
+    ],
+  },
+  { kind: "link", label: "Reviews", path: "/admin/reviews", icon: MessageSquare, permission: "manage:users" },
+  { kind: "link", label: "Backup & Restore", path: "/admin/backup", icon: DatabaseBackup, roles: ["ADMIN"] },
+  { kind: "link", label: "Help & guides", path: "/help", icon: BookOpen, allAuthenticated: true },
+  { kind: "link", label: "Settings", path: "/settings", icon: Settings },
 ];
 
-const ADMIN_ITEMS: NavItem[] = [
-  { label: "Branches", path: "/admin/branches", icon: GitBranch, permission: "manage:branches" },
-  { label: "Users", path: "/admin/users", icon: Users, roles: ["ADMIN"] },
-  { label: "Team", path: "/admin/users", icon: Users, permission: "manage:users", roles: ["ORG_ADMIN"] },
-  { label: "Organizations", path: "/admin/organizations", icon: Building2, roles: ["ADMIN"] },
-  { label: "Reviews", path: "/admin/reviews", icon: MessageSquare, roles: ["ADMIN"] },
-  { label: "Backup & Restore", path: "/admin/backup", icon: DatabaseBackup, roles: ["ADMIN"] },
+const SALES_CHANNEL_ENTRIES: NavEntry[] = [
+  { kind: "link", label: "Online store", path: "/", icon: Globe2, allAuthenticated: true },
+  { kind: "link", label: "POS", path: "/pos", icon: ShoppingCart, permission: "use:pos", requireOrgPos: true },
 ];
 
 export interface SidebarUser {
@@ -139,6 +163,11 @@ export function Sidebar({
   const router = useRouter();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -194,10 +223,15 @@ export function Sidebar({
     .join("")
     .toUpperCase() ?? "?";
 
-  function NavLink({ item }: { item: NavItem }) {
-    const isActive =
+  function isItemActive(item: NavItem) {
+    return (
       pathname === item.path ||
-      (item.path !== "/" && pathname.startsWith(item.path + "/"));
+      (item.path !== "/" && pathname.startsWith(item.path + "/"))
+    );
+  }
+
+  function NavLink({ item, indent = false }: { item: NavItem; indent?: boolean }) {
+    const isActive = isItemActive(item);
     return (
       <Link
         href={item.path}
@@ -208,6 +242,7 @@ export function Sidebar({
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             collapsed && "md:justify-center md:gap-0 md:px-2",
+            indent && !collapsed && "pl-9",
             isActive
               ? "bg-sidebar-primary text-sidebar-primary-foreground"
               : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -218,6 +253,83 @@ export function Sidebar({
           {isActive && !collapsed && <ChevronRight className="ml-auto h-3 w-3 shrink-0" />}
         </span>
       </Link>
+    );
+  }
+
+  function NavGroup({ entry }: { entry: Extract<NavEntry, { kind: "group" }> }) {
+    const children = entry.children.filter(canAccess);
+    if (children.length === 0) return null;
+    const hasActiveChild = children.some(isItemActive);
+    const isOpen = openGroups[entry.label] ?? hasActiveChild;
+    const primaryPath = children[0].path;
+    const submenuChildren = children.slice(1);
+
+    if (collapsed) {
+      return (
+        <>
+          {children.map((item) => (
+            <NavLink key={`${item.path}-${item.label}`} item={item} />
+          ))}
+        </>
+      );
+    }
+
+    return (
+      <div>
+        <div
+          className={cn(
+            "flex items-center rounded-lg text-sm font-medium transition-colors",
+            hasActiveChild
+              ? "bg-sidebar-primary text-sidebar-primary-foreground"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <Link
+            href={primaryPath}
+            onClick={() => {
+              setOpenGroups((prev) => ({ ...prev, [entry.label]: true }));
+              onNavigate?.();
+            }}
+            className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2"
+          >
+            <entry.icon className="h-4 w-4 shrink-0" />
+            <span className="truncate">{entry.label}</span>
+          </Link>
+          {submenuChildren.length > 0 && (
+            <button
+              type="button"
+              onClick={() => toggleGroup(entry.label)}
+              aria-label={isOpen ? `Collapse ${entry.label}` : `Expand ${entry.label}`}
+              className="flex shrink-0 items-center px-3 py-2"
+            >
+              <ChevronDown
+                className={cn("h-3.5 w-3.5 shrink-0 transition-transform", !isOpen && "-rotate-90")}
+              />
+            </button>
+          )}
+        </div>
+        {isOpen && submenuChildren.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {submenuChildren.map((item) => (
+              <NavLink key={`${item.path}-${item.label}`} item={item} indent />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function NavEntries({ entries }: { entries: NavEntry[] }) {
+    return (
+      <>
+        {entries.map((entry) =>
+          entry.kind === "group" ? (
+            <NavGroup key={entry.label} entry={entry} />
+          ) : canAccess(entry) ? (
+            <NavLink key={`${entry.path}-${entry.label}`} item={entry} />
+          ) : null
+        )}
+      </>
     );
   }
 
@@ -266,12 +378,12 @@ export function Sidebar({
           >
             Main
           </p>
-          {NAV_ITEMS.filter(canAccess).map((item) => (
-            <NavLink key={`${item.path}-${item.label}`} item={item} />
-          ))}
+          <NavEntries entries={NAV_ENTRIES} />
         </nav>
 
-        {ADMIN_ITEMS.some(canAccess) && (
+        {SALES_CHANNEL_ENTRIES.some((entry) =>
+          entry.kind === "group" ? entry.children.some(canAccess) : canAccess(entry)
+        ) && (
           <nav className="mt-6 space-y-1">
             <p
               className={cn(
@@ -279,13 +391,12 @@ export function Sidebar({
                 collapsed && "md:sr-only"
               )}
             >
-              Admin
+              Sales Channel
             </p>
-            {ADMIN_ITEMS.filter(canAccess).map((item) => (
-              <NavLink key={`${item.path}-${item.label}`} item={item} />
-            ))}
+            <NavEntries entries={SALES_CHANNEL_ENTRIES} />
           </nav>
         )}
+
       </ScrollArea>
 
       <div className="border-t border-sidebar-border p-3">
