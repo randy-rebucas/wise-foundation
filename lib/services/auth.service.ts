@@ -41,7 +41,7 @@ export async function verifyCredentials(
   const audience: LoginAudience = opts?.audience ?? "staff";
 
   const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null, isActive: true })
-    .select("+password +failedLoginAttempts +lockedUntil totpEnabled")
+    .select("+password +failedLoginAttempts +lockedUntil")
     .lean();
 
   if (!user) return null;

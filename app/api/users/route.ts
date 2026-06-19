@@ -1,6 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getUsers, createUser } from "@/lib/services/user.service";
+import { getUsers, createUser, bulkDeleteUsers } from "@/lib/services/user.service";
 import { createUserSchema } from "@/lib/validations/user.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
@@ -54,5 +54,34 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
+const deleteHandler = async (req: AuthedRequest) => {
+  try {
+    const body = await req.json();
+    const ids = Array.isArray(body?.ids) ? body.ids.filter((id: unknown) => typeof id === "string") : [];
+    if (ids.length === 0) {
+      return errorResponse("No user IDs provided");
+    }
+
+    const organizationId =
+      req.user.role === "ORG_ADMIN" ? (req.user.organizationId ?? undefined) : undefined;
+
+    const { deletedIds, failures } = await bulkDeleteUsers(
+      ids,
+      req.user.id,
+      { id: req.user.id, name: req.user.name },
+      organizationId
+    );
+
+    return successResponse(
+      { deletedIds, failures },
+      `${deletedIds.length} user${deletedIds.length === 1 ? "" : "s"} removed${failures.length ? `, ${failures.length} failed` : ""}`
+    );
+  } catch (error) {
+    if (error instanceof Error) return errorResponse(error.message);
+    return serverErrorResponse();
+  }
+};
+
 export const GET = withStaffAuth(withPermission("manage:users")(getHandler));
 export const POST = withStaffAuth(withPermission("manage:users")(postHandler));
+export const DELETE = withStaffAuth(withPermission("manage:users")(deleteHandler));

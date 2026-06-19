@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 
 interface Column<T> {
   key: string;
-  label: string;
+  label: React.ReactNode;
   render?: (row: T) => React.ReactNode;
   className?: string;
 }

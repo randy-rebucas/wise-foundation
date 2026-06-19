@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -147,6 +148,8 @@ export default function UsersPage() {
   const [createForm, setCreateForm] = useState<CreateForm>(defaultCreate);
   const [editForm, setEditForm] = useState<EditForm>(defaultEdit);
   const [formError, setFormError] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -249,6 +252,34 @@ export default function UsersPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await fetch("/api/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { deletedIds: string[]; failures: { id: string; reason: string }[] };
+    },
+    onSuccess: (data, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setSelectedIds([]);
+      setBulkDeleteOpen(false);
+      if (data.failures.length > 0) {
+        toast({
+          title: `${data.deletedIds.length} of ${ids.length} users removed`,
+          description: data.failures.map((f) => f.reason).join(", "),
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `${data.deletedIds.length} user${data.deletedIds.length === 1 ? "" : "s"} removed` });
+      }
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const res = await fetch(`/api/users/${id}`, {
@@ -293,7 +324,48 @@ export default function UsersPage() {
   const deleteUser = deleteMutation.mutate;
   const toggleActiveUser = toggleActiveMutation.mutate;
 
+  const isSelectable = useCallback(
+    (u: StaffUser) => u._id !== currentUserId && u.role !== "ADMIN",
+    [currentUserId]
+  );
+
+  const selectableUsers = useMemo(() => users.filter(isSelectable), [users, isSelectable]);
+  const allSelectableSelected =
+    selectableUsers.length > 0 && selectableUsers.every((u) => selectedIds.includes(u._id));
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds((prev) =>
+      allSelectableSelected
+        ? prev.filter((id) => !selectableUsers.some((u) => u._id === id))
+        : Array.from(new Set([...prev, ...selectableUsers.map((u) => u._id)]))
+    );
+  }, [allSelectableSelected, selectableUsers]);
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
   const columns = useMemo(() => [
+    {
+      key: "select",
+      label: (
+        <Checkbox
+          checked={allSelectableSelected}
+          onCheckedChange={toggleSelectAll}
+          disabled={selectableUsers.length === 0}
+          aria-label="Select all users"
+        />
+      ),
+      className: "w-10",
+      render: (u: StaffUser) =>
+        isSelectable(u) ? (
+          <Checkbox
+            checked={selectedIds.includes(u._id)}
+            onCheckedChange={() => toggleSelectOne(u._id)}
+            aria-label={`Select ${u.name}`}
+          />
+        ) : null,
+    },
     {
       key: "user",
       label: "User",
@@ -409,7 +481,18 @@ export default function UsersPage() {
         );
       },
     },
-  ], [currentUserId, deleteUser, toggleActiveUser, openEdit]);
+  ], [
+    currentUserId,
+    deleteUser,
+    toggleActiveUser,
+    openEdit,
+    allSelectableSelected,
+    selectableUsers,
+    selectedIds,
+    isSelectable,
+    toggleSelectAll,
+    toggleSelectOne,
+  ]);
 
   return (
     <div className="flex flex-col">
@@ -459,10 +542,32 @@ export default function UsersPage() {
           </RoleGuard>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          {usersTotal === 1 ? "1 user" : `${usersTotal} users`}
-          {usersTotal > users.length ? ` — showing ${users.length} on this page` : null}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {usersTotal === 1 ? "1 user" : `${usersTotal} users`}
+            {usersTotal > users.length ? ` — showing ${users.length} on this page` : null}
+          </p>
+          {selectedIds.length > 0 && (
+            <RoleGuard requiredPermissions={["manage:users"]}>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.length} selected
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setSelectedIds([])}>
+                  Clear
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove selected
+                </Button>
+              </div>
+            </RoleGuard>
+          )}
+        </div>
 
         <DataTable
           columns={columns}
@@ -716,6 +821,31 @@ export default function UsersPage() {
             >
               {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirm Dialog */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove {selectedIds.length} user{selectedIds.length === 1 ? "" : "s"}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will deactivate and remove the selected accounts. This action cannot be undone from this screen.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => bulkDeleteMutation.mutate(selectedIds)}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Remove
             </Button>
           </DialogFooter>
         </DialogContent>

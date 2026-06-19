@@ -166,6 +166,35 @@ export async function deleteUser(userId: string, requesterId: string, actor?: Au
   return result;
 }
 
+/** Delete multiple users, skipping any that fail (self, admin, not found, out of scope). */
+export async function bulkDeleteUsers(
+  userIds: string[],
+  requesterId: string,
+  actor?: AuditActor,
+  scopeOrganizationId?: string
+) {
+  const deletedIds: string[] = [];
+  const failures: { id: string; reason: string }[] = [];
+
+  for (const userId of userIds) {
+    try {
+      if (scopeOrganizationId) {
+        const target = await User.findOne({ _id: userId, deletedAt: null }).lean();
+        if (!target || userOrganizationIdString(target) !== scopeOrganizationId) {
+          failures.push({ id: userId, reason: "User not found" });
+          continue;
+        }
+      }
+      await deleteUser(userId, requesterId, actor);
+      deletedIds.push(userId);
+    } catch (err) {
+      failures.push({ id: userId, reason: err instanceof Error ? err.message : "Failed to delete" });
+    }
+  }
+
+  return { deletedIds, failures };
+}
+
 /** Permanently lock or unlock a user account. */
 export async function setUserLock(userId: string, lock: boolean, actor?: AuditActor) {
   await connectDB();
