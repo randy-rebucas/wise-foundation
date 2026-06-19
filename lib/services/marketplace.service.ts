@@ -1121,7 +1121,7 @@ export async function listPublicMarketplaceReviews(
           rating: "$marketplace.reviews.rating",
           text: "$marketplace.reviews.text",
           createdAt: "$marketplace.reviews.createdAt",
-          reviewerName: { $arrayElemAt: [{ $split: ["$name", " "] }, 0] },
+          reviewerName: "$name",
           images: { $ifNull: ["$marketplace.reviews.images", []] },
           featured: { $ifNull: ["$marketplace.reviews.featured", false] },
         },
@@ -1178,7 +1178,7 @@ export async function getPublicReviewById(
     rating: r.rating,
     text: r.text,
     createdAt: r.createdAt,
-    reviewerName: user.name?.split(" ")[0] ?? "Customer",
+    reviewerName: user.name ?? "Customer",
     images: r.images ?? [],
     featured: r.featured ?? false,
   };
