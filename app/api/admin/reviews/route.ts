@@ -206,3 +206,41 @@ const createHandler = async (req: AuthedRequest) => {
 };
 
 export const POST = withStaffAuth(withPermission("manage:users")(createHandler));
+
+// DELETE /api/admin/reviews — bulk delete reviews by {userId, reviewId} pairs
+const deleteHandler = async (req: AuthedRequest) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
+  try {
+    const body = await req.json();
+    const items = body?.items as { userId: string; reviewId: string }[] | undefined;
+    if (!Array.isArray(items) || items.length === 0) {
+      return errorResponse("No reviews specified", 400);
+    }
+
+    const reviewIdsByUser = new Map<string, string[]>();
+    for (const item of items) {
+      if (!item?.userId || !item?.reviewId) continue;
+      const list = reviewIdsByUser.get(item.userId) ?? [];
+      list.push(item.reviewId);
+      reviewIdsByUser.set(item.userId, list);
+    }
+    if (reviewIdsByUser.size === 0) return errorResponse("No valid reviews specified", 400);
+
+    await connectDB();
+
+    const bulkOps = Array.from(reviewIdsByUser.entries()).map(([userId, reviewIds]) => ({
+      updateOne: {
+        filter: { _id: userId },
+        update: { $pull: { "marketplace.reviews": { id: { $in: reviewIds } } } } as Record<string, unknown>,
+      },
+    }));
+
+    const result = await User.bulkWrite(bulkOps);
+    return successResponse({ deleted: result.modifiedCount });
+  } catch (err) {
+    console.error("[admin/reviews] DELETE error", err);
+    return serverErrorResponse();
+  }
+};
+
+export const DELETE = withStaffAuth(withPermission("manage:users")(deleteHandler));

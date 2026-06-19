@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Star, AlertTriangle, TrendingUp, MessageSquare, Shuffle, Loader2, ImageIcon, Sparkles, Plus, X } from "lucide-react";
+import { Search, Star, AlertTriangle, TrendingUp, MessageSquare, Shuffle, Loader2, ImageIcon, Sparkles, Plus, X, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownEditor } from "@/components/shared/MarkdownEditor";
 import { MediaPickerDialog } from "@/components/media/MediaPickerDialog";
@@ -101,6 +101,8 @@ export default function AdminReviewsPage() {
   const [productSearchLoading, setProductSearchLoading] = useState(false);
   const [createMediaOpen, setCreateMediaOpen] = useState(false);
   const [featureMediaOpen, setFeatureMediaOpen] = useState(false);
+  const [selected, setSelected] = useState<Record<string, { userId: string; reviewId: string }>>({});
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const selectedFilter = FILTER_OPTIONS.find((f) => f.value === filter)!;
 
@@ -164,6 +166,53 @@ export default function AdminReviewsPage() {
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (items: { userId: string; reviewId: string }[]) => {
+      const res = await fetch("/api/admin/reviews", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "Failed to delete reviews");
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-reviews"] });
+      setSelected({});
+      setConfirmDeleteOpen(false);
+      toast({ title: "Reviews deleted" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  function toggleSelected(r: AdminReview) {
+    setSelected((s) => {
+      const next = { ...s };
+      if (next[r.id]) delete next[r.id];
+      else next[r.id] = { userId: r.userId, reviewId: r.id };
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((s) => {
+      const allSelected = reviews.length > 0 && reviews.every((r) => s[r.id]);
+      if (allSelected) {
+        const next = { ...s };
+        for (const r of reviews) delete next[r.id];
+        return next;
+      }
+      const next = { ...s };
+      for (const r of reviews) next[r.id] = { userId: r.userId, reviewId: r.id };
+      return next;
+    });
+  }
+
+  function confirmBulkDelete() {
+    deleteMutation.mutate(Object.values(selected));
+  }
 
   async function searchProducts(q: string) {
     if (!q.trim()) { setProductResults([]); return; }
@@ -232,7 +281,21 @@ export default function AdminReviewsPage() {
     });
   }
 
+  const allSelectedOnPage = reviews.length > 0 && reviews.every((r) => selected[r.id]);
+
   const columns = [
+    {
+      key: "select",
+      label: "",
+      className: "w-10",
+      render: (r: AdminReview) => (
+        <Checkbox
+          checked={!!selected[r.id]}
+          onCheckedChange={() => toggleSelected(r)}
+          aria-label="Select review"
+        />
+      ),
+    },
     {
       key: "rating",
       label: "Rating",
@@ -451,10 +514,31 @@ export default function AdminReviewsPage() {
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          {meta?.total === 1 ? "1 review" : `${meta?.total ?? 0} reviews`}
-          {filter !== "all" && ` matching "${selectedFilter.label.toLowerCase()}" filter`}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {meta?.total === 1 ? "1 review" : `${meta?.total ?? 0} reviews`}
+            {filter !== "all" && ` matching "${selectedFilter.label.toLowerCase()}" filter`}
+          </p>
+          <div className="flex items-center gap-3">
+            {reviews.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <Checkbox checked={allSelectedOnPage} onCheckedChange={toggleSelectAll} />
+                Select all on page
+              </label>
+            )}
+            {Object.keys(selected).length > 0 && (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-2"
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete {Object.keys(selected).length} selected
+              </Button>
+            )}
+          </div>
+        </div>
 
         <DataTable
           columns={columns}
@@ -498,6 +582,31 @@ export default function AdminReviewsPage() {
           </div>
         )}
       </div>
+
+      {/* Bulk delete confirm dialog */}
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete {Object.keys(selected).length} review(s)?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This permanently removes the selected reviews. This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmBulkDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Feature dialog */}
       <Dialog
