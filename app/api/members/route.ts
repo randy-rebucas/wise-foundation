@@ -85,5 +85,7 @@ const postHandler = async (req: AuthedRequest) => {
   }
 };
 
-export const GET = withStaffAuth(withPermission("manage:members")(getHandler));
+export const GET = withStaffAuth(
+  withPermission("manage:members", { allowRoles: ["ORG_ADMIN"] })(getHandler)
+);
 export const POST = withStaffAuth(withPermission("manage:members")(postHandler));
