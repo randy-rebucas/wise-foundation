@@ -36,6 +36,7 @@ import {
   Trash2,
   Truck,
   Loader2,
+  Wrench,
 } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { ORDER_PAID_STATUSES } from "@/types";
@@ -124,6 +125,16 @@ const defaultB2BForm: B2BForm = {
   items: [{ productId: "", productName: "", sku: "", quantity: 1, unitPrice: 0 }],
 };
 
+const ALL_STATUSES = [
+  "pending",
+  "approved",
+  "paid",
+  "delivered",
+  "completed",
+  "cancelled",
+  "refunded",
+] as const;
+
 const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destructive" | "warning"> = {
   pending: "warning",
   approved: "default",
@@ -182,6 +193,9 @@ export default function OrdersPage() {
   const [deliveryReceivedBy, setDeliveryReceivedBy] = useState("");
   const [deliveryError, setDeliveryError] = useState("");
   const [b2bSuggestRow, setB2bSuggestRow] = useState<number | null>(null);
+  const [forceStatusOrder, setForceStatusOrder] = useState<Order | null>(null);
+  const [forceStatusValue, setForceStatusValue] = useState<string>("");
+  const [forceStatusError, setForceStatusError] = useState("");
 
   const b2bSuggestQuery =
     b2bSuggestRow !== null ? (b2bForm.items[b2bSuggestRow]?.productName ?? "").trim() : "";
@@ -242,16 +256,19 @@ export default function OrdersPage() {
       id,
       status,
       delivery,
+      force,
     }: {
       id: string;
       status: string;
       delivery?: { deliveryReceiptNumber: string; receivedByName?: string };
+      force?: boolean;
     }) => {
       const body: Record<string, unknown> = { status };
       if (delivery) {
         body.deliveryReceiptNumber = delivery.deliveryReceiptNumber;
         if (delivery.receivedByName) body.receivedByName = delivery.receivedByName;
       }
+      if (force) body.force = true;
       const res = await fetch(`/api/orders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -263,6 +280,7 @@ export default function OrdersPage() {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       const label =
+        vars.force ? "Order status updated" :
         vars.status === "approved" ? "Order approved" :
         vars.status === "paid" ? "Order marked as paid" :
         vars.status === "delivered" ? "Delivery recorded" :
@@ -299,6 +317,23 @@ export default function OrdersPage() {
       setDeliveryReceivedBy("");
     } catch (err) {
       setDeliveryError(err instanceof Error ? err.message : "Could not record delivery.");
+    }
+  }
+
+  async function submitForceStatus(e: FormEvent) {
+    e.preventDefault();
+    setForceStatusError("");
+    if (!forceStatusOrder || !forceStatusValue) return;
+    try {
+      await statusMutation.mutateAsync({
+        id: forceStatusOrder._id,
+        status: forceStatusValue,
+        force: true,
+      });
+      setForceStatusOrder(null);
+      setForceStatusValue("");
+    } catch (err) {
+      setForceStatusError(err instanceof Error ? err.message : "Could not update status.");
     }
   }
 
@@ -531,9 +566,25 @@ export default function OrdersPage() {
       key: "actions",
       label: "",
       render: (o: Order) => (
-        <Button variant="ghost" size="icon" onClick={() => openDetail(o._id)}>
-          <Eye className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="ghost" size="icon" onClick={() => openDetail(o._id)}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          {userRole === "ADMIN" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Force status update (admin override)"
+              onClick={() => {
+                setForceStatusOrder(o);
+                setForceStatusValue(o.status);
+                setForceStatusError("");
+              }}
+            >
+              <Wrench className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -826,6 +877,66 @@ export default function OrdersPage() {
               </Button>
               <Button type="submit" disabled={statusMutation.isPending}>
                 {statusMutation.isPending ? "Saving…" : "Mark delivered"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Force Status Dialog (admin override) */}
+      <Dialog
+        open={forceStatusOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setForceStatusOrder(null);
+            setForceStatusError("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              Force status update
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitForceStatus} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Admin override — sets the status directly, bypassing the normal order flow.
+              Use this to fix orders left in the wrong state from testing.
+            </p>
+            {forceStatusOrder && (
+              <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                <span>
+                  Order <span className="font-mono font-medium">{forceStatusOrder.orderNumber}</span> is currently
+                </span>
+                <Badge variant={STATUS_BADGE[forceStatusOrder.status] ?? "secondary"}>{forceStatusOrder.status}</Badge>
+              </div>
+            )}
+            <div className="space-y-1">
+              <Label htmlFor="force-status">New status</Label>
+              <Select value={forceStatusValue} onValueChange={setForceStatusValue}>
+                <SelectTrigger id="force-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {forceStatusError && <p className="text-sm text-destructive">{forceStatusError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setForceStatusOrder(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={statusMutation.isPending || !forceStatusValue}
+              >
+                {statusMutation.isPending ? "Saving…" : "Force update"}
               </Button>
             </DialogFooter>
           </form>

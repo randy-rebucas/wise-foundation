@@ -89,6 +89,12 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       { label: "Orders", path: "/orders", icon: ClipboardList, permission: "manage:orders" },
       {
+        label: "Abandoned Checkouts",
+        path: "/abandoned-checkouts",
+        icon: ShoppingCart,
+        permission: "manage:orders",
+      },
+      {
         label: "Deliveries",
         path: "/deliveries",
         icon: Truck,

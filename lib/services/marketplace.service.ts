@@ -16,6 +16,7 @@ import { User } from "@/lib/db/models/User";
 import { MarketplaceContactMessage } from "@/lib/db/models/MarketplaceContactMessage";
 import { generateOrderNumber } from "@/lib/utils";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
+import { markAbandonedCheckoutRecovered } from "@/lib/services/abandonedCheckout.service";
 import type { ProductCategory } from "@/types";
 import {
   buildMarketplaceProductFilter,
@@ -1036,6 +1037,12 @@ export async function placeMarketplaceOrder(
       } catch {
         /* ignore duplicate save */
       }
+    }
+
+    try {
+      await markAbandonedCheckoutRecovered(input.shipping.email, order._id.toString());
+    } catch {
+      /* best-effort; never block order placement */
     }
 
     return {

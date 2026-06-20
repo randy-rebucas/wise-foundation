@@ -164,16 +164,24 @@ export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
   userId: string,
-  delivery?: OrderDeliveryPayload
+  delivery?: OrderDeliveryPayload,
+  opts?: { force?: boolean }
 ) {
   await connectDB();
 
   const order = await Order.findOne({ _id: orderId, deletedAt: null });
   if (!order) return null;
 
-  const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? [];
-  if (!allowed.includes(newStatus)) {
-    throw new Error(`Cannot transition from "${order.status}" to "${newStatus}"`);
+  // `force` is an admin-only escape hatch for correcting orders created during
+  // testing that got stuck in a terminal status (completed/cancelled/refunded)
+  // with no valid forward transition. It skips the transition graph but still
+  // goes through the same field updates below (no stock/transaction side effects
+  // are re-applied, since those already ran on the original transition).
+  if (!opts?.force) {
+    const allowed = VALID_TRANSITIONS[order.status as OrderStatus] ?? [];
+    if (!allowed.includes(newStatus)) {
+      throw new Error(`Cannot transition from "${order.status}" to "${newStatus}"`);
+    }
   }
 
   if (newStatus === "delivered") {

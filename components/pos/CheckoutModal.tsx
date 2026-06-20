@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { resolveAppLogoSrc } from "@/lib/constants/branding";
+import { formatCurrencyForPdf } from "@/lib/utils";
 import { useCartStore } from "@/store/cartStore";
 import {
   Dialog,
@@ -64,6 +65,9 @@ function printReceipt(
 ) {
   const w = window.open("", "_blank", "width=400,height=600");
   if (!w) return;
+  // Use a symbol-free money format (e.g. "PHP 1,100.00") — many thermal
+  // receipt printers' built-in fonts can't render the peso glyph and either
+  // drop it or print a garbled box, which then clips the rest of the line.
   const fmt = print.formatMoney;
   const safeFooter = print.receiptFooter
     .replace(/&/g, "&amp;")
@@ -73,7 +77,7 @@ function printReceipt(
   const lines = items
     .map(
       (i) =>
-        `<tr><td>${i.name}<br/><small>${i.sku}</small></td><td style="text-align:right">${i.quantity}</td><td style="text-align:right">${fmt(i.price * i.quantity)}</td></tr>`
+        `<tr><td class="item">${i.name}<br/><small>${i.sku}</small></td><td class="qty">${i.quantity}</td><td class="amt">${fmt(i.price * i.quantity)}</td></tr>`
     )
     .join("");
   const footerBlock = print.receiptFooter.trim()
@@ -81,15 +85,20 @@ function printReceipt(
     : `<p style="margin-top:12px">Thank you for your purchase!</p>`;
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
   <style>
-    body{font-family:monospace;font-size:13px;width:320px;margin:0 auto;padding:16px}
+    @page{size:80mm auto;margin:0}
+    *{box-sizing:border-box}
+    body{font-family:monospace;font-size:13px;width:100%;max-width:300px;margin:0 auto;padding:12px}
     .logo{display:block;margin:0 auto 8px;max-height:88px;width:auto}
-    h2{text-align:center;margin:0 0 4px}
-    p{text-align:center;margin:2px 0;font-size:11px}
-    table{width:100%;border-collapse:collapse;margin:8px 0}
-    td{padding:3px 0;vertical-align:top}
+    h2{text-align:center;margin:0 0 4px;font-size:16px}
+    p{text-align:center;margin:2px 0;font-size:11px;word-break:break-word}
+    table{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0}
+    th,td{padding:3px 0;vertical-align:top;word-break:break-word;overflow-wrap:break-word}
+    .item{width:54%;text-align:left}
+    .qty{width:14%;text-align:right}
+    .amt{width:32%;text-align:right;white-space:nowrap}
     hr{border:none;border-top:1px dashed #999;margin:8px 0}
-    .total{font-weight:bold;font-size:15px}
-    .change{color:#16a34a;font-weight:bold}
+    .total td{font-weight:bold;font-size:15px}
+    .change td{color:#16a34a;font-weight:bold}
     @media print{button{display:none}}
   </style></head><body>
   <img class="logo" src="${print.logoSrc.startsWith("http") ? print.logoSrc : `${typeof window !== "undefined" ? window.location.origin : ""}${print.logoSrc}`}" alt="" />
@@ -98,29 +107,30 @@ function printReceipt(
   <p>Order: <strong>${result.orderNumber}</strong></p>
   ${memberName ? `<p>Member: ${memberName} (${discountPercent}% off)</p>` : ""}
   <hr/>
-  <table><thead><tr><th style="text-align:left">Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+  <table><colgroup><col class="item"/><col class="qty"/><col class="amt"/></colgroup>
+  <thead><tr><th class="item">Item</th><th class="qty">Qty</th><th class="amt">Amount</th></tr></thead>
   <tbody>${lines}</tbody></table>
   <hr/>
-  <table>
-    <tr><td>Subtotal</td><td style="text-align:right">${fmt(result.subtotal)}</td></tr>
-    ${result.discountAmount > 0 ? `<tr><td>Discount</td><td style="text-align:right">-${fmt(result.discountAmount)}</td></tr>` : ""}
-    <tr class="total"><td>Total</td><td style="text-align:right">${fmt(result.total)}</td></tr>
-    ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td style="text-align:right">${fmt(result.change)}</td></tr>` : ""}
+  <table><colgroup><col style="width:68%"/><col class="amt"/></colgroup>
+    <tr><td>Subtotal</td><td class="amt">${fmt(result.subtotal)}</td></tr>
+    ${result.discountAmount > 0 ? `<tr><td>Discount</td><td class="amt">-${fmt(result.discountAmount)}</td></tr>` : ""}
+    <tr class="total"><td>Total</td><td class="amt">${fmt(result.total)}</td></tr>
+    ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td class="amt">${fmt(result.change)}</td></tr>` : ""}
   </table>
   <hr/>
   <p>Payment: ${result.paymentMethod.toUpperCase()}</p>
   ${footerBlock}
   <br/><button onclick="window.print()">Print</button>
+  <script>window.onload=function(){window.print();};</script>
   </body></html>`);
   w.document.close();
   w.focus();
-  w.print();
 }
 
 export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   const formatMoney = useFormatCurrency();
   const formatWhen = useFormatDateTime();
-  const { appName, appLogoUrl, receiptFooter } = useTenant();
+  const { appName, appLogoUrl, receiptFooter, currency } = useTenant();
   const logoSrc = resolveAppLogoSrc(appLogoUrl);
   const { items, memberId, memberName, discountPercent, getSubtotal, getDiscount, getTotal, clearCart } =
     useCartStore();
@@ -174,6 +184,13 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
         };
         clearCart();
         setCompleted(snapshot);
+        printReceipt(snapshot.order, snapshot.items, snapshot.memberName, snapshot.discountPercent, {
+          storeTitle: appName,
+          formatMoney: (n) => formatCurrencyForPdf(n, currency),
+          whenLabel: formatWhen(new Date()),
+          receiptFooter,
+          logoSrc,
+        });
       } else {
         setError(`Checkout failed (${res.status})`);
       }
@@ -224,7 +241,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
                 onClick={() =>
                   printReceipt(order, receiptItems, receiptMemberName, receiptDiscount, {
                     storeTitle: appName,
-                    formatMoney,
+                    formatMoney: (n) => formatCurrencyForPdf(n, currency),
                     whenLabel: formatWhen(new Date()),
                     receiptFooter,
                     logoSrc,

@@ -62,7 +62,11 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
           }
         : undefined;
 
-    const order = await updateOrderStatus(id, body.status, req.user.id, delivery);
+    // Forcing a status past the normal pending->approved->paid->... flow (e.g. to
+    // fix an order left in a terminal state from testing) is an admin-only override.
+    const force = body.force === true && req.user.role === "ADMIN";
+
+    const order = await updateOrderStatus(id, body.status, req.user.id, delivery, { force });
     if (!order) return notFoundResponse("Order not found");
     return successResponse(order, "Order updated");
   } catch (error) {

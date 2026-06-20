@@ -461,6 +461,52 @@ export default function MarketplaceCheckoutPage() {
     subtotal,
   ]);
 
+  useEffect(() => {
+    const email = form.email.trim();
+    if (items.length === 0 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+
+    const timer = setTimeout(() => {
+      void fetch("/api/marketplace/abandoned-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          fullName: form.fullName.trim() || undefined,
+          phone: form.phone.trim() || undefined,
+          items: items.map((i) => ({
+            productId: i.productId,
+            variantId: i.variantId,
+            name: i.name,
+            variantName: i.variantName,
+            sku: i.sku,
+            image: i.image,
+            price: i.price,
+            quantity: i.quantity,
+          })),
+          subtotal,
+          discountAmount,
+          shippingCost,
+          total,
+          paymentMethod: form.paymentMethod,
+        }),
+      }).catch(() => {
+        /* best-effort capture, ignore failures */
+      });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [
+    items,
+    form.email,
+    form.fullName,
+    form.phone,
+    form.paymentMethod,
+    subtotal,
+    discountAmount,
+    shippingCost,
+    total,
+  ]);
+
   const isRemote = (url: string) => /^https?:\/\//i.test(url);
 
   function buildPaymongoQuotePayload(): PaymongoCheckoutPayload {
