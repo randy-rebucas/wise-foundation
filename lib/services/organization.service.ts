@@ -172,6 +172,50 @@ export async function updateOrganization(
   return result;
 }
 
+/** Generates a new temp password for the org's ORG_ADMIN user, creating one (using the org's email) if none exists yet. */
+export async function resetOrgAdminPassword(organizationId: string) {
+  await connectDB();
+
+  const organization = await Organization.findOne({ _id: organizationId, deletedAt: null }).lean();
+  if (!organization) throw new Error("Organization not found");
+
+  const tempPassword = generateTempPassword();
+  const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
+  const existingAdmin = await User.findOne({
+    organizationId,
+    role: "ORG_ADMIN",
+    deletedAt: null,
+  });
+
+  if (existingAdmin) {
+    existingAdmin.password = hashedPassword;
+    await existingAdmin.save();
+    return { email: existingAdmin.email, tempPassword };
+  }
+
+  if (!organization.email) {
+    throw new Error("Organization has no email on file — add one before creating an admin account");
+  }
+
+  const conflictingUser = await User.findOne({ email: organization.email.toLowerCase() }).lean();
+  if (conflictingUser) throw new Error("Organization email is already registered to a user");
+
+  const permissions = await getRolePermissions("ORG_ADMIN");
+  const user = await User.create({
+    name: organization.contactPerson || organization.name,
+    email: organization.email.toLowerCase(),
+    password: hashedPassword,
+    role: "ORG_ADMIN",
+    permissions,
+    organizationId: organization._id,
+    phone: organization.phone,
+    isActive: true,
+  });
+
+  return { email: user.email, tempPassword };
+}
+
 export async function deleteOrganization(id: string) {
   await connectDB();
   invalidateOrgCapabilitiesCache(id);

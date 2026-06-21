@@ -30,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
@@ -205,6 +205,20 @@ export default function OrganizationsPage() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/organizations/${id}/reset-password`, { method: "POST" });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.data as { email: string; tempPassword: string };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      setTempPasswordInfo({ email: data.email, password: data.tempPassword });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   const setParentMutation = useMutation({
     mutationFn: async ({ childId, parentId }: { childId: string; parentId: string }) => {
       const res = await fetch(`/api/organizations/${childId}`, {
@@ -335,6 +349,10 @@ export default function OrganizationsPage() {
               <DropdownMenuItem onClick={() => openEdit(org)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => resetPasswordMutation.mutate(org._id)}>
+                <KeyRound className="h-4 w-4 mr-2" />
+                Reset Admin Password
               </DropdownMenuItem>
               {hqOrg && org.type !== "headquarters" && org.parentOrganizationId?._id !== hqOrg._id && (
                 <DropdownMenuItem
