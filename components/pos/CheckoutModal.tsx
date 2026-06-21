@@ -65,10 +65,10 @@ function printReceipt(
 ) {
   const w = window.open("", "_blank", "width=400,height=600");
   if (!w) return;
-  // Use a symbol-free money format (e.g. "PHP 1,100.00") — many thermal
-  // receipt printers' built-in fonts can't render the peso glyph and either
-  // drop it or print a garbled box, which then clips the rest of the line.
-  const fmt = print.formatMoney;
+  // Plain numeric format (e.g. "1,100.00") with no currency code — many
+  // thermal receipt printers' built-in fonts can't render currency glyphs
+  // and either drop them or print a garbled box, clipping the rest of the line.
+  const fmt = (n: number) => print.formatMoney(n).replace(/^[^\d.,-]+\s*/, "");
   const safeFooter = print.receiptFooter
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -77,7 +77,7 @@ function printReceipt(
   const lines = items
     .map(
       (i) =>
-        `<tr><td class="item">${i.name}<br/><small>${i.sku}</small></td><td class="qty">${i.quantity}</td><td class="amt">${fmt(i.price * i.quantity)}</td></tr>`
+        `<tr><td class="item">${i.name}<br/><small>${i.sku}</small></td><td class="srp">${fmt(i.price)}</td><td class="qty">${i.quantity}</td><td class="amt">${fmt(i.price * i.quantity)}</td></tr>`
     )
     .join("");
   const footerBlock = print.receiptFooter.trim()
@@ -93,9 +93,10 @@ function printReceipt(
     p{text-align:center;margin:2px 0;font-size:11px;word-break:break-word}
     table{width:100%;table-layout:fixed;border-collapse:collapse;margin:8px 0}
     th,td{padding:3px 0;vertical-align:top;word-break:break-word;overflow-wrap:break-word}
-    .item{width:54%;text-align:left}
-    .qty{width:14%;text-align:right}
-    .amt{width:32%;text-align:right;white-space:nowrap}
+    .item{width:38%;text-align:left}
+    .srp{width:20%;text-align:right;white-space:nowrap}
+    .qty{width:12%;text-align:right}
+    .amt{width:30%;text-align:right;white-space:nowrap}
     hr{border:none;border-top:1px dashed #999;margin:8px 0}
     .total td{font-weight:bold;font-size:15px}
     .change td{color:#16a34a;font-weight:bold}
@@ -107,8 +108,8 @@ function printReceipt(
   <p>Order: <strong>${result.orderNumber}</strong></p>
   ${memberName ? `<p>Member: ${memberName} (${discountPercent}% off)</p>` : ""}
   <hr/>
-  <table><colgroup><col class="item"/><col class="qty"/><col class="amt"/></colgroup>
-  <thead><tr><th class="item">Item</th><th class="qty">Qty</th><th class="amt">Amount</th></tr></thead>
+  <table><colgroup><col class="item"/><col class="srp"/><col class="qty"/><col class="amt"/></colgroup>
+  <thead><tr><th class="item">Item</th><th class="srp">SRP</th><th class="qty">Qty</th><th class="amt">Amount</th></tr></thead>
   <tbody>${lines}</tbody></table>
   <hr/>
   <table><colgroup><col style="width:68%"/><col class="amt"/></colgroup>
