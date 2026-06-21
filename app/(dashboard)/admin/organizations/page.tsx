@@ -126,6 +126,7 @@ export default function OrganizationsPage() {
   const [createForm, setCreateForm] = useState<OrgForm>(defaultForm);
   const [editForm, setEditForm] = useState<OrgForm>(defaultForm);
   const [formError, setFormError] = useState("");
+  const [tempPasswordInfo, setTempPasswordInfo] = useState<{ email: string; password: string } | null>(null);
 
   const { data: organizations = [], isLoading } = useQuery({
     queryKey: ["organizations", typeFilter],
@@ -153,12 +154,15 @@ export default function OrganizationsPage() {
       if (!data.success) throw new Error(data.error);
       return data.data;
     },
-    onSuccess: () => {
+    onSuccess: (data: Organization & { tempPassword?: string | null }) => {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       toast({ title: "Organization created successfully" });
       setCreateOpen(false);
       setCreateForm(defaultForm);
       setFormError("");
+      if (data.tempPassword && data.email) {
+        setTempPasswordInfo({ email: data.email, password: data.tempPassword });
+      }
     },
     onError: (err: Error) => setFormError(err.message),
   });
@@ -459,6 +463,45 @@ export default function OrganizationsPage() {
               )}
               Save Changes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Temp Password Reveal */}
+      <Dialog open={!!tempPasswordInfo} onOpenChange={(open) => !open && setTempPasswordInfo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Org Admin Account Created</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              An ORG_ADMIN account was created for this organization. Share these credentials
+              securely — this password will not be shown again.
+            </p>
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <p className="text-sm font-medium">{tempPasswordInfo?.email}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Temporary Password</Label>
+                <p className="font-mono text-sm font-medium">{tempPasswordInfo?.password}</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (tempPasswordInfo) {
+                  navigator.clipboard.writeText(tempPasswordInfo.password);
+                  toast({ title: "Password copied to clipboard" });
+                }
+              }}
+              variant="outline"
+            >
+              Copy Password
+            </Button>
+            <Button onClick={() => setTempPasswordInfo(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

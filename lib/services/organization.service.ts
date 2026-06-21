@@ -1,10 +1,21 @@
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import { connectDB } from "@/lib/db/connect";
 import { Organization, type OrganizationType, type IOrganizationSettings } from "@/lib/db/models/Organization";
+import { User } from "@/lib/db/models/User";
+import { getRolePermissions } from "@/lib/services/role.service";
 import { TYPE_DEFAULT_SETTINGS } from "@/lib/organization/typeDefaults";
 import { invalidateOrgCapabilitiesCache } from "@/lib/organization/capabilities";
 import type { SessionUser } from "@/types";
 
 export { TYPE_DEFAULT_SETTINGS };
+
+const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+
+function generateTempPassword(length = 12): string {
+  const bytes = randomBytes(length);
+  return Array.from(bytes, (b) => PASSWORD_CHARS[b % PASSWORD_CHARS.length]).join("");
+}
 
 export async function getOrganizations(type?: OrganizationType) {
   await connectDB();
@@ -73,8 +84,36 @@ export async function createOrganization(data: {
     if (existing) throw new Error("A headquarters organization already exists");
   }
 
+  if (data.email) {
+    const existingUser = await User.findOne({ email: data.email.toLowerCase() }).lean();
+    if (existingUser) throw new Error("Email is already registered to a user");
+  }
+
   const settings = { ...TYPE_DEFAULT_SETTINGS[data.type], ...data.settings };
-  return Organization.create({ ...data, settings });
+  const organization = await Organization.create({ ...data, settings });
+
+  if (!data.email) {
+    return { organization, tempPassword: null };
+  }
+
+  try {
+    const tempPassword = generateTempPassword();
+    const permissions = await getRolePermissions("ORG_ADMIN");
+    await User.create({
+      name: data.contactPerson || data.name,
+      email: data.email.toLowerCase(),
+      password: await bcrypt.hash(tempPassword, 12),
+      role: "ORG_ADMIN",
+      permissions,
+      organizationId: organization._id,
+      phone: data.phone,
+      isActive: true,
+    });
+    return { organization, tempPassword };
+  } catch (error) {
+    await Organization.deleteOne({ _id: organization._id });
+    throw error;
+  }
 }
 
 export async function updateOrganization(
