@@ -6,6 +6,7 @@ import { User } from "@/lib/db/models/User";
 import { getRolePermissions } from "@/lib/services/role.service";
 import { TYPE_DEFAULT_SETTINGS } from "@/lib/organization/typeDefaults";
 import { invalidateOrgCapabilitiesCache } from "@/lib/organization/capabilities";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { SessionUser } from "@/types";
 
 export { TYPE_DEFAULT_SETTINGS };
@@ -129,7 +130,8 @@ export async function updateOrganization(
     address: string;
     notes: string;
     isActive: boolean;
-  }>
+  }>,
+  actor?: AuditActor
 ) {
   await connectDB();
 
@@ -168,7 +170,18 @@ export async function updateOrganization(
     { $set: data },
     { new: true }
   ).lean();
-  if (result) invalidateOrgCapabilitiesCache(id);
+  if (result) {
+    invalidateOrgCapabilitiesCache(id);
+    if (actor) {
+      void writeAuditLog({
+        action: "organization.updated",
+        actor,
+        targetId: id,
+        targetType: "Organization",
+        metadata: { fields: Object.keys(data) },
+      });
+    }
+  }
   return result;
 }
 
@@ -216,11 +229,24 @@ export async function resetOrgAdminPassword(organizationId: string) {
   return { email: user.email, tempPassword };
 }
 
-export async function deleteOrganization(id: string) {
+export async function deleteOrganization(id: string, actor?: AuditActor) {
   await connectDB();
+  const organization = await Organization.findOne({ _id: id, deletedAt: null }).lean();
   invalidateOrgCapabilitiesCache(id);
-  return Organization.findOneAndUpdate(
+  const result = await Organization.findOneAndUpdate(
     { _id: id, deletedAt: null },
     { $set: { deletedAt: new Date() } }
   );
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "organization.deleted",
+      actor,
+      targetId: id,
+      targetType: "Organization",
+      metadata: { name: organization?.name },
+    });
+  }
+
+  return result;
 }

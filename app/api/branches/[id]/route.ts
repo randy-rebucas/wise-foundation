@@ -46,7 +46,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       delete data.isHeadOffice;
     }
 
-    const branch = await updateBranch(id, data);
+    const branch = await updateBranch(id, data, { id: req.user.id, name: req.user.name });
     if (!branch) return notFoundResponse("Branch not found");
     return successResponse(branch, "Branch updated");
   } catch (error) {
@@ -61,7 +61,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     await assertBranchAccess(req.user, id);
-    await deleteBranch(id);
+    await deleteBranch(id, { id: req.user.id, name: req.user.name });
     return successResponse(null, "Branch deleted");
   } catch (error) {
     const branchErr = branchAccessErrorResponse(error);

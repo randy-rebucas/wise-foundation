@@ -45,7 +45,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
               (ORG_ADMIN_EDITABLE_FIELDS as readonly string[]).includes(key)
             )
           );
-    const updated = await updateOrganization(id, data);
+    const updated = await updateOrganization(id, data, { id: req.user.id, name: req.user.name });
     if (!updated) return notFoundResponse("Organization not found");
     return successResponse(updated, "Organization updated");
   } catch (error) {
@@ -58,7 +58,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    const deleted = await deleteOrganization(id);
+    const deleted = await deleteOrganization(id, { id: req.user.id, name: req.user.name });
     if (!deleted) return notFoundResponse("Organization not found");
     return successResponse(null, "Organization deleted");
   } catch {

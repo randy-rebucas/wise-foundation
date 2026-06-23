@@ -22,13 +22,16 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const action = body.action as "pay" | "cancel";
 
     if (action === "pay") {
-      const updated = await markCommissionPaid(id, req.user.id, body.notes);
+      const updated = await markCommissionPaid(id, req.user.id, body.notes, {
+        id: req.user.id,
+        name: req.user.name,
+      });
       if (!updated) return notFoundResponse("Commission not found");
       return successResponse(updated, "Commission marked as paid");
     }
 
     if (action === "cancel") {
-      const updated = await cancelCommission(id);
+      const updated = await cancelCommission(id, { id: req.user.id, name: req.user.name });
       if (!updated) return notFoundResponse("Commission not found");
       return successResponse(updated, "Commission cancelled");
     }

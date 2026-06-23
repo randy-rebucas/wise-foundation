@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db/connect";
 import { Branch } from "@/lib/db/models/Branch";
 import { User } from "@/lib/db/models/User";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { Types } from "mongoose";
 
 export async function getBranches(page = 1, limit = 20, organizationId?: string) {
@@ -56,24 +57,48 @@ export async function createBranch(data: CreateBranchData) {
   return Branch.create({ ...data });
 }
 
-export async function updateBranch(branchId: string, data: UpdateBranchData) {
+export async function updateBranch(branchId: string, data: UpdateBranchData, actor?: AuditActor) {
   await connectDB();
-  return Branch.findOneAndUpdate(
+  const result = await Branch.findOneAndUpdate(
     { _id: branchId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "branch.updated",
+      actor,
+      targetId: branchId,
+      targetType: "Branch",
+      metadata: { fields: Object.keys(data) },
+    });
+  }
+
+  return result;
 }
 
-export async function deleteBranch(branchId: string) {
+export async function deleteBranch(branchId: string, actor?: AuditActor) {
   await connectDB();
   const branch = await Branch.findOne({ _id: branchId });
   if (branch?.isHeadOffice) throw new Error("Cannot delete the head office branch");
-  return Branch.findOneAndUpdate(
+  const result = await Branch.findOneAndUpdate(
     { _id: branchId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "branch.deleted",
+      actor,
+      targetId: branchId,
+      targetType: "Branch",
+      metadata: { name: branch?.name },
+    });
+  }
+
+  return result;
 }
 
 export async function getBranchUsers(branchId: string) {

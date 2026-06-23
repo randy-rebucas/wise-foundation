@@ -11,6 +11,12 @@ export type AuditAction =
   | "organization.created"
   | "organization.updated"
   | "organization.deleted"
+  | "branch.updated"
+  | "branch.deleted"
+  | "member.status_changed"
+  | "member.deleted"
+  | "commission.paid"
+  | "commission.cancelled"
   | "db.restored"
   | "db.transferred";
 

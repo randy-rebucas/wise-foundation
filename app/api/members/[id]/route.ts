@@ -28,7 +28,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateMemberSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const member = await updateMember(id, req.user, parsed.data);
+    const member = await updateMember(id, req.user, parsed.data, { id: req.user.id, name: req.user.name });
     if (!member) return notFoundResponse("Member not found");
     return successResponse(member, "Member updated");
   } catch (error) {
@@ -40,7 +40,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    const member = await deleteMember(id, req.user);
+    const member = await deleteMember(id, req.user, { id: req.user.id, name: req.user.name });
     if (!member) return notFoundResponse("Member not found");
     return successResponse(null, "Member removed");
   } catch {

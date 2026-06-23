@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db/connect";
 import { Commission, type CommissionStatus } from "@/lib/db/models/Commission";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
 export async function getCommissions(opts: {
   organizationId?: string;
@@ -30,30 +31,58 @@ export async function getCommissions(opts: {
   return { records, total, pages: Math.ceil(total / limit) };
 }
 
-export async function markCommissionPaid(id: string, userId: string, notes?: string) {
+export async function markCommissionPaid(
+  id: string,
+  userId: string,
+  notes?: string,
+  actor?: AuditActor
+) {
   await connectDB();
   const commission = await Commission.findById(id);
   if (!commission) throw new Error("Commission record not found");
   if (commission.status !== "pending") throw new Error("Only pending commissions can be marked paid");
 
-  return Commission.findByIdAndUpdate(
+  const result = await Commission.findByIdAndUpdate(
     id,
     { $set: { status: "paid", paidAt: new Date(), paidBy: userId, notes: notes ?? commission.notes } },
     { new: true }
   ).lean();
+
+  if (actor) {
+    void writeAuditLog({
+      action: "commission.paid",
+      actor,
+      targetId: id,
+      targetType: "Commission",
+      metadata: { notes },
+    });
+  }
+
+  return result;
 }
 
-export async function cancelCommission(id: string) {
+export async function cancelCommission(id: string, actor?: AuditActor) {
   await connectDB();
   const commission = await Commission.findById(id);
   if (!commission) throw new Error("Commission record not found");
   if (commission.status === "paid") throw new Error("Paid commissions cannot be cancelled");
 
-  return Commission.findByIdAndUpdate(
+  const result = await Commission.findByIdAndUpdate(
     id,
     { $set: { status: "cancelled" } },
     { new: true }
   ).lean();
+
+  if (actor) {
+    void writeAuditLog({
+      action: "commission.cancelled",
+      actor,
+      targetId: id,
+      targetType: "Commission",
+    });
+  }
+
+  return result;
 }
 
 export async function getCommissionSummary(organizationId?: string) {

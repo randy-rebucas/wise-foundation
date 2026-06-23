@@ -2,6 +2,7 @@ import { connectDB } from "@/lib/db/connect";
 import { Branch } from "@/lib/db/models/Branch";
 import { Member } from "@/lib/db/models/Member";
 import { generateMemberId } from "@/lib/utils/generateMemberId";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { CreateMemberInput, UpdateMemberInput } from "@/lib/validations/member.schema";
 import type { SessionUser } from "@/types";
 import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
@@ -111,24 +112,56 @@ export async function createMember(data: CreateMemberInput) {
   return Member.create({ ...data, memberId });
 }
 
-export async function updateMember(memberId: string, user: SessionUser, data: UpdateMemberInput) {
+export async function updateMember(
+  memberId: string,
+  user: SessionUser,
+  data: UpdateMemberInput,
+  actor?: AuditActor
+) {
   await connectDB();
   const existing = await Member.findOne({ _id: memberId, deletedAt: null }).lean();
   if (!existing || !canUserAccessMember(existing, user)) return null;
-  return Member.findOneAndUpdate(
+  const result = await Member.findOneAndUpdate(
     { _id: memberId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "member.status_changed",
+      actor,
+      targetId: memberId,
+      targetType: "Member",
+      metadata:
+        "status" in data
+          ? { fromStatus: existing.status, toStatus: data.status }
+          : { fields: Object.keys(data) },
+    });
+  }
+
+  return result;
 }
 
-export async function deleteMember(memberId: string, user: SessionUser) {
+export async function deleteMember(memberId: string, user: SessionUser, actor?: AuditActor) {
   await connectDB();
   const existing = await Member.findOne({ _id: memberId, deletedAt: null }).lean();
   if (!existing || !canUserAccessMember(existing, user)) return null;
-  return Member.findOneAndUpdate(
+  const result = await Member.findOneAndUpdate(
     { _id: memberId },
     { $set: { deletedAt: new Date(), status: "inactive" } },
     { new: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "member.deleted",
+      actor,
+      targetId: memberId,
+      targetType: "Member",
+      metadata: { name: existing.name },
+    });
+  }
+
+  return result;
 }
