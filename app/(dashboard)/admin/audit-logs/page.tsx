@@ -13,6 +13,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Eye } from "lucide-react";
 import { useFormatDateTime } from "@/components/providers/TenantProvider";
 
 const ACTIONS = [
@@ -52,6 +61,7 @@ export default function AuditLogsPage() {
   const [action, setAction] = useState<string>("all");
   const [performedBy, setPerformedBy] = useState("");
   const [page, setPage] = useState(1);
+  const [detailLog, setDetailLog] = useState<AuditLogRow | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["audit-logs", action, performedBy, page],
@@ -104,6 +114,21 @@ export default function AuditLogsPage() {
           "—"
         ),
     },
+    {
+      key: "view",
+      label: "",
+      render: (r: AuditLogRow) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          title="View full details"
+          aria-label="View full details"
+          onClick={() => setDetailLog(r)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -151,6 +176,52 @@ export default function AuditLogsPage() {
           emptyMessage="No audit log entries found."
         />
       </div>
+
+      <Dialog open={!!detailLog} onOpenChange={(open) => !open && setDetailLog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Audit log entry</DialogTitle>
+            <DialogDescription>Full details for this recorded action.</DialogDescription>
+          </DialogHeader>
+          {detailLog && (
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">When</dt>
+                <dd>{dateTime(detailLog.createdAt)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Action</dt>
+                <dd>
+                  <Badge variant="outline">{detailLog.action}</Badge>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Performed By</dt>
+                <dd className="text-right">
+                  {detailLog.performedByName ?? "—"}
+                  <div className="font-mono text-xs text-muted-foreground">{detailLog.performedBy}</div>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Target Type</dt>
+                <dd>{detailLog.targetType ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Target ID</dt>
+                <dd className="font-mono text-xs">{detailLog.targetId ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground mb-1">Metadata</dt>
+                <dd>
+                  <pre className="rounded-md border bg-muted/50 p-3 text-xs whitespace-pre-wrap break-all">
+                    {detailLog.metadata ? JSON.stringify(detailLog.metadata, null, 2) : "—"}
+                  </pre>
+                </dd>
+              </div>
+            </dl>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
