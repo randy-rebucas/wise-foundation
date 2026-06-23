@@ -1,5 +1,7 @@
 /** Cash on delivery checkout validation. */
 
+import { formatCurrency } from "@/lib/utils";
+
 export interface ResolvedMarketplaceCodPayment {
   amountDue: number;
   prepareChangeFor?: number;
@@ -12,12 +14,14 @@ export function validateCodEntry(params: {
   amountDue: number;
   prepareChangeFor?: number;
   minOrderAmount?: number;
+  currency?: string;
 }): { ok: true; resolved: ResolvedMarketplaceCodPayment } | { ok: false; error: string } {
   const min = params.minOrderAmount ?? 0;
+  const currency = params.currency ?? "PHP";
   if (params.amountDue < min) {
     return {
       ok: false,
-      error: `Cash on delivery requires a minimum order of ₱${min.toLocaleString()}`,
+      error: `Cash on delivery requires a minimum order of ${formatCurrency(min, currency)}`,
     };
   }
 

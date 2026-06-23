@@ -34,6 +34,7 @@ import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2, KeyRound } fr
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { AuditTrail } from "@/components/shared/AuditTrail";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
 
@@ -477,6 +478,11 @@ export default function OrganizationsPage() {
             organizations={organizations}
             editingId={editId}
           />
+          {editId && (
+            <RoleGuard allowedRoles={["ADMIN"]}>
+              <AuditTrail targetId={editId} className="border-t pt-4" />
+            </RoleGuard>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel

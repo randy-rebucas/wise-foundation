@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { buildPageMetadata } from "@/lib/seo/site";
+import { formatCurrency } from "@/lib/utils";
 import {
   MARKETPLACE_FLAT_SHIPPING_FEE,
   MARKETPLACE_FREE_SHIPPING_THRESHOLD,
@@ -21,7 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default function ShippingDeliveryPage() {
+export default async function ShippingDeliveryPage() {
+  const settings = await getPublicAppSettings();
   return (
     <MarketplaceStaticPage
       eyebrow="Help"
@@ -31,10 +33,11 @@ export default function ShippingDeliveryPage() {
       <MarketplaceStaticSection title="Free shipping">
         <p>
           Orders with a merchandise subtotal of{" "}
-          <strong>₱{MARKETPLACE_FREE_SHIPPING_THRESHOLD.toLocaleString()}</strong> or more qualify
-          for free standard shipping where available. Below that threshold, a flat shipping fee may
-          apply (from ₱{MARKETPLACE_FLAT_SHIPPING_FEE} on cart preview; final amount confirmed at
-          checkout).
+          <strong>{formatCurrency(MARKETPLACE_FREE_SHIPPING_THRESHOLD, settings.currency)}</strong>{" "}
+          or more qualify for free standard shipping where available. Below that threshold, a flat
+          shipping fee may apply (from{" "}
+          {formatCurrency(MARKETPLACE_FLAT_SHIPPING_FEE, settings.currency)} on cart preview; final
+          amount confirmed at checkout).
         </p>
       </MarketplaceStaticSection>
 

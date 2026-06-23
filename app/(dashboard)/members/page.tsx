@@ -43,6 +43,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { AuditTrail } from "@/components/shared/AuditTrail";
 import { useTenant, useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 
 type MemberStatus = "active" | "inactive" | "suspended";
@@ -507,6 +508,11 @@ export default function MembersPage() {
                 />
               </div>
             </div>
+            {editId && (
+              <RoleGuard allowedRoles={["ADMIN"]}>
+                <AuditTrail targetId={editId} className="border-t pt-4" />
+              </RoleGuard>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>

@@ -12,6 +12,8 @@ import { LoadingState } from "@/components/shared/LoadingState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ProductForm } from "@/components/products/ProductForm";
 import { ProductVariantsPanel } from "@/components/products/ProductVariantsPanel";
+import { AuditTrail } from "@/components/shared/AuditTrail";
+import { RoleGuard } from "@/components/layout/RoleGuard";
 import { productToFormValues } from "@/lib/products/productForm";
 import type { ProductCategory } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -141,6 +143,14 @@ export default function EditProductPage() {
                   <ProductVariantsPanel productId={id} productName={product.name} />
                 </CardContent>
               </Card>
+
+              <RoleGuard allowedRoles={["ADMIN"]}>
+                <Card>
+                  <CardContent className="pt-6">
+                    <AuditTrail targetId={id} />
+                  </CardContent>
+                </Card>
+              </RoleGuard>
             </>
           )}
         </div>

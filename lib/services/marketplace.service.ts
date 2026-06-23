@@ -14,7 +14,7 @@ import { StockMovement } from "@/lib/db/models/StockMovement";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { User } from "@/lib/db/models/User";
 import { MarketplaceContactMessage } from "@/lib/db/models/MarketplaceContactMessage";
-import { generateOrderNumber } from "@/lib/utils";
+import { generateOrderNumber, formatCurrency } from "@/lib/utils";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import { markAbandonedCheckoutRecovered } from "@/lib/services/abandonedCheckout.service";
 import type { ProductCategory } from "@/types";
@@ -188,7 +188,8 @@ export async function resolveMarketplaceBankTransferPayment(
 
 export async function resolveMarketplaceCodPayment(
   input: MarketplaceCheckoutInput,
-  amountDue: number
+  amountDue: number,
+  currency = "PHP"
 ): Promise<ResolvedMarketplaceCodPayment> {
   if (input.paymentMethod !== "cash") {
     throw new Error("Cash on delivery payment required");
@@ -204,6 +205,7 @@ export async function resolveMarketplaceCodPayment(
     amountDue,
     prepareChangeFor: cp.prepareChangeFor,
     minOrderAmount: MARKETPLACE_COD_MIN_ORDER,
+    currency,
   });
 
   if (!validated.ok) throw new Error(validated.error);
@@ -573,6 +575,8 @@ export async function placeMarketplaceOrder(
 ) {
   await connectDB();
   const customerUserId = opts?.customerUserId ?? null;
+  const appSettings = await AppSettings.findOne().sort({ _id: 1 }).lean();
+  const currency = appSettings?.currency ?? "PHP";
 
   let cardPaymentRecord: ResolvedMarketplaceCardPayment | undefined;
   let gcashPaymentRecord: ResolvedMarketplaceGcashPayment | undefined;
@@ -734,7 +738,7 @@ export async function placeMarketplaceOrder(
 
     let codPaymentRecord: ResolvedMarketplaceCodPayment | undefined;
     if (input.paymentMethod === "cash") {
-      codPaymentRecord = await resolveMarketplaceCodPayment(input, total);
+      codPaymentRecord = await resolveMarketplaceCodPayment(input, total, currency);
     }
 
     if (input.paymongoPaymentIntentId) {
@@ -793,11 +797,11 @@ export async function placeMarketplaceOrder(
         : `${orderNotes}\n${refLine}`;
     }
     if (codPaymentRecord) {
-      let codLine = `COD — pay ₱${codPaymentRecord.amountDue.toFixed(2)} on delivery`;
+      let codLine = `COD — pay ${formatCurrency(codPaymentRecord.amountDue, currency)} on delivery`;
       if (codPaymentRecord.prepareChangeFor) {
-        codLine += ` (customer pays with ₱${codPaymentRecord.prepareChangeFor.toFixed(2)}`;
+        codLine += ` (customer pays with ${formatCurrency(codPaymentRecord.prepareChangeFor, currency)}`;
         if (codPaymentRecord.changeToReturn) {
-          codLine += `, change ₱${codPaymentRecord.changeToReturn.toFixed(2)}`;
+          codLine += `, change ${formatCurrency(codPaymentRecord.changeToReturn, currency)}`;
         }
         codLine += ")";
       }

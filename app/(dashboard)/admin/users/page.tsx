@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { Header } from "@/components/layout/Header";
 import { DataTable } from "@/components/shared/DataTable";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { AuditTrail } from "@/components/shared/AuditTrail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -826,6 +827,11 @@ export default function UsersPage() {
                 </div>
               )}
             </div>
+            {editId && (
+              <RoleGuard allowedRoles={["ADMIN"]}>
+                <AuditTrail targetId={editId} className="border-t pt-4" />
+              </RoleGuard>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>

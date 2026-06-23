@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Crown, Gift, Loader2, Star } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
 import { Button } from "@/components/ui/button";
+import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import {
   PREMIUM_ORDER_COUNT,
   PREMIUM_POINTS_THRESHOLD,
@@ -21,6 +22,7 @@ type RewardsData = {
 };
 
 export default function AccountRewardsPage() {
+  const money = useFormatCurrency();
   const [data, setData] = useState<RewardsData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export default function AccountRewardsPage() {
             {data.rewardPoints.toLocaleString()}
           </p>
           <p className="mt-2 text-sm text-[#2A4C6A]/75">
-            1 point per ₱1 on paid, delivered, or completed orders
+            1 point per {money(1)} on paid, delivered, or completed orders
           </p>
         </article>
 
@@ -131,8 +133,8 @@ export default function AccountRewardsPage() {
       <section className="mt-6 rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
         <h2 className="font-semibold text-[#1e3157]">Progress to Premium</h2>
         <p className="mt-1 text-sm text-[#2A4C6A]/75">
-          Reach {PREMIUM_POINTS_THRESHOLD} points, {PREMIUM_ORDER_COUNT}+ orders, or ₱
-          {PREMIUM_SPEND_THRESHOLD.toLocaleString()} in spend.
+          Reach {PREMIUM_POINTS_THRESHOLD} points, {PREMIUM_ORDER_COUNT}+ orders, or{" "}
+          {money(PREMIUM_SPEND_THRESHOLD)} in spend.
         </p>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/80">
           <div

@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -144,6 +144,7 @@ const EMPTY_FORM = {
 export default function MarketplaceCheckoutPage() {
   const router = useRouter();
   const money = useFormatCurrency();
+  const { currency } = useTenant();
   const { toast } = useToast();
   const { data: session, status: sessionStatus } = useSession();
   const items = useMarketplaceCartStore((s) => s.items);
@@ -664,6 +665,7 @@ export default function MarketplaceCheckoutPage() {
           prepareChangeFor !== undefined && Number.isFinite(prepareChangeFor)
             ? prepareChangeFor
             : undefined,
+        currency,
       });
       if (!validated.ok) {
         toast({ title: validated.error, variant: "destructive" });
@@ -827,6 +829,7 @@ export default function MarketplaceCheckoutPage() {
           amountDue: total,
           prepareChangeFor:
             prepareNum !== undefined && Number.isFinite(prepareNum) ? prepareNum : undefined,
+          currency,
         });
         if (validated.ok) {
           payload.codPayment = {

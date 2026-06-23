@@ -27,6 +27,7 @@ import { Plus, Pencil, Trash2, Loader2, Building2, MapPin, Users, X } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
+import { AuditTrail } from "@/components/shared/AuditTrail";
 
 interface Branch {
   _id: string;
@@ -428,6 +429,11 @@ export default function BranchesPage() {
                 </Select>
               </div>
             </div>
+            {editId && (
+              <RoleGuard allowedRoles={["ADMIN"]}>
+                <AuditTrail targetId={editId} className="border-t pt-4" />
+              </RoleGuard>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
