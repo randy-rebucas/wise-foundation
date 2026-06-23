@@ -23,7 +23,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = createVariantSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const variant = await createProductVariant(id, parsed.data);
+    const variant = await createProductVariant(id, parsed.data, { id: req.user.id, name: req.user.name });
     return successResponse(variant, "Variant created", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

@@ -6,6 +6,7 @@ import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
 import { maybeRemoveReplacedAppLogo } from "@/lib/services/appLogo.service";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import {
   DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
   normalizePurchaseOrderDiscountByOrgType,
@@ -96,7 +97,7 @@ export async function getAdminAppSettingsExtras() {
   };
 }
 
-export async function updateAppSettings(updates: PatchAppSettingsInput) {
+export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: AuditActor) {
   await connectDB();
   const existing = await AppSettings.findOne().sort({ createdAt: 1 });
   if (!existing) throw new Error("Application settings not found");
@@ -146,5 +147,15 @@ export async function updateAppSettings(updates: PatchAppSettingsInput) {
   ).lean();
   if (!doc) throw new Error("Application settings not found");
   revalidateTag("app-settings", "seconds");
+
+  if (actor) {
+    void writeAuditLog({
+      action: "settings.updated",
+      actor,
+      targetType: "AppSettings",
+      metadata: { fields: Object.keys(updates) },
+    });
+  }
+
   return toPublicAppSettings(doc);
 }

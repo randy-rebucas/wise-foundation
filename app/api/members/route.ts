@@ -77,7 +77,7 @@ const postHandler = async (req: AuthedRequest) => {
       payload.organizationId = undefined;
     }
 
-    const member = await createMember(payload);
+    const member = await createMember(payload, { id: req.user.id, name: req.user.name });
     return successResponse(member, "Member registered", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

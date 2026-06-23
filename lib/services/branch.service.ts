@@ -49,12 +49,24 @@ export interface CreateBranchData {
 
 export type UpdateBranchData = Partial<CreateBranchData>;
 
-export async function createBranch(data: CreateBranchData) {
+export async function createBranch(data: CreateBranchData, actor?: AuditActor) {
   await connectDB();
   const existing = await Branch.findOne({ code: data.code.toUpperCase() });
   if (existing) throw new Error(`Branch code "${data.code}" already exists`);
 
-  return Branch.create({ ...data });
+  const branch = await Branch.create({ ...data });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "branch.created",
+      actor,
+      targetId: String(branch._id),
+      targetType: "Branch",
+      metadata: { name: data.name, code: data.code },
+    });
+  }
+
+  return branch;
 }
 
 export async function updateBranch(branchId: string, data: UpdateBranchData, actor?: AuditActor) {
@@ -108,18 +120,38 @@ export async function getBranchUsers(branchId: string) {
     .lean();
 }
 
-export async function assignUserToBranch(userId: string, branchId: string) {
+export async function assignUserToBranch(userId: string, branchId: string, actor?: AuditActor) {
   await connectDB();
   const user = await User.findOne({ _id: userId });
   if (!user) throw new Error("User not found");
 
   await User.updateOne({ _id: userId }, { $addToSet: { branchIds: branchId } });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "branch.user_assigned",
+      actor,
+      targetId: branchId,
+      targetType: "Branch",
+      metadata: { userId, userName: user.name },
+    });
+  }
 }
 
-export async function removeUserFromBranch(userId: string, branchId: string) {
+export async function removeUserFromBranch(userId: string, branchId: string, actor?: AuditActor) {
   await connectDB();
   await User.updateOne(
     { _id: userId },
     { $pull: { branchIds: branchId as unknown as Types.ObjectId } }
   );
+
+  if (actor) {
+    void writeAuditLog({
+      action: "branch.user_removed",
+      actor,
+      targetId: branchId,
+      targetType: "Branch",
+      metadata: { userId },
+    });
+  }
 }

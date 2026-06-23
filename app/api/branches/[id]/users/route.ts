@@ -29,7 +29,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
     await assertBranchAccess(req.user, id);
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
-    await assignUserToBranch(body.userId, id);
+    await assignUserToBranch(body.userId, id, { id: req.user.id, name: req.user.name });
     return successResponse(null, "User assigned to branch");
   } catch (error) {
     const branchErr = branchAccessErrorResponse(error);
@@ -45,7 +45,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
     await assertBranchAccess(req.user, id);
     const body = await req.json();
     if (!body.userId) return errorResponse("userId is required");
-    await removeUserFromBranch(body.userId, id);
+    await removeUserFromBranch(body.userId, id, { id: req.user.id, name: req.user.name });
     return successResponse(null, "User removed from branch");
   } catch (error) {
     const branchErr = branchAccessErrorResponse(error);

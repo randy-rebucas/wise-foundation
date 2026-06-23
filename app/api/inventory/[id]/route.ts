@@ -4,6 +4,7 @@ import { getInventoryById, updateLowStockThreshold } from "@/lib/services/invent
 import { updateThresholdSchema } from "@/lib/validations/inventory.schema";
 import { assertBranchAccess, isBranchAccessDeniedError } from "@/lib/utils/branchAccess";
 import { successResponse, errorResponse, notFoundResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
@@ -21,6 +22,15 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     await assertBranchAccess(req.user, String(existing.branchId));
 
     const updated = await updateLowStockThreshold(id, parsed.data.lowStockThreshold);
+
+    void writeAuditLog({
+      action: "inventory.threshold_updated",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: id,
+      targetType: "Inventory",
+      metadata: { lowStockThreshold: parsed.data.lowStockThreshold },
+    });
+
     return successResponse(updated, "Low stock threshold updated");
   } catch (error) {
     if (isBranchAccessDeniedError(error)) return forbiddenResponse(error.message);

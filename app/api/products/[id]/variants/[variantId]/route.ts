@@ -18,7 +18,10 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateVariantSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const variant = await updateProductVariant(variantId, parsed.data);
+    const variant = await updateProductVariant(variantId, parsed.data, {
+      id: req.user.id,
+      name: req.user.name,
+    });
     if (!variant) return notFoundResponse("Variant not found");
     return successResponse(variant, "Variant updated");
   } catch (error) {
@@ -31,7 +34,7 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { variantId } = await (ctx as { params: Promise<{ id: string; variantId: string }> })
       .params;
-    await deleteProductVariant(variantId);
+    await deleteProductVariant(variantId, { id: req.user.id, name: req.user.name });
     return successResponse(null, "Variant deleted");
   } catch {
     return serverErrorResponse();

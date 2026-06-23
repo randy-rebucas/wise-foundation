@@ -40,7 +40,7 @@ const patchHandler = async (req: AuthedRequest) => {
     if (Object.keys(parsed.data).length === 0) {
       return errorResponse("No fields to update");
     }
-    const settings = await updateAppSettings(parsed.data);
+    const settings = await updateAppSettings(parsed.data, { id: req.user.id, name: req.user.name });
     return successResponse(settings, "Application settings updated");
   } catch (e) {
     if (e instanceof Error) return errorResponse(e.message);

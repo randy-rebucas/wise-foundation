@@ -51,7 +51,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    const product = await createProduct(parsed.data);
+    const product = await createProduct(parsed.data, { id: req.user.id, name: req.user.name });
     return successResponse(product, "Product created", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

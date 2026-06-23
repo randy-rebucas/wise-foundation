@@ -39,7 +39,7 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse("Upload one logo image at a time.", 400);
     }
 
-    const settings = await uploadAppLogo(files[0]!);
+    const settings = await uploadAppLogo(files[0]!, { id: req.user.id, name: req.user.name });
     return successResponse(settings, "Application logo updated", 201);
   } catch (e) {
     logger.error({ err: e }, "[POST /api/settings/app/logo]");
@@ -56,7 +56,7 @@ const deleteHandler = async (req: AuthedRequest) => {
     return forbiddenResponse("Only administrators can remove the application logo");
   }
   try {
-    const settings = await removeAppLogo();
+    const settings = await removeAppLogo({ id: req.user.id, name: req.user.name });
     return successResponse(settings, "Application logo removed");
   } catch (e) {
     logger.error({ err: e }, "[DELETE /api/settings/app/logo]");

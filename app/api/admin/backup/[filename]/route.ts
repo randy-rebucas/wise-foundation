@@ -5,6 +5,7 @@ import {
   successResponse,
   forbiddenResponse,
 } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createReadStream, existsSync, unlinkSync, statSync } from "fs";
 import { join } from "path";
@@ -40,8 +41,8 @@ const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
   }
 };
 
-const deleteHandler = async (_req: AuthedRequest, ctx?: unknown) => {
-  if (_req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
+const deleteHandler = async (req: AuthedRequest, ctx?: unknown) => {
+  if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { filename } = await (ctx as Ctx).params;
     if (!filename.endsWith(".json.gz") || filename.includes("/") || filename.includes("..")) {
@@ -52,6 +53,14 @@ const deleteHandler = async (_req: AuthedRequest, ctx?: unknown) => {
     if (!existsSync(filepath)) return errorResponse("Backup not found", 404);
 
     unlinkSync(filepath);
+
+    void writeAuditLog({
+      action: "db.backup_deleted",
+      actor: { id: req.user.id, name: req.user.name },
+      targetType: "Backup",
+      metadata: { filename },
+    });
+
     return successResponse(null, "Backup deleted");
   } catch {
     return serverErrorResponse();

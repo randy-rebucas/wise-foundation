@@ -1,5 +1,6 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { disableTotp, verifyTotpToken } from "@/lib/services/totp.service";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
@@ -15,6 +16,12 @@ const handler = async (req: AuthedRequest) => {
     if (!valid) return errorResponse("Invalid or expired code", 401);
 
     await disableTotp(req.user.id);
+    void writeAuditLog({
+      action: "user.2fa_disabled",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: req.user.id,
+      targetType: "User",
+    });
     return successResponse(null, "2FA disabled");
   } catch (err) {
     if (err instanceof Error) return errorResponse(err.message);

@@ -20,7 +20,7 @@ const postHandler = async (req: AuthedRequest) => {
     const body = await req.json();
     const parsed = createSupplierSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
-    const supplier = await createSupplier(parsed.data);
+    const supplier = await createSupplier(parsed.data, { id: req.user.id, name: req.user.name });
     return successResponse(supplier, "Supplier created", 201);
   } catch {
     return serverErrorResponse();

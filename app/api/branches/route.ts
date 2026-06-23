@@ -50,7 +50,7 @@ const postHandler = async (req: AuthedRequest) => {
       data.isHeadOffice = false;
     }
 
-    const branch = await createBranch(data);
+    const branch = await createBranch(data, { id: req.user.id, name: req.user.name });
     return successResponse(branch, "Branch created successfully", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

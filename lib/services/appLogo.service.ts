@@ -8,6 +8,7 @@ import {
   toPublicAppSettings,
   updateAppSettings,
 } from "@/lib/services/appSettings.service";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 import {
   isCloudinaryStorageUrl,
@@ -48,7 +49,7 @@ async function deleteStoredLogoUrl(url: string): Promise<void> {
   }
 }
 
-export async function uploadAppLogo(file: Blob) {
+export async function uploadAppLogo(file: Blob, actor?: AuditActor) {
   await connectDB();
   const folder = getBrandingFolder();
   const uploaded = await uploadImageBlobToStorage(file, folder);
@@ -60,10 +61,15 @@ export async function uploadAppLogo(file: Blob) {
   }
 
   await updateAppSettings({ appLogoUrl: uploaded.url } as PatchAppSettingsInput);
+
+  if (actor) {
+    void writeAuditLog({ action: "settings.logo_updated", actor, targetType: "AppSettings" });
+  }
+
   return getPublicAppSettings();
 }
 
-export async function removeAppLogo() {
+export async function removeAppLogo(actor?: AuditActor) {
   await connectDB();
   const existing = await AppSettings.findOne().sort({ createdAt: 1 }).lean();
   if (!existing) throw new Error("Application settings not found");
@@ -76,5 +82,10 @@ export async function removeAppLogo() {
     { new: true, runValidators: true }
   ).lean();
   if (!doc) throw new Error("Application settings not found");
+
+  if (actor) {
+    void writeAuditLog({ action: "settings.logo_removed", actor, targetType: "AppSettings" });
+  }
+
   return toPublicAppSettings(doc);
 }

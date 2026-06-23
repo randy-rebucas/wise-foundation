@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { withCustomerRoute, errorResponse, successResponse } from "@/lib/utils/withCustomerRoute";
+import { writeAuditLog } from "@/lib/services/audit.service";
 
 export const DELETE = withCustomerRoute(async (userId, req) => {
   const body = (await req.json().catch(() => ({}))) as { confirm?: unknown };
@@ -33,6 +34,13 @@ export const DELETE = withCustomerRoute(async (userId, req) => {
       },
     }
   );
+
+  void writeAuditLog({
+    action: "user.account_deleted",
+    actor: { id: userId, name: user.name },
+    targetId: userId,
+    targetType: "User",
+  });
 
   return successResponse(null, "Account deleted. Your personal data has been removed.");
 });

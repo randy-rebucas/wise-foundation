@@ -8,7 +8,7 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    const result = await resetOrgAdminPassword(id);
+    const result = await resetOrgAdminPassword(id, { id: req.user.id, name: req.user.name });
     return successResponse(result, "Temporary password generated");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

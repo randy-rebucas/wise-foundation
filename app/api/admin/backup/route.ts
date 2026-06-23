@@ -1,6 +1,7 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { connectDB } from "@/lib/db/connect";
 import { successResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createGzip } from "zlib";
 import { createWriteStream, mkdirSync, readdirSync, statSync } from "fs";
@@ -91,6 +92,14 @@ const postHandler = async (req: AuthedRequest) => {
     });
 
     const stats = statSync(filepath);
+
+    void writeAuditLog({
+      action: "db.backup_created",
+      actor: { id: req.user.id, name: req.user.name },
+      targetType: "Backup",
+      metadata: { filename, size: stats.size },
+    });
+
     return successResponse(
       { filename, size: stats.size, createdAt: stats.birthtime },
       "Backup created",

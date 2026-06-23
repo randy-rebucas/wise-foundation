@@ -100,7 +100,7 @@ export async function getMemberById(memberId: string) {
   return Member.findOne({ _id: memberId, deletedAt: null }).lean();
 }
 
-export async function createMember(data: CreateMemberInput) {
+export async function createMember(data: CreateMemberInput, actor?: AuditActor) {
   await connectDB();
 
   const existing = await Member.findOne({ phone: data.phone, deletedAt: null });
@@ -109,7 +109,19 @@ export async function createMember(data: CreateMemberInput) {
   const count = await Member.countDocuments();
   const memberId = generateMemberId(count + 1);
 
-  return Member.create({ ...data, memberId });
+  const member = await Member.create({ ...data, memberId });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "member.created",
+      actor,
+      targetId: String(member._id),
+      targetType: "Member",
+      metadata: { name: data.name, memberId },
+    });
+  }
+
+  return member;
 }
 
 export async function updateMember(

@@ -11,6 +11,7 @@ import {
 } from "@/lib/validations/product.schema";
 import type { ProductCategory } from "@/types";
 import { deleteMediaAssetsByUrls } from "@/lib/services/media.service";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
 async function cleanupRemovedImageUrls(previous: string[] | undefined, next: string[] | undefined) {
   const nextSet = new Set(next ?? []);
@@ -127,17 +128,29 @@ function copyProductName(name: string): string {
   return `${name.slice(0, max - suffix.length)}${suffix}`;
 }
 
-export async function createProduct(data: CreateProductInput) {
+export async function createProduct(data: CreateProductInput, actor?: AuditActor) {
   await connectDB();
 
   const existingSku = await Product.findOne({ sku: data.sku });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
 
   const slug = slugify(data.name);
-  return Product.create({ ...data, slug });
+  const product = await Product.create({ ...data, slug });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "product.created",
+      actor,
+      targetId: product._id.toString(),
+      targetType: "Product",
+      metadata: { name: data.name, sku: data.sku },
+    });
+  }
+
+  return product;
 }
 
-export async function cloneProduct(productId: string) {
+export async function cloneProduct(productId: string, actor?: AuditActor) {
   await connectDB();
 
   const source = await getProductById(productId);
@@ -186,10 +199,20 @@ export async function cloneProduct(productId: string) {
     await ProductVariant.insertMany(variantDocs);
   }
 
+  if (actor) {
+    void writeAuditLog({
+      action: "product.cloned",
+      actor,
+      targetId: String(product._id),
+      targetType: "Product",
+      metadata: { sourceProductId: productId, name: newName },
+    });
+  }
+
   return getProductById(String(product._id));
 }
 
-export async function updateProduct(productId: string, data: Partial<IProduct>) {
+export async function updateProduct(productId: string, data: Partial<IProduct>, actor?: AuditActor) {
   await connectDB();
 
   if (data.images !== undefined) {
@@ -204,14 +227,26 @@ export async function updateProduct(productId: string, data: Partial<IProduct>) 
     }
   }
 
-  return Product.findOneAndUpdate(
+  const result = await Product.findOneAndUpdate(
     { _id: productId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "product.updated",
+      actor,
+      targetId: productId,
+      targetType: "Product",
+      metadata: { fields: Object.keys(data) },
+    });
+  }
+
+  return result;
 }
 
-export async function deleteProduct(productId: string) {
+export async function deleteProduct(productId: string, actor?: AuditActor) {
   await connectDB();
 
   // Soft delete: the product (and its images) may still be referenced by historical
@@ -221,18 +256,46 @@ export async function deleteProduct(productId: string) {
     { $set: { deletedAt: new Date(), isActive: false } }
   );
 
-  return Product.findOneAndUpdate(
+  const result = await Product.findOneAndUpdate(
     { _id: productId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "product.deleted",
+      actor,
+      targetId: productId,
+      targetType: "Product",
+      metadata: { name: result.name },
+    });
+  }
+
+  return result;
 }
 
-export async function createProductVariant(productId: string, data: CreateVariantInput) {
+export async function createProductVariant(
+  productId: string,
+  data: CreateVariantInput,
+  actor?: AuditActor
+) {
   await connectDB();
   const existingSku = await ProductVariant.findOne({ sku: data.sku });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
-  return ProductVariant.create({ ...data, productId });
+  const variant = await ProductVariant.create({ ...data, productId });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "product.variant_created",
+      actor,
+      targetId: String(variant._id),
+      targetType: "ProductVariant",
+      metadata: { productId, name: data.name, sku: data.sku },
+    });
+  }
+
+  return variant;
 }
 
 export async function getProductVariants(productId: string) {
@@ -240,7 +303,11 @@ export async function getProductVariants(productId: string) {
   return ProductVariant.find({ productId, deletedAt: null }).lean();
 }
 
-export async function updateProductVariant(variantId: string, data: Partial<CreateVariantInput>) {
+export async function updateProductVariant(
+  variantId: string,
+  data: Partial<CreateVariantInput>,
+  actor?: AuditActor
+) {
   await connectDB();
 
   if (data.images !== undefined) {
@@ -255,23 +322,46 @@ export async function updateProductVariant(variantId: string, data: Partial<Crea
     }
   }
 
-  return ProductVariant.findOneAndUpdate(
+  const result = await ProductVariant.findOneAndUpdate(
     { _id: variantId, deletedAt: null },
     { $set: data },
     { new: true, runValidators: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "product.variant_updated",
+      actor,
+      targetId: variantId,
+      targetType: "ProductVariant",
+      metadata: { fields: Object.keys(data) },
+    });
+  }
+
+  return result;
 }
 
-export async function deleteProductVariant(variantId: string) {
+export async function deleteProductVariant(variantId: string, actor?: AuditActor) {
   await connectDB();
 
   // Soft delete: leave storage assets in place since historical orders may still
   // reference this variant's images (see deleteProduct for the same reasoning).
-  return ProductVariant.findOneAndUpdate(
+  const result = await ProductVariant.findOneAndUpdate(
     { _id: variantId },
     { $set: { deletedAt: new Date(), isActive: false } },
     { new: true }
   ).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "product.variant_deleted",
+      actor,
+      targetId: variantId,
+      targetType: "ProductVariant",
+    });
+  }
+
+  return result;
 }
 
 export async function getProductsForPOS(branchId: string, search?: string) {

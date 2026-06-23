@@ -8,7 +8,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
     const body = await req.json();
-    const updated = await updateSupplier(id, body);
+    const updated = await updateSupplier(id, body, { id: req.user.id, name: req.user.name });
     if (!updated) return notFoundResponse("Supplier not found");
     return successResponse(updated, "Supplier updated");
   } catch {
@@ -19,7 +19,7 @@ const putHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    const deleted = await deleteSupplier(id);
+    const deleted = await deleteSupplier(id, { id: req.user.id, name: req.user.name });
     if (!deleted) return notFoundResponse("Supplier not found");
     return successResponse(null, "Supplier deleted");
   } catch {

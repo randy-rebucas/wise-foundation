@@ -42,7 +42,11 @@ const postHandler = async (req: AuthedRequest, ctx: unknown) => {
       body.permission as OrgPermissionKey,
       body.isGranted,
       req.user.id,
-      { expiresAt: body.expiresAt ? new Date(body.expiresAt) : null, notes: body.notes }
+      {
+        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        notes: body.notes,
+        actor: { id: req.user.id, name: req.user.name },
+      }
     );
 
     return successResponse(record, `Permission ${body.isGranted ? "granted" : "revoked"}`);

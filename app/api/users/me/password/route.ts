@@ -8,6 +8,7 @@ import {
   errorResponse,
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const patchHandler = async (req: AuthedRequest) => {
@@ -30,6 +31,13 @@ const patchHandler = async (req: AuthedRequest) => {
 
     const hashed = await bcrypt.hash(parsed.data.newPassword, 12);
     await User.updateOne({ _id: req.user.id }, { $set: { password: hashed } });
+
+    void writeAuditLog({
+      action: "user.password_changed",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: req.user.id,
+      targetType: "User",
+    });
 
     return successResponse(null, "Password changed successfully");
   } catch {

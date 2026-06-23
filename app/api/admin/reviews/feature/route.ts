@@ -3,6 +3,7 @@ import { User } from "@/lib/db/models/User";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { successResponse, serverErrorResponse, errorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 // PATCH /api/admin/reviews/feature
@@ -38,6 +39,14 @@ const handler = async (req: AuthedRequest) => {
     );
 
     if (result.matchedCount === 0) return errorResponse("Review not found", 404);
+
+    void writeAuditLog({
+      action: "review.featured_changed",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: reviewId,
+      targetType: "Review",
+      metadata: { userId, featured },
+    });
 
     return successResponse({ ok: true });
   } catch (err) {

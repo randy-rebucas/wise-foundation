@@ -3,6 +3,7 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { createB2BOrder } from "@/lib/services/order.service";
 import { createB2BOrderSchema } from "@/lib/validations/order.schema";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const postHandler = async (req: AuthedRequest) => {
@@ -19,6 +20,18 @@ const postHandler = async (req: AuthedRequest) => {
       items: parsed.data.items.map((i) => ({ ...i, variantId: i.variantId ?? undefined })),
       createdBy: req.user.id,
       actingUser: { role: req.user.role, organizationId: req.user.organizationId },
+    });
+
+    void writeAuditLog({
+      action: "order.created",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: String((order as { _id: unknown })._id),
+      targetType: "Order",
+      metadata: {
+        channel: "B2B",
+        sellerOrganizationId: parsed.data.sellerOrganizationId,
+        buyerOrganizationId: parsed.data.buyerOrganizationId,
+      },
     });
 
     return successResponse(order, "B2B order created", 201);

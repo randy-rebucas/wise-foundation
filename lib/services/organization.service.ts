@@ -67,17 +67,20 @@ export async function getOrganizationById(id: string) {
     .lean();
 }
 
-export async function createOrganization(data: {
-  name: string;
-  type: OrganizationType;
-  parentOrganizationId?: string | null;
-  settings?: Partial<IOrganizationSettings>;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  notes?: string;
-}) {
+export async function createOrganization(
+  data: {
+    name: string;
+    type: OrganizationType;
+    parentOrganizationId?: string | null;
+    settings?: Partial<IOrganizationSettings>;
+    contactPerson?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    notes?: string;
+  },
+  actor?: AuditActor
+) {
   await connectDB();
 
   if (data.type === "headquarters") {
@@ -92,6 +95,16 @@ export async function createOrganization(data: {
 
   const settings = { ...TYPE_DEFAULT_SETTINGS[data.type], ...data.settings };
   const organization = await Organization.create({ ...data, settings });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "organization.created",
+      actor,
+      targetId: String(organization._id),
+      targetType: "Organization",
+      metadata: { name: data.name, type: data.type },
+    });
+  }
 
   if (!data.email) {
     return { organization, tempPassword: null };
@@ -186,7 +199,7 @@ export async function updateOrganization(
 }
 
 /** Generates a new temp password for the org's ORG_ADMIN user, creating one (using the org's email) if none exists yet. */
-export async function resetOrgAdminPassword(organizationId: string) {
+export async function resetOrgAdminPassword(organizationId: string, actor?: AuditActor) {
   await connectDB();
 
   const organization = await Organization.findOne({ _id: organizationId, deletedAt: null }).lean();
@@ -204,6 +217,15 @@ export async function resetOrgAdminPassword(organizationId: string) {
   if (existingAdmin) {
     existingAdmin.password = hashedPassword;
     await existingAdmin.save();
+    if (actor) {
+      void writeAuditLog({
+        action: "organization.admin_password_reset",
+        actor,
+        targetId: organizationId,
+        targetType: "Organization",
+        metadata: { email: existingAdmin.email },
+      });
+    }
     return { email: existingAdmin.email, tempPassword };
   }
 

@@ -2,6 +2,7 @@ import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { canUserAccessOrder, getOrderById, updateOrderStatus } from "@/lib/services/order.service";
 import { successResponse, errorResponse, notFoundResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import type { OrderStatus } from "@/types";
 import logger from "@/lib/logger";
@@ -68,6 +69,15 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     const order = await updateOrderStatus(id, body.status, req.user.id, delivery, { force });
     if (!order) return notFoundResponse("Order not found");
+
+    void writeAuditLog({
+      action: "order.status_changed",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: id,
+      targetType: "Order",
+      metadata: { fromStatus: existing.status, toStatus: body.status, force },
+    });
+
     return successResponse(order, "Order updated");
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db/connect";
 import { OrgPermission, type OrgPermissionKey } from "@/lib/db/models/OrgPermission";
 import { Organization } from "@/lib/db/models/Organization";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
 const PERMISSION_TO_SETTING: Record<OrgPermissionKey, string> = {
   "sell:retail": "canSellRetail",
@@ -23,7 +24,7 @@ export async function setOrgPermission(
   permission: OrgPermissionKey,
   isGranted: boolean,
   grantedBy: string,
-  opts?: { expiresAt?: Date | null; notes?: string }
+  opts?: { expiresAt?: Date | null; notes?: string; actor?: AuditActor }
 ) {
   await connectDB();
 
@@ -47,6 +48,16 @@ export async function setOrgPermission(
       organizationId,
       { $set: { [`settings.${settingKey}`]: isGranted } }
     );
+  }
+
+  if (opts?.actor) {
+    void writeAuditLog({
+      action: "organization.permission_changed",
+      actor: opts.actor,
+      targetId: organizationId,
+      targetType: "Organization",
+      metadata: { permission, isGranted },
+    });
   }
 
   return record;

@@ -31,7 +31,10 @@ const postHandler = async (req: AuthedRequest) => {
     if (!VALID_TYPES.includes(body.type)) {
       return errorResponse("Type must be distributor, franchise, partner, or headquarters");
     }
-    const { organization, tempPassword } = await createOrganization(body);
+    const { organization, tempPassword } = await createOrganization(body, {
+      id: req.user.id,
+      name: req.user.name,
+    });
     return successResponse({ ...organization.toObject(), tempPassword }, "Organization created", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);

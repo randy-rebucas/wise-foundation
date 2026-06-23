@@ -4,6 +4,7 @@ import { Product } from "@/lib/db/models/Product";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { successResponse, errorResponse, forbiddenResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
+import { writeAuditLog } from "@/lib/services/audit.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
@@ -198,6 +199,14 @@ const createHandler = async (req: AuthedRequest) => {
       });
     }
 
+    void writeAuditLog({
+      action: "review.created",
+      actor: { id: req.user.id, name: req.user.name },
+      targetId: reviewEntry.id,
+      targetType: "Review",
+      metadata: { productId, reviewerEmail },
+    });
+
     return successResponse({ ok: true });
   } catch (err) {
     console.error("[admin/reviews] POST error", err);
@@ -236,6 +245,14 @@ const deleteHandler = async (req: AuthedRequest) => {
     }));
 
     const result = await User.bulkWrite(bulkOps);
+
+    void writeAuditLog({
+      action: "review.deleted",
+      actor: { id: req.user.id, name: req.user.name },
+      targetType: "Review",
+      metadata: { count: result.modifiedCount, items },
+    });
+
     return successResponse({ deleted: result.modifiedCount });
   } catch (err) {
     console.error("[admin/reviews] DELETE error", err);

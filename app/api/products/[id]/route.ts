@@ -29,7 +29,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
     const parsed = updateProductSchema.safeParse(body);
     if (!parsed.success) return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
 
-    const product = await updateProduct(id, parsed.data);
+    const product = await updateProduct(id, parsed.data, { id: req.user.id, name: req.user.name });
     if (!product) return notFoundResponse("Product not found");
     return successResponse(product, "Product updated");
   } catch (error) {
@@ -41,7 +41,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await deleteProduct(id);
+    await deleteProduct(id, { id: req.user.id, name: req.user.name });
     return successResponse(null, "Product deleted");
   } catch {
     return serverErrorResponse();
