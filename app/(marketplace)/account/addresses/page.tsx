@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, MapPin, Plus, Star, Trash2 } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,6 +96,7 @@ function AddressCard({
 }
 
 export default function AccountAddressesPage() {
+  const confirm = useConfirm();
   const [saved, setSaved] = useState<MarketplaceSavedAddress[]>([]);
   const [fromOrders, setFromOrders] = useState<OrderAddress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,6 +159,11 @@ export default function AccountAddressesPage() {
   }
 
   async function removeSaved(id: string) {
+    const ok = await confirm({
+      title: "Remove this address?",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/account/saved-addresses?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });

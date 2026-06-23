@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Search, UserCheck, UserX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 
 import { useSession } from "next-auth/react";
 import type { UserRole } from "@/types";
@@ -130,6 +131,7 @@ const ROLE_FILTER_OPTIONS_ADMIN: { value: UserRole; label: string }[] = [
 export default function UsersPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
@@ -321,8 +323,30 @@ export default function UsersPage() {
   const users = usersResult?.data ?? [];
   const usersTotal = usersResult?.meta?.total ?? users.length;
 
-  const deleteUser = deleteMutation.mutate;
-  const toggleActiveUser = toggleActiveMutation.mutate;
+  const deleteUser = useCallback(
+    async (user: StaffUser) => {
+      const ok = await confirm({
+        title: `Remove "${user.name}"?`,
+        description: "This permanently removes the user account. This cannot be undone.",
+        variant: "destructive",
+      });
+      if (ok) deleteMutation.mutate(user._id);
+    },
+    [confirm, deleteMutation]
+  );
+
+  const toggleActiveUser = useCallback(
+    async (user: StaffUser) => {
+      const activating = !user.isActive;
+      const ok = await confirm({
+        title: activating ? `Activate "${user.name}"?` : `Deactivate "${user.name}"?`,
+        variant: activating ? "default" : "destructive",
+        confirmText: activating ? "Activate" : "Deactivate",
+      });
+      if (ok) toggleActiveMutation.mutate({ id: user._id, isActive: activating });
+    },
+    [confirm, toggleActiveMutation]
+  );
 
   const isSelectable = useCallback(
     (u: StaffUser) => u._id !== currentUserId && u.role !== "ADMIN",
@@ -454,7 +478,7 @@ export default function UsersPage() {
                 </DropdownMenuItem>
                 {!isSelf && (
                   <DropdownMenuItem
-                    onClick={() => toggleActiveUser({ id: u._id, isActive: !u.isActive })}
+                    onClick={() => toggleActiveUser(u)}
                   >
                     {u.isActive ? (
                       <><UserX className="h-4 w-4 mr-2" />Deactivate</>
@@ -468,7 +492,7 @@ export default function UsersPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => deleteUser(u._id)}
+                      onClick={() => deleteUser(u)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Remove

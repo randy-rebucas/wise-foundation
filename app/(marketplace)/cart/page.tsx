@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { useCategorySampleImages } from "@/components/marketplace/useCategorySampleImages";
 import {
@@ -52,6 +53,7 @@ type SuggestedProduct = {
 export default function MarketplaceCartPage() {
   const money = useFormatCurrency();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const items = useMarketplaceCartStore((s) => s.items);
   const updateQty = useMarketplaceCartStore((s) => s.updateQty);
   const removeItem = useMarketplaceCartStore((s) => s.removeItem);
@@ -307,7 +309,13 @@ export default function MarketplaceCartPage() {
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 text-pink-500 hover:bg-pink-50 hover:text-pink-600"
-                            onClick={() => removeItem(line.productId, line.variantId)}
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: "Remove this item from your cart?",
+                                variant: "destructive",
+                              });
+                              if (ok) removeItem(line.productId, line.variantId);
+                            }}
                             aria-label="Remove item"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -333,7 +341,15 @@ export default function MarketplaceCartPage() {
                     type="button"
                     variant="ghost"
                     className="text-pink-500 hover:bg-pink-50 hover:text-pink-600"
-                    onClick={() => clear()}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "Clear your cart?",
+                        description: "This removes all items from your cart.",
+                        variant: "destructive",
+                        confirmText: "Clear Cart",
+                      });
+                      if (ok) clear();
+                    }}
                   >
                     Clear Cart
                     <Trash2 className="ml-2 h-4 w-4" />

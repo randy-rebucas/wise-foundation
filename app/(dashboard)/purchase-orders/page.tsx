@@ -27,6 +27,7 @@ import {
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import type { OrganizationType } from "@/components/purchase-orders/purchaseOrderFormTypes";
 import {
   purchaseOrderFetchInit,
@@ -70,6 +71,7 @@ export default function PurchaseOrdersPage() {
   const dateTime = useFormatDateTime();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -239,11 +241,13 @@ export default function PurchaseOrdersPage() {
       toast({ variant: "destructive", title: "Delete failed", description: err.message }),
   });
 
-  function confirmDeletePurchaseOrder(po: PurchaseOrder) {
-    if (!window.confirm(`Delete purchase order ${po.poNumber}? This cannot be undone.`)) {
-      return;
-    }
-    deleteMutation.mutate(po._id);
+  async function confirmDeletePurchaseOrder(po: PurchaseOrder) {
+    const ok = await confirm({
+      title: `Delete purchase order ${po.poNumber}?`,
+      description: "This cannot be undone.",
+      variant: "destructive",
+    });
+    if (ok) deleteMutation.mutate(po._id);
   }
 
   useEffect(() => {
@@ -329,7 +333,14 @@ export default function PurchaseOrdersPage() {
                 variant="ghost"
                 size="sm"
                 className="h-6 text-xs text-destructive"
-                onClick={() => statusMutation.mutate({ id: o._id, status: "cancelled" })}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Cancel purchase order ${o.poNumber}?`,
+                    variant: "destructive",
+                    confirmText: "Cancel PO",
+                  });
+                  if (ok) statusMutation.mutate({ id: o._id, status: "cancelled" });
+                }}
                 disabled={statusMutation.isPending}
               >
                 Cancel

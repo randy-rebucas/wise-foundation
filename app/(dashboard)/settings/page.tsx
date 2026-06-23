@@ -37,6 +37,7 @@ import { resolveAppLogoSrc } from "@/lib/constants/branding";
 import { IMAGE_UPLOAD_ACCEPT } from "@/lib/constants/gallery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import type { AdminAppSettings } from "@/lib/types/appSettings";
 import {
   Select,
@@ -115,6 +116,7 @@ function rolePermissionsInSync(code: RoleDefinition, db: RoleDefinition | undefi
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const user = session?.user;
 
   const [profileForm, setProfileForm] = useState({ name: "", phone: "" });
@@ -818,15 +820,17 @@ export default function SettingsPage() {
                           variant={maintenanceStatus?.maintenanceMode ? "outline" : "destructive"}
                           size="sm"
                           disabled={maintenanceMutation.isPending || maintenanceLoading}
-                          onClick={() => {
+                          onClick={async () => {
                             const next = !maintenanceStatus?.maintenanceMode;
-                            if (
-                              next &&
-                              !window.confirm(
-                                "Enable maintenance mode? All users (including you) will be redirected to the maintenance page. You can disable it here."
-                              )
-                            ) {
-                              return;
+                            if (next) {
+                              const ok = await confirm({
+                                title: "Enable maintenance mode?",
+                                description:
+                                  "All users (including you) will be redirected to the maintenance page. You can disable it here.",
+                                variant: "destructive",
+                                confirmText: "Enable",
+                              });
+                              if (!ok) return;
                             }
                             maintenanceMutation.mutate(next);
                           }}
@@ -1480,14 +1484,16 @@ export default function SettingsPage() {
                     </Button>
                     <Button
                       type="button"
-                      onClick={() => {
-                        if (
-                          syncUsersOption &&
-                          !window.confirm(
-                            "Update permission arrays for all active users matching their roles? Users may need to sign in again."
-                          )
-                        ) {
-                          return;
+                      onClick={async () => {
+                        if (syncUsersOption) {
+                          const ok = await confirm({
+                            title: "Update permission arrays for all active users?",
+                            description:
+                              "This updates permission arrays for all active users matching their roles. Users may need to sign in again.",
+                            variant: "destructive",
+                            confirmText: "Sync",
+                          });
+                          if (!ok) return;
                         }
                         rolesSyncMutation.mutate();
                       }}

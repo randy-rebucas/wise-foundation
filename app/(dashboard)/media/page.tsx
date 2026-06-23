@@ -22,6 +22,7 @@ import {
 import { FileDropzone } from "@/components/shared/FileDropzone";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useImageUploadEnabled } from "@/hooks/useImageUploadEnabled";
 import {
@@ -113,6 +114,7 @@ function MediaThumb({
 export default function MediaPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const {
     configured: uploadReady,
     isLoading: uploadStatusLoading,
@@ -283,7 +285,7 @@ export default function MediaPage() {
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!preview) return;
     if (usageCount != null && usageCount > 0) {
       toast({
@@ -293,8 +295,12 @@ export default function MediaPage() {
       });
       return;
     }
-    if (!window.confirm("Delete this file from storage? This cannot be undone.")) return;
-    deleteMutation.mutate(preview._id);
+    const ok = await confirm({
+      title: "Delete this file from storage?",
+      description: "This cannot be undone.",
+      variant: "destructive",
+    });
+    if (ok) deleteMutation.mutate(preview._id);
   }
 
   const hasPending = pendingUploads.length > 0;

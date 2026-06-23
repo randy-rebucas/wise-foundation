@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
+import { ConfirmProvider } from "@/components/providers/confirm-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,8 +22,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider basePath="/api/auth" refetchOnWindowFocus={false}>
       <QueryClientProvider client={queryClient}>
-        {children}
-        <Toaster />
+        <ConfirmProvider>
+          {children}
+          <Toaster />
+        </ConfirmProvider>
       </QueryClientProvider>
     </SessionProvider>
   );

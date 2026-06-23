@@ -32,6 +32,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Building2, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
@@ -117,6 +118,7 @@ const defaultForm: OrgForm = {
 
 export default function OrganizationsPage() {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -365,7 +367,14 @@ export default function OrganizationsPage() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => deleteMutation.mutate(org._id)}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Delete "${org.name}"?`,
+                    description: "This permanently removes the organization. This cannot be undone.",
+                    variant: "destructive",
+                  });
+                  if (ok) deleteMutation.mutate(org._id);
+                }}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Remove

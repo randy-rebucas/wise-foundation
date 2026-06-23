@@ -25,6 +25,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Pencil, Trash2, Loader2, Building2, MapPin, Users, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 
 interface Branch {
@@ -146,6 +147,7 @@ async function removeUser(branchId: string, userId: string) {
 
 export default function BranchesPage() {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);
@@ -317,7 +319,14 @@ export default function BranchesPage() {
                 variant="ghost"
                 size="icon"
                 className="text-destructive hover:text-destructive"
-                onClick={() => deleteMutation.mutate(b._id)}
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: `Delete "${b.name}"?`,
+                    description: "This permanently removes the branch. This cannot be undone.",
+                    variant: "destructive",
+                  });
+                  if (ok) deleteMutation.mutate(b._id);
+                }}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -505,7 +514,13 @@ export default function BranchesPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => removeMutation.mutate({ userId: u._id })}
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `Remove ${u.name} from this branch?`,
+                              variant: "default",
+                            });
+                            if (ok) removeMutation.mutate({ userId: u._id });
+                          }}
                           disabled={removeMutation.isPending}
                         >
                           <X className="h-3 w-3" />

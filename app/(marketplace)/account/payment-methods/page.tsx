@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CreditCard, Loader2, Plus, Star, Trash2, Wallet } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,7 @@ function MethodIcon({ type }: { type: PaymentMethodType }) {
 }
 
 export default function AccountPaymentMethodsPage() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<MarketplacePaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -167,6 +169,11 @@ export default function AccountPaymentMethodsPage() {
   }
 
   async function removeMethod(id: string) {
+    const ok = await confirm({
+      title: "Remove this payment method?",
+      variant: "destructive",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/account/payment-methods?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
     });

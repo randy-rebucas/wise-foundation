@@ -42,6 +42,7 @@ import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
 import { useFormatCurrency, useFormatDate, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { formatPurchaseOrderPaymentTerms } from "@/lib/utils/purchaseOrderTotals";
 const PaymentTermsSchedulePanel = dynamic(() =>
   import("@/components/purchase-orders/PaymentTermsSchedulePanel").then((m) => m.PaymentTermsSchedulePanel)
@@ -191,6 +192,7 @@ export default function PurchaseOrderDetailPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const { data: session } = useSession();
   const isPlatformAdmin = session?.user?.role === "ADMIN";
   const isOrgSubmitter = session?.user?.role === "ORG_ADMIN";
@@ -480,7 +482,14 @@ export default function PurchaseOrderDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => statusMutation.mutate("cancelled")}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Cancel purchase order ${po.poNumber}?`,
+                        variant: "destructive",
+                        confirmText: "Cancel PO",
+                      });
+                      if (ok) statusMutation.mutate("cancelled");
+                    }}
                     disabled={statusMutation.isPending}
                   >
                     <XCircle className="h-4 w-4 mr-2" />
@@ -489,15 +498,13 @@ export default function PurchaseOrderDetailPage() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => {
-                      if (
-                        !window.confirm(
-                          `Delete purchase order ${po.poNumber}? This cannot be undone.`
-                        )
-                      ) {
-                        return;
-                      }
-                      deleteMutation.mutate();
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Delete purchase order ${po.poNumber}?`,
+                        description: "This cannot be undone.",
+                        variant: "destructive",
+                      });
+                      if (ok) deleteMutation.mutate();
                     }}
                     disabled={deleteMutation.isPending || statusMutation.isPending}
                   >
@@ -524,7 +531,14 @@ export default function PurchaseOrderDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => statusMutation.mutate("cancelled")}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Cancel purchase order ${po.poNumber}?`,
+                        variant: "destructive",
+                        confirmText: "Cancel PO",
+                      });
+                      if (ok) statusMutation.mutate("cancelled");
+                    }}
                     disabled={statusMutation.isPending}
                   >
                     Cancel

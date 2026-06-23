@@ -35,6 +35,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MoreHorizontal, DollarSign, Clock, CheckCircle, TrendingUp } from "lucide-react";
 import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { canManageCommissionPayouts } from "@/lib/permissions/commissionAccess";
 import { isPlatformAdmin } from "@/lib/permissions";
 
@@ -78,6 +79,7 @@ export default function CommissionsPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const userRole = session?.user?.role ?? "";
   const canPayout = canManageCommissionPayouts(userRole);
   const showOrgFilter = isPlatformAdmin(userRole);
@@ -241,14 +243,14 @@ export default function CommissionsPage() {
               <DropdownMenuItem onClick={() => openPayDialog(r._id)}>Mark as Paid</DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => {
-                  if (
-                    !window.confirm(
-                      "Cancel this commission? This cannot be undone if the order already settled."
-                    )
-                  ) {
-                    return;
-                  }
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: "Cancel this commission?",
+                    description: "This cannot be undone if the order already settled.",
+                    variant: "destructive",
+                    confirmText: "Cancel Commission",
+                  });
+                  if (!ok) return;
                   setActionError("");
                   actionMutation.mutate({ id: r._id, action: "cancel" });
                 }}

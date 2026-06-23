@@ -37,6 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { FileDropzone } from "@/components/shared/FileDropzone";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_CATEGORY_COLORS,
@@ -64,6 +65,7 @@ export default function ProductsPage() {
   const money = useFormatCurrency();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -252,7 +254,14 @@ export default function ProductsPage() {
             size="icon"
             className="text-destructive hover:text-destructive"
             title="Delete product"
-            onClick={() => deleteMutation.mutate(p._id)}
+            onClick={async () => {
+              const ok = await confirm({
+                title: `Delete "${p.name}"?`,
+                description: "This permanently removes the product. This cannot be undone.",
+                variant: "destructive",
+              });
+              if (ok) deleteMutation.mutate(p._id);
+            }}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

@@ -41,6 +41,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/components/providers/confirm-provider";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { useTenant, useFormatCurrency, useFormatDate } from "@/components/providers/TenantProvider";
 
@@ -92,6 +93,7 @@ export default function MembersPage() {
   const dateFmt = useFormatDate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const primaryBranchId = session?.user?.branchIds?.[0] ?? "";
 
@@ -327,7 +329,14 @@ export default function MembersPage() {
                 )}
                 {m.status !== "inactive" && (
                   <DropdownMenuItem
-                    onClick={() => statusMutation.mutate({ id: m._id, status: "inactive" })}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Deactivate ${m.name}?`,
+                        variant: "destructive",
+                        confirmText: "Deactivate",
+                      });
+                      if (ok) statusMutation.mutate({ id: m._id, status: "inactive" });
+                    }}
                   >
                     <XCircle className="h-4 w-4 mr-2 text-muted-foreground" />
                     Deactivate
@@ -336,7 +345,14 @@ export default function MembersPage() {
                 {m.status !== "suspended" && (
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
-                    onClick={() => statusMutation.mutate({ id: m._id, status: "suspended" })}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Suspend ${m.name}?`,
+                        variant: "destructive",
+                        confirmText: "Suspend",
+                      });
+                      if (ok) statusMutation.mutate({ id: m._id, status: "suspended" });
+                    }}
                   >
                     <AlertCircle className="h-4 w-4 mr-2" />
                     Suspend
@@ -346,6 +362,12 @@ export default function MembersPage() {
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={async () => {
+                    const ok = await confirm({
+                      title: `Remove ${m.name}?`,
+                      description: "This permanently removes the member. This cannot be undone.",
+                      variant: "destructive",
+                    });
+                    if (!ok) return;
                     const res = await fetch(`/api/members/${m._id}`, { method: "DELETE" });
                     const json = await res.json();
                     if (!json.success) {
