@@ -115,6 +115,7 @@ function printReceipt(
   <table><colgroup><col style="width:68%"/><col class="amt"/></colgroup>
     <tr><td>Subtotal</td><td class="amt">${fmt(result.subtotal)}</td></tr>
     ${result.discountAmount > 0 ? `<tr><td>Discount</td><td class="amt">-${fmt(result.discountAmount)}</td></tr>` : ""}
+    <tr><td>Shipping</td><td class="amt"></td></tr>
     <tr class="total"><td>Total</td><td class="amt">${fmt(result.total)}</td></tr>
     ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td class="amt">${fmt(result.change)}</td></tr>` : ""}
   </table>
