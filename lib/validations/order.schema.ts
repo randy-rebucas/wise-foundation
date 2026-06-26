@@ -20,6 +20,7 @@ export const checkoutSchema = z.object({
   paymentMethod: z.enum(["cash", "gcash", "card", "bank_transfer", "credit"]),
   amountPaid: z.number().min(0),
   notes: z.string().optional(),
+  shippingFee: z.number().min(0).default(0),
   branchId: z.string().min(1, "Branch is required"),
 });
 

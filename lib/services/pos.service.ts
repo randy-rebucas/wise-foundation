@@ -20,6 +20,7 @@ interface CheckoutInput {
   paymentMethod: "cash" | "gcash" | "card" | "bank_transfer" | "credit";
   amountPaid: number;
   notes?: string;
+  shippingFee?: number;
 }
 
 
@@ -36,7 +37,8 @@ export async function processCheckout(input: CheckoutInput) {
 
     const subtotal = input.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discountAmount = (subtotal * input.discountPercent) / 100;
-    const total = subtotal - discountAmount;
+    const shippingFee = input.shippingFee ?? 0;
+    const total = subtotal - discountAmount + shippingFee;
     const change = Math.max(0, input.amountPaid - total);
 
     const orderNumber = generateOrderNumber();
@@ -137,6 +139,7 @@ export async function processCheckout(input: CheckoutInput) {
           subtotal,
           discountAmount,
           discountPercent: input.discountPercent,
+          shippingAmount: shippingFee,
           total,
           amountPaid: input.amountPaid,
           change,
@@ -195,6 +198,7 @@ export async function processCheckout(input: CheckoutInput) {
       orderId: order._id.toString(),
       subtotal,
       discountAmount,
+      shippingFee,
       total,
       change,
       paymentMethod: input.paymentMethod,

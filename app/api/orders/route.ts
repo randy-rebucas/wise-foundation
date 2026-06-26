@@ -86,6 +86,7 @@ const postHandler = async (req: AuthedRequest) => {
       paymentMethod: parsed.data.paymentMethod,
       amountPaid: parsed.data.amountPaid,
       notes: parsed.data.notes,
+      shippingFee: parsed.data.shippingFee,
     });
 
     return successResponse(result, "Order completed", 201);

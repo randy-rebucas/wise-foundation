@@ -38,6 +38,7 @@ interface OrderResult {
   orderNumber: string;
   subtotal: number;
   discountAmount: number;
+  shippingFee: number;
   total: number;
   change: number;
   paymentMethod: string;
@@ -115,7 +116,7 @@ function printReceipt(
   <table><colgroup><col style="width:68%"/><col class="amt"/></colgroup>
     <tr><td>Subtotal</td><td class="amt">${fmt(result.subtotal)}</td></tr>
     ${result.discountAmount > 0 ? `<tr><td>Discount</td><td class="amt">-${fmt(result.discountAmount)}</td></tr>` : ""}
-    <tr><td>Shipping</td><td class="amt"></td></tr>
+    ${result.shippingFee > 0 ? `<tr><td>Shipping</td><td class="amt">${fmt(result.shippingFee)}</td></tr>` : ""}
     <tr class="total"><td>Total</td><td class="amt">${fmt(result.total)}</td></tr>
     ${result.paymentMethod === "cash" && result.change > 0 ? `<tr class="change"><td>Change</td><td class="amt">${fmt(result.change)}</td></tr>` : ""}
   </table>
@@ -139,13 +140,15 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amountPaid, setAmountPaid] = useState("");
   const [notes, setNotes] = useState("");
+  const [shippingFee, setShippingFee] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState<CompletedOrder | null>(null);
 
   const subtotal = getSubtotal();
   const discount = getDiscount();
-  const total = getTotal();
+  const shipping = parseFloat(shippingFee) || 0;
+  const total = getTotal() + shipping;
   const paid = parseFloat(amountPaid) || 0;
   const change = Math.max(0, paid - total);
 
@@ -169,6 +172,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
           paymentMethod,
           amountPaid: paymentMethod === "cash" ? paid : total,
           notes,
+          shippingFee: shipping,
           branchId,
         }),
       });
@@ -207,6 +211,7 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
     setCompleted(null);
     setAmountPaid("");
     setNotes("");
+    setShippingFee("");
     setError("");
     setPaymentMethod("cash");
     onClose();
@@ -293,6 +298,12 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
                 <span>-{formatMoney(discount)}</span>
               </div>
             )}
+            {shipping > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Shipping</span>
+                <span>{formatMoney(shipping)}</span>
+              </div>
+            )}
             <Separator />
             <div className="flex justify-between font-bold text-base">
               <span>Total</span>
@@ -340,6 +351,19 @@ export function CheckoutModal({ open, onClose, branchId }: CheckoutModalProps) {
               )}
             </div>
           )}
+
+          {/* Shipping Fee */}
+          <div className="space-y-2">
+            <Label>Shipping Fee (optional)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              placeholder="0.00"
+              value={shippingFee}
+              onChange={(e) => setShippingFee(e.target.value)}
+            />
+          </div>
 
           {/* Notes */}
           <div className="space-y-2">

@@ -38,12 +38,14 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
+  const googleVerification = process.env.GOOGLE_SITE_VERIFICATION;
   return {
     ...buildRootMetadata(settings),
     icons: {
       icon: APP_LOGO_SRC,
       apple: APP_LOGO_SRC,
     },
+    ...(googleVerification ? { verification: { google: googleVerification } } : {}),
   };
 }
 
