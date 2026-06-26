@@ -243,9 +243,9 @@ export default function MarketplaceCartPage() {
                           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/70 bg-white/60">
                             {isRemote(imageUrl) ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                              <img src={imageUrl} alt={line.name} className="h-full w-full object-cover" />
                             ) : (
-                              <Image src={imageUrl} alt="" fill className="object-cover" sizes="80px" />
+                              <Image src={imageUrl} alt={line.name} fill className="object-cover" sizes="80px" />
                             )}
                           </div>
                           <div className="min-w-0">
@@ -404,11 +404,11 @@ export default function MarketplaceCartPage() {
                         <div className="relative mb-3 aspect-square overflow-hidden rounded-xl bg-white/50">
                           {isRemote(imageUrl) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                            <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" />
                           ) : (
                             <Image
                               src={imageUrl}
-                              alt=""
+                              alt={product.name}
                               fill
                               className="object-cover"
                               sizes="180px"

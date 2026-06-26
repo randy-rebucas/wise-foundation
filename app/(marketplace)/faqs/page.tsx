@@ -44,9 +44,27 @@ const FAQ_ITEMS = [
   },
 ];
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_ITEMS.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.a,
+    },
+  })),
+};
+
 export default function FaqsPage() {
   return (
-    <MarketplaceStaticPage
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      <MarketplaceStaticPage
       eyebrow="Help"
       title="Frequently asked questions"
       subtitle="Quick answers about shopping, orders, payments, and product care. Still need help? Our support team is happy to assist."
@@ -88,5 +106,6 @@ export default function FaqsPage() {
         </p>
       </MarketplaceStaticSection>
     </MarketplaceStaticPage>
+    </>
   );
 }

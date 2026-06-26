@@ -1232,9 +1232,9 @@ export default function MarketplaceCheckoutPage() {
                       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/70 bg-white/60">
                         {isRemote(imageUrl) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={imageUrl} alt={line.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Image src={imageUrl} alt="" fill className="object-cover" sizes="56px" />
+                          <Image src={imageUrl} alt={line.name} fill className="object-cover" sizes="56px" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

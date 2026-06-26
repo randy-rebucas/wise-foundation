@@ -63,9 +63,9 @@ export default function AccountWishlistPage() {
                 {item.image ? (
                   isRemote(item.image) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image} alt="" className="h-full w-full object-cover" />
+                    <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                   ) : (
-                    <Image src={item.image} alt="" fill className="object-cover" sizes="80px" />
+                    <Image src={item.image} alt={item.name} fill className="object-cover" sizes="80px" />
                   )
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-violet-300">

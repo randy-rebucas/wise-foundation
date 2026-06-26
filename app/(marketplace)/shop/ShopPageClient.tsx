@@ -301,13 +301,13 @@ export function ShopPageClient() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
-              alt=""
+              alt={product.name}
               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             />
           ) : (
             <Image
               src={imageUrl}
-              alt=""
+              alt={product.name}
               fill
               className="object-cover transition duration-500 group-hover:scale-105"
               sizes="(max-width:768px) 100vw, (max-width:1280px) 50vw, 25vw"
@@ -453,9 +453,9 @@ export function ShopPageClient() {
                       {imageUrl ? (
                         isRemote(imageUrl) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Image src={imageUrl} alt="" fill className="object-cover" sizes="180px" />
+                          <Image src={imageUrl} alt={product.name} fill className="object-cover" sizes="180px" />
                         )
                       ) : (
                         <div className="flex h-full items-center justify-center">
