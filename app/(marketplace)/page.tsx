@@ -418,7 +418,10 @@ export default function MarketplaceCatalogPage() {
                   selectCategory(v === "all" ? "" : (v as ProductCategory))
                 }
               >
-                <SelectTrigger className="h-11 w-full rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-[200px]">
+                <SelectTrigger
+                  className="h-11 w-full rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-[200px]"
+                  aria-label="Filter by category"
+                >
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>

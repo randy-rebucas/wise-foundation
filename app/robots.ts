@@ -30,13 +30,13 @@ const DISALLOW_PATHS = [
 
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = getSiteUrl();
+  const isRealUrl = siteUrl.startsWith("https://") || (siteUrl.startsWith("http://") && !siteUrl.includes("localhost"));
 
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
       disallow: DISALLOW_PATHS,
     },
-    sitemap: absoluteUrl("/sitemap.xml", siteUrl),
+    ...(isRealUrl ? { sitemap: absoluteUrl("/sitemap.xml", siteUrl) } : {}),
   };
 }

@@ -403,7 +403,8 @@ export function MarketplaceShell({
             "fixed inset-y-0 left-0 z-[70] flex w-[min(100vw-2rem,18rem)] flex-col gap-1 border-r border-white/50 bg-white/95 p-4 shadow-xl backdrop-blur-xl transition-transform duration-200 lg:hidden",
             mobileNavOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
-          aria-hidden={!mobileNavOpen}
+          aria-label="Mobile navigation"
+          {...(!mobileNavOpen ? { inert: true } : {})}
         >
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold text-[#3c2e60]">Menu</span>

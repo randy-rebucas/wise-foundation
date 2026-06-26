@@ -1,0 +1,32 @@
+# Glowish
+
+Glowish is a beauty and wellness e-commerce platform offering Home Care, Cosmetics, Health & Wellness, and Perfumes & Scents. Products are formulated with natural ingredients, dermatologically tested, and cruelty free.
+
+## Pages
+
+- [Home](/): Featured products, category highlights, and customer reviews.
+- [Shop](/shop): Browse and search the full product catalog with category and price filters.
+- [Categories](/categories): Shop by category — Home Care, Cosmetics, Health & Wellness, and Perfumes & Scents.
+- [Product detail](/product/[slug]): Full product information, images, variants, pricing, and reviews.
+- [Reviews](/reviews): Customer reviews and ratings across all products.
+- [About Us](/about-us): Our story, ingredient philosophy, and brand values.
+- [Contact](/contact): Reach our support team with questions or feedback.
+- [FAQs](/faqs): Answers to common questions about products, shipping, and returns.
+- [Shipping & Delivery](/shipping-delivery): Shipping policies, estimated times, and delivery areas.
+- [Returns & Refunds](/returns-refunds): Return eligibility, process, and refund timelines.
+- [Privacy Policy](/privacy-policy): How we collect, use, and protect customer data.
+- [Cart](/cart): Review selected items and proceed to checkout.
+- [Checkout](/checkout): Enter shipping details and complete payment.
+
+## Customer Account
+
+- [Account Dashboard](/account): Overview of orders, wishlist, and account activity.
+- [My Orders](/account/orders): Track and manage past orders.
+- [My Wishlist](/account/wishlist): Saved products for future purchase.
+- [My Addresses](/account/addresses): Manage saved delivery addresses.
+- [Account Details](/account/details): Edit profile and password.
+- [My Reviews](/account/reviews): Reviews submitted by the customer.
+- [Notifications](/account/notifications): Messages and store updates.
+- [Rewards & Points](/account/rewards): Earn and redeem loyalty points.
+- [Sign In](/account/login): Log in to an existing customer account.
+- [Register](/account/register): Create a new customer account.

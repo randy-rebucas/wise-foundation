@@ -13,8 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, PenLine } from "lucide-react";
-import { SignaturePad, type SignaturePadHandle } from "@/components/purchase-orders/SignaturePad";
+import dynamic from "next/dynamic";
+import type { SignaturePadHandle } from "@/components/purchase-orders/SignaturePad";
 import type { PurchaseOrderSignRole } from "@/lib/types/purchaseOrderSignature";
+
+const SignaturePad = dynamic(
+  () => import("@/components/purchase-orders/SignaturePad").then((m) => m.SignaturePad),
+  { ssr: false, loading: () => <div className="h-36 w-full rounded-lg border border-dashed border-input bg-muted animate-pulse" /> }
+);
 
 const ROLE_COPY: Record<
   PurchaseOrderSignRole,
