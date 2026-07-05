@@ -8,6 +8,7 @@
 | [help-knowledgebase-sync.md](./help-knowledgebase-sync.md) | Developers | Help KB maintenance index (links to full audit) |
 | [roles-and-permissions-matrix.md](./roles-and-permissions-matrix.md) | Developers / admins | Role × permission matrix, sidebar rules, PO workflow, API gates |
 | [roles-and-permissions-matrix.png](./roles-and-permissions-matrix.png) | All | Visual matrix (PNG); regenerate via `node scripts/generate-permissions-matrix-image.mjs` |
+| [turnover-checklist.md](./turnover-checklist.md) | Developers | Checklist for handing off the codebase/project to a new developer or team |
 
 Run `pnpm sync:roles` after changing `lib/permissions.ts` to update MongoDB `Role` documents and user permission arrays.
 
