@@ -36,6 +36,7 @@ const AdsCarousel = dynamic(
   () => import("@/components/marketplace/ads/AdsCarousel").then((m) => m.AdsCarousel),
   { loading: () => <div className="h-48 animate-pulse rounded-2xl bg-white/30" /> }
 );
+import { AdPreviewDialog } from "@/components/marketplace/ads/AdPreviewDialog";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
 import { MARKETPLACE_CATEGORY_CARDS } from "@/lib/marketplace/categories";
@@ -137,6 +138,7 @@ export function HomePageClient({
   const [meta, setMeta] = useState<{ total: number; hasMore: boolean } | null>(initialMeta);
   const [loading, setLoading] = useState(initialProducts.length === 0);
   const [error, setError] = useState("");
+  const [previewAd, setPreviewAd] = useState<MarketplaceAd | null>(null);
 
   // Skip the first auto-load if the server already provided data
   const skipNextLoad = useRef(initialProducts.length > 0);
@@ -539,10 +541,11 @@ export function HomePageClient({
                   if (item.kind === "sponsored") {
                     const ad = item.ad;
                     return (
-                      <Link
+                      <button
                         key={`ad-${ad.id}-${index}`}
-                        href={`/product/${encodeURIComponent(ad.product.slug)}`}
-                        className="group relative"
+                        type="button"
+                        onClick={() => setPreviewAd(ad)}
+                        className="group relative text-left"
                       >
                         <Card className="h-full overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
                           <div className="relative aspect-[4/3] overflow-hidden bg-white/35">
@@ -584,7 +587,7 @@ export function HomePageClient({
                             </div>
                           </CardContent>
                         </Card>
-                      </Link>
+                      </button>
                     );
                   }
 
@@ -695,6 +698,7 @@ export function HomePageClient({
         </section>
 
       <MarketplaceFooter showSocial />
+      <AdPreviewDialog ad={previewAd} onOpenChange={(open) => !open && setPreviewAd(null)} />
     </MarketplacePageShell>
   );
 }

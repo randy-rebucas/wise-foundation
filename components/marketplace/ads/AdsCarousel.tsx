@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
-import Link from "next/link";
+import { useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
+import { AdPreviewDialog } from "@/components/marketplace/ads/AdPreviewDialog";
 import type { MarketplaceAd } from "@/lib/services/marketplace.service";
 
 type AdsCarouselProps = {
@@ -16,6 +16,7 @@ type AdsCarouselProps = {
 export function AdsCarousel({ initialAds }: AdsCarouselProps) {
   const money = useFormatCurrency();
   const trackRef = useRef<HTMLDivElement>(null);
+  const [previewAd, setPreviewAd] = useState<MarketplaceAd | null>(null);
 
   const scroll = (direction: "prev" | "next") => {
     const node = trackRef.current;
@@ -71,10 +72,11 @@ export function AdsCarousel({ initialAds }: AdsCarouselProps) {
         className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {initialAds.map((ad) => (
-          <Link
+          <button
             key={ad.id}
-            href={`/product/${encodeURIComponent(ad.product.slug)}`}
-            className="group relative w-72 flex-shrink-0 snap-start overflow-hidden rounded-3xl border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]"
+            type="button"
+            onClick={() => setPreviewAd(ad)}
+            className="group relative w-72 flex-shrink-0 snap-start overflow-hidden rounded-3xl border border-white/65 bg-white/50 text-left shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]"
           >
             <Badge className="absolute left-3 top-3 z-10 gap-1 bg-white/85 text-[#3c2e60] shadow-sm backdrop-blur">
               <Megaphone className="h-3 w-3" />
@@ -110,9 +112,10 @@ export function AdsCarousel({ initialAds }: AdsCarouselProps) {
               )}
               <p className="text-lg font-bold text-[#2B6B56]">{money(ad.product.price)}</p>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
+      <AdPreviewDialog ad={previewAd} onOpenChange={(open) => !open && setPreviewAd(null)} />
     </section>
   );
 }
