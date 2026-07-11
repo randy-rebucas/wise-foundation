@@ -3,6 +3,7 @@ import { HomePageClient } from "@/app/(marketplace)/HomePageClient";
 import {
   listMarketplaceProducts,
   getMarketplaceCategoryShowcase,
+  listMarketplaceAds,
 } from "@/lib/services/marketplace.service";
 
 export const metadata: Metadata = {
@@ -18,9 +19,10 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketplaceHomePage() {
-  const [productsResult, samplesResult] = await Promise.allSettled([
+  const [productsResult, samplesResult, adsResult] = await Promise.allSettled([
     listMarketplaceProducts({ page: 1, limit: 12 }),
     getMarketplaceCategoryShowcase(),
+    listMarketplaceAds(),
   ]);
 
   const products =
@@ -34,12 +36,14 @@ export default async function MarketplaceHomePage() {
       : null;
   const categorySamples =
     samplesResult.status === "fulfilled" ? samplesResult.value : null;
+  const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
 
   return (
     <HomePageClient
       initialProducts={products}
       initialMeta={meta}
       initialCategorySamples={categorySamples}
+      initialAds={ads}
     />
   );
 }

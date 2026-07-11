@@ -10,6 +10,7 @@ import { Order } from "@/lib/db/models/Order";
 import { OrderItem } from "@/lib/db/models/OrderItem";
 import { Product } from "@/lib/db/models/Product";
 import { ProductVariant } from "@/lib/db/models/ProductVariant";
+import { Ad } from "@/lib/db/models/Ad";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { User } from "@/lib/db/models/User";
@@ -512,6 +513,60 @@ export async function listMarketplaceProducts(params: MarketplaceShopListParams)
   await connectDB();
   const { branchId } = await getMarketplaceFulfillmentContext();
   return _cachedListMarketplaceProducts(branchId.toString(), params);
+}
+
+export type MarketplaceAd = {
+  id: string;
+  creativeType: "image" | "video";
+  creativeUrl: string;
+  posterUrl?: string;
+  headline?: string;
+  caption?: string;
+  product: { id: string; name: string; slug: string; image: string | null; price: number };
+};
+
+export async function listMarketplaceAds(limit = 8): Promise<MarketplaceAd[]> {
+  await connectDB();
+  const now = new Date();
+  const ads = await Ad.find({
+    isActive: true,
+    deletedAt: null,
+    $and: [
+      { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
+      { $or: [{ endsAt: null }, { endsAt: { $gte: now } }] },
+    ],
+  })
+    .sort({ sortOrder: 1, createdAt: -1 })
+    .limit(limit)
+    .populate("productId", "name slug images retailPrice")
+    .lean();
+
+  return ads
+    .filter((ad) => ad.productId)
+    .map((ad) => {
+      const product = ad.productId as unknown as {
+        _id: unknown;
+        name: string;
+        slug: string;
+        images?: string[];
+        retailPrice: number;
+      };
+      return {
+        id: String(ad._id),
+        creativeType: ad.creativeType,
+        creativeUrl: ad.creativeUrl,
+        posterUrl: ad.posterUrl,
+        headline: ad.headline,
+        caption: ad.caption,
+        product: {
+          id: String(product._id),
+          name: product.name,
+          slug: product.slug,
+          image: product.images?.[0] ?? null,
+          price: product.retailPrice,
+        },
+      };
+    });
 }
 
 export async function getMarketplaceProductBySlug(slug: string) {

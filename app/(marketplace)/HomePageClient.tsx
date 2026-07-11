@@ -32,6 +32,10 @@ const PublicReviewsCarousel = dynamic(
   () => import("@/components/marketplace/reviews/PublicReviewsCarousel").then((m) => m.PublicReviewsCarousel),
   { loading: () => <div className="h-48 animate-pulse rounded-2xl bg-white/30" /> }
 );
+const AdsCarousel = dynamic(
+  () => import("@/components/marketplace/ads/AdsCarousel").then((m) => m.AdsCarousel),
+  { loading: () => <div className="h-48 animate-pulse rounded-2xl bg-white/30" /> }
+);
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
 import { MARKETPLACE_CATEGORY_CARDS } from "@/lib/marketplace/categories";
@@ -43,7 +47,7 @@ import {
 import { cn } from "@/lib/utils";
 import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 import type { ProductCategory } from "@/types";
-import type { MarketplaceCategoryShowcase } from "@/lib/services/marketplace.service";
+import type { MarketplaceAd, MarketplaceCategoryShowcase } from "@/lib/services/marketplace.service";
 
 const VALID_CATEGORIES = new Set<ProductCategory>(["homecare", "cosmetics", "wellness", "scent"]);
 
@@ -113,12 +117,16 @@ type HomePageClientProps = {
   initialProducts: Row[];
   initialMeta: { total: number; hasMore: boolean } | null;
   initialCategorySamples: MarketplaceCategoryShowcase | null;
+  initialAds: MarketplaceAd[];
 };
+
+const SPONSORED_INTERVAL = 6;
 
 export function HomePageClient({
   initialProducts,
   initialMeta,
   initialCategorySamples,
+  initialAds,
 }: HomePageClientProps) {
   const money = useFormatCurrency();
   const [search, setSearch] = useState("");
@@ -207,6 +215,20 @@ export function HomePageClient({
   }
 
   const heroProducts = rows.slice(0, 3);
+
+  type MergedItem = { kind: "product"; row: Row } | { kind: "sponsored"; ad: MarketplaceAd };
+  const mergedRows = useMemo<MergedItem[]>(() => {
+    if (initialAds.length === 0) return rows.map((row) => ({ kind: "product", row }));
+    const merged: MergedItem[] = [];
+    rows.forEach((row, i) => {
+      merged.push({ kind: "product", row });
+      if ((i + 1) % SPONSORED_INTERVAL === 0) {
+        const adIndex = Math.floor(i / SPONSORED_INTERVAL) % initialAds.length;
+        merged.push({ kind: "sponsored", ad: initialAds[adIndex] });
+      }
+    });
+    return merged;
+  }, [rows, initialAds]);
 
   function ProductCardSkeleton() {
     return (
@@ -362,6 +384,8 @@ export function HomePageClient({
           </div>
         </section>
 
+        {initialAds.length > 0 && <AdsCarousel initialAds={initialAds} />}
+
         <section className="rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7">
           <div className="mb-5 flex flex-col gap-3 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
             <div>
@@ -511,7 +535,60 @@ export function HomePageClient({
                 ) : null}
               </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {rows.map((r, index) => {
+                {mergedRows.map((item, index) => {
+                  if (item.kind === "sponsored") {
+                    const ad = item.ad;
+                    return (
+                      <Link
+                        key={`ad-${ad.id}-${index}`}
+                        href={`/product/${encodeURIComponent(ad.product.slug)}`}
+                        className="group relative"
+                      >
+                        <Card className="h-full overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
+                          <div className="relative aspect-[4/3] overflow-hidden bg-white/35">
+                            <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-white/70 bg-white/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#3c2e60] shadow-sm backdrop-blur">
+                              Sponsored
+                            </span>
+                            {ad.creativeType === "video" ? (
+                              // eslint-disable-next-line jsx-a11y/media-has-caption
+                              <video
+                                src={ad.creativeUrl}
+                                poster={ad.posterUrl}
+                                muted
+                                autoPlay
+                                loop
+                                playsInline
+                                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={cloudinaryTransformedUrl(ad.creativeUrl, { width: 600, crop: "limit" })}
+                                alt={ad.headline ?? ad.product.name}
+                                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              />
+                            )}
+                          </div>
+                          <CardContent className="space-y-2 p-4">
+                            <p className="line-clamp-2 font-semibold leading-snug text-[#3c2e60]">
+                              {ad.headline ?? ad.product.name}
+                            </p>
+                            {ad.caption && (
+                              <p className="line-clamp-2 text-xs text-[#2A4C6A]/70">{ad.caption}</p>
+                            )}
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-lg font-bold text-[#2B6B56]">{money(ad.product.price)}</p>
+                              <span className="rounded-full bg-gradient-to-r from-[#6ea43f] to-[#477d34] px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
+                                View
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  }
+
+                  const r = item.row;
                   const imageUrl = resolveProductImage(r, index);
 
                   return (

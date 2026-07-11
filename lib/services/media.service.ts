@@ -10,6 +10,11 @@ import {
 } from "@/lib/server/imageUpload";
 import { deleteStoredImage } from "@/lib/server/imageStorage";
 import { parseStoredUploadKey } from "@/lib/utils/storedImageUrl";
+import {
+  rollbackStoredVideoUploads,
+  uploadVideoBlobToStorage,
+  type UploadedVideoResult,
+} from "@/lib/server/videoUpload";
 
 const MAX_SEARCH_LENGTH = 100;
 
@@ -133,6 +138,25 @@ export async function uploadAndRegisterImages(
     await rollbackStoredUploads(uploaded.filter((u) => !registeredUrls.has(u.url)));
     for (const asset of assets) {
       await MediaAsset.findByIdAndDelete(asset._id).catch(() => {});
+    }
+    throw e;
+  }
+}
+
+export async function uploadAndRegisterVideo(
+  file: Blob,
+  folder: string,
+  uploadedBy?: string
+) {
+  let uploaded: UploadedVideoResult | undefined;
+  try {
+    uploaded = await uploadVideoBlobToStorage(file, folder);
+    const asset = await registerMediaAsset(uploaded, folder, uploadedBy);
+    if (!asset) throw new Error("Failed to register media asset");
+    return asset;
+  } catch (e) {
+    if (uploaded) {
+      await rollbackStoredVideoUploads([{ publicId: uploaded.publicId, url: uploaded.url }]);
     }
     throw e;
   }

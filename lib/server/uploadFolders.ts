@@ -33,3 +33,7 @@ export function getProductCatalogFolder(): string {
 export function getBrandingFolder(): string {
   return `${getUploadRootFolder()}/branding`;
 }
+
+export function getAdsCreativeFolder(): string {
+  return `${getUploadRootFolder()}/ads/creative`;
+}

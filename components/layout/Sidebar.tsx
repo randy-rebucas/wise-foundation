@@ -31,6 +31,7 @@ import {
   MessageSquare,
   DatabaseBackup,
   ScrollText,
+  Megaphone,
 } from "lucide-react";
 import { hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -126,6 +127,7 @@ const NAV_ENTRIES: NavEntry[] = [
     ],
   },
   { kind: "link", label: "Reviews", path: "/admin/reviews", icon: MessageSquare, roles: ["ADMIN"] },
+  { kind: "link", label: "Ads", path: "/admin/ads", icon: Megaphone, roles: ["ADMIN"] },
   { kind: "link", label: "Backup & Restore", path: "/admin/backup", icon: DatabaseBackup, roles: ["ADMIN"] },
   { kind: "link", label: "Audit Log", path: "/admin/audit-logs", icon: ScrollText, roles: ["ADMIN"] },
   { kind: "link", label: "Help & guides", path: "/help", icon: BookOpen, allAuthenticated: true },

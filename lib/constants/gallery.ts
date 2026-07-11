@@ -1,6 +1,7 @@
 export const MAX_GALLERY_IMAGES = 12;
 export const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const MAX_IMAGES_PER_UPLOAD_BATCH = MAX_GALLERY_IMAGES;
+export const MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
 export {
   IMAGE_UPLOAD_ACCEPT_WITH_EXTENSIONS as IMAGE_UPLOAD_ACCEPT,
 } from "@/lib/utils/imageFileAccept";

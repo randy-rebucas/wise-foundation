@@ -103,6 +103,73 @@ export async function saveImageBufferToCloudinary(
 }
 
 export async function deleteCloudinaryImage(publicId: string): Promise<void> {
+  return deleteCloudinaryAsset(publicId, "image");
+}
+
+const VIDEO_MIME_TO_FORMAT: Record<string, string | undefined> = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+};
+
+export async function saveVideoBufferToCloudinary(
+  buffer: Buffer,
+  folder: string,
+  mime: string
+): Promise<CloudinaryImageSaveResult> {
+  if (!cloudinaryConfigured()) {
+    throw new Error("Cloudinary is not configured");
+  }
+
+  applyCloudinaryConfig();
+  const safeFolder = sanitizeUploadFolder(folder);
+  const format = VIDEO_MIME_TO_FORMAT[mime];
+
+  const result = await withRetry(
+    () =>
+      new Promise<{
+        secure_url: string;
+        public_id: string;
+        bytes?: number;
+      }>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: safeFolder,
+            resource_type: "video",
+            ...(format ? { format } : {}),
+          },
+          (error, uploadResult) => {
+            if (error) reject(normalizeCloudinaryError(error));
+            else if (!uploadResult) reject(new Error("Cloudinary upload returned no result"));
+            else resolve(uploadResult);
+          }
+        );
+        stream.end(buffer);
+      }),
+    {
+      attempts: 3,
+      baseDelayMs: 300,
+      shouldAbort: (err) =>
+        err instanceof CloudinaryUploadError &&
+        (err.httpCode === 401 || err.httpCode === 403),
+    }
+  );
+
+  return {
+    url: result.secure_url,
+    publicId: result.public_id,
+    bytes: result.bytes ?? buffer.length,
+  };
+}
+
+export async function deleteCloudinaryVideo(publicId: string): Promise<void> {
+  return deleteCloudinaryAsset(publicId, "video");
+}
+
+async function deleteCloudinaryAsset(
+  publicId: string,
+  resourceType: "image" | "video"
+): Promise<void> {
   if (!cloudinaryConfigured()) return;
 
   applyCloudinaryConfig();
@@ -112,7 +179,7 @@ export async function deleteCloudinaryImage(publicId: string): Promise<void> {
   await withRetry(
     async () => {
       await cloudinary.uploader
-        .destroy(trimmed, { resource_type: "image" })
+        .destroy(trimmed, { resource_type: resourceType })
         .catch((err: unknown) => {
           const normalized = normalizeCloudinaryError(err);
           if (normalized.message.includes("not found") || normalized.httpCode === 404) return;

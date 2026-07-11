@@ -5,7 +5,9 @@ import logger from "@/lib/logger";
 import {
   cloudinaryConfigured,
   deleteCloudinaryImage,
+  deleteCloudinaryVideo,
   saveImageBufferToCloudinary,
+  saveVideoBufferToCloudinary,
 } from "@/lib/server/cloudinaryStorage";
 import {
   deleteStoredImage as deleteLocalStoredImage,
@@ -88,6 +90,59 @@ export async function deleteStoredImage(
 
   if (cloudinaryConfigured() && key && !key.startsWith(UPLOAD_URL_PREFIX)) {
     await deleteCloudinaryImage(key);
+    return;
+  }
+
+  await deleteLocalStoredImage(key);
+}
+
+/** Same as `saveImageBuffer` but uploads as a Cloudinary video resource (falls back to local disk, which is format-agnostic). */
+export async function saveVideoBuffer(
+  buffer: Buffer,
+  folder: string,
+  mime: string
+): Promise<ImageSaveResult> {
+  if (cloudinaryConfigured()) {
+    try {
+      return await saveVideoBufferToCloudinary(buffer, folder, mime);
+    } catch (err) {
+      if (isCloudinaryAccountError(err) && localImageStorageConfigured()) {
+        logger.warn(
+          { err: err instanceof Error ? err.message : err },
+          "[imageStorage] Cloudinary unavailable, falling back to local storage"
+        );
+        return saveLocalImageBuffer(buffer, folder, mime);
+      }
+      throw normalizeCloudinaryError(err);
+    }
+  }
+  return saveLocalImageBuffer(buffer, folder, mime);
+}
+
+/** Same as `deleteStoredImage` but targets the Cloudinary `video` resource type when applicable. */
+export async function deleteStoredVideo(
+  publicId: string,
+  options?: { url?: string }
+): Promise<void> {
+  const url = options?.url?.trim();
+  const key = publicId.trim();
+
+  if (url && isCloudinaryStorageUrl(url)) {
+    const cloudId = parseCloudinaryPublicId(url) ?? key;
+    if (cloudId) {
+      await deleteCloudinaryVideo(cloudId);
+    }
+    return;
+  }
+
+  if (url && isStoredUploadUrl(url)) {
+    const localKey = parseStoredUploadKey(url) ?? key;
+    await deleteLocalStoredImage(localKey);
+    return;
+  }
+
+  if (cloudinaryConfigured() && key && !key.startsWith(UPLOAD_URL_PREFIX)) {
+    await deleteCloudinaryVideo(key);
     return;
   }
 
