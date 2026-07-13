@@ -805,14 +805,23 @@ export async function placeMarketplaceOrder(
         ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
         : 0;
 
+    const cartUnitPriceForProduct = (productId: string): number | undefined =>
+      lines.find((l) => String(l.productId) === productId)?.unitPrice;
+
     let couponId: Types.ObjectId | null = null;
     let couponDiscountAmount = 0;
+    let couponFreeShipping = false;
     const couponCode = input.couponCode?.trim();
     if (couponCode) {
-      const couponResult = await validateCoupon(couponCode, customerUserId, subtotal);
+      const couponResult = await validateCoupon(couponCode, customerUserId, subtotal, {
+        email: input.shipping.email,
+        cartUnitPriceForProduct,
+        session,
+      });
       if (!couponResult.ok) throw new Error(couponResult.message);
       couponId = couponResult.couponId;
       couponDiscountAmount = couponResult.discountAmount;
+      couponFreeShipping = couponResult.freeShipping === true;
     }
 
     // Coupon and member discounts don't stack — take whichever is larger.
@@ -821,12 +830,14 @@ export async function placeMarketplaceOrder(
       discountPercent = subtotal > 0 ? Math.round((discountAmount / subtotal) * 10000) / 100 : 0;
     }
 
-    const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod, {
-      discountAmount,
-      paymentMethod: input.paymentMethod,
-      region: input.shipping.region,
-      city: input.shipping.city,
-    });
+    const shippingCost = couponFreeShipping
+      ? 0
+      : computeCheckoutShippingCost(subtotal, input.shippingMethod, {
+          discountAmount,
+          paymentMethod: input.paymentMethod,
+          region: input.shipping.region,
+          city: input.shipping.city,
+        });
     const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
 
     let codPaymentRecord: ResolvedMarketplaceCodPayment | undefined;
@@ -843,7 +854,8 @@ export async function placeMarketplaceOrder(
           paymentMethod: input.paymentMethod,
           couponCode: input.couponCode,
         },
-        customerUserId
+        customerUserId,
+        { session }
       );
       if (quote.total !== total) {
         throw new Error("Order total changed. Refresh checkout and try again.");
@@ -990,8 +1002,14 @@ export async function placeMarketplaceOrder(
       { session }
     );
 
-    if (couponId && customerOid) {
-      await redeemCoupon(couponId, customerOid, order._id as Types.ObjectId, session);
+    if (couponId) {
+      await redeemCoupon(
+        couponId,
+        customerOid,
+        order._id as Types.ObjectId,
+        session,
+        customerOid ? undefined : input.shipping.email
+      );
     }
 
     const orderItems = lines.map((l) => ({

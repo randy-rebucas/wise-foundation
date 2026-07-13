@@ -92,8 +92,10 @@ export async function getDefaultLowStockThreshold(): Promise<number> {
 export async function getAdminAppSettingsExtras() {
   const doc = await getAppSettingsLean();
   const branchId = doc?.marketplaceFulfillmentBranchId;
+  const giftProductId = doc?.spinWheelFreeGiftProductId;
   return {
     marketplaceFulfillmentBranchId: branchId ? String(branchId) : "",
+    spinWheelFreeGiftProductId: giftProductId ? String(giftProductId) : "",
   };
 }
 
@@ -102,8 +104,12 @@ export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: 
   const existing = await AppSettings.findOne().sort({ createdAt: 1 });
   if (!existing) throw new Error("Application settings not found");
 
-  const { marketplaceFulfillmentBranchId, purchaseOrderDiscountByOrgType, ...rest } =
-    updates;
+  const {
+    marketplaceFulfillmentBranchId,
+    spinWheelFreeGiftProductId,
+    purchaseOrderDiscountByOrgType,
+    ...rest
+  } = updates;
   const set: Record<string, unknown> = { ...rest };
 
   if (rest.appLogoUrl !== undefined) {
@@ -137,6 +143,13 @@ export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: 
       marketplaceFulfillmentBranchId &&
       mongoose.isValidObjectId(marketplaceFulfillmentBranchId)
         ? new mongoose.Types.ObjectId(marketplaceFulfillmentBranchId)
+        : null;
+  }
+
+  if (spinWheelFreeGiftProductId !== undefined) {
+    set.spinWheelFreeGiftProductId =
+      spinWheelFreeGiftProductId && mongoose.isValidObjectId(spinWheelFreeGiftProductId)
+        ? new mongoose.Types.ObjectId(spinWheelFreeGiftProductId)
         : null;
   }
 

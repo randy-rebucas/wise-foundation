@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { MarketplaceShell } from "@/components/marketplace/MarketplaceShell";
+import { SpinWheelPopup } from "@/components/marketplace/SpinWheelPopup";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function MarketplaceLayoutClient({ children }: { children: React.ReactNode }) {
@@ -41,5 +42,10 @@ export function MarketplaceLayoutClient({ children }: { children: React.ReactNod
     );
   }
 
-  return <MarketplaceShell tenant={tenant ?? {}}>{children}</MarketplaceShell>;
+  return (
+    <MarketplaceShell tenant={tenant ?? {}}>
+      {children}
+      <SpinWheelPopup />
+    </MarketplaceShell>
+  );
 }

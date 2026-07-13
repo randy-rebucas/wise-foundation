@@ -17,6 +17,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "manage:roles",
     "manage:ads",
     "manage:blog",
+    "manage:promotions",
   ],
   ORG_ADMIN: [
     "manage:organizations",

@@ -26,6 +26,8 @@ export interface IAppSettings extends Document {
   receiptFooter: string;
   /** Default purchase order discount % by organization type. */
   purchaseOrderDiscountByOrgType: PurchaseOrderDiscountByOrgType;
+  /** Product awarded as the "Free Perfume" spin-wheel prize. Unset = that prize is excluded. */
+  spinWheelFreeGiftProductId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +61,7 @@ const AppSettingsSchema = new Schema<IAppSettings>(
     memberDefaultDiscountPercent: { type: Number, default: 10, min: 0, max: 100 },
     defaultLowStockThreshold: { type: Number, default: 10, min: 1 },
     receiptFooter: { type: String, default: "" },
+    spinWheelFreeGiftProductId: { type: Schema.Types.ObjectId, ref: "Product", default: null },
     purchaseOrderDiscountByOrgType: {
       type: purchaseOrderDiscountByOrgTypeSchema,
       default: () => ({

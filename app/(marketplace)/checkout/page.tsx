@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useFormatCurrency, useTenant } from "@/components/providers/TenantProvider";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
+import { useSpinWheelStore } from "@/store/spinWheelStore";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -175,6 +176,16 @@ export default function MarketplaceCheckoutPage() {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [couponCodeInput, setCouponCodeInput] = useState("");
   const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const wonCouponCode = useSpinWheelStore((s) => s.wonCouponCode);
+
+  useEffect(() => {
+    if (wonCouponCode && !couponCodeInput && !appliedCouponCode) {
+      setCouponCodeInput(wonCouponCode);
+      setAppliedCouponCode(wonCouponCode);
+    }
+    // Only pre-fill once on mount — user may clear/replace it afterward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [saveInfo, setSaveInfo] = useState(true);
   const [savedAddresses, setSavedAddresses] = useState<MarketplaceSavedAddress[]>([]);

@@ -27,6 +27,7 @@ import {
   Upload,
   Trash2,
   WrenchIcon,
+  Search,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { AppLogo } from "@/components/branding/AppLogo";
@@ -273,10 +274,17 @@ export default function SettingsPage() {
     defaultLowStockThreshold: 10,
     receiptFooter: "",
     marketplaceFulfillmentBranchId: "",
+    spinWheelFreeGiftProductId: "",
     purchaseOrderDiscountByOrgType: {
       ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
     } as PurchaseOrderDiscountByOrgType,
   });
+  const [spinWheelGiftProductName, setSpinWheelGiftProductName] = useState("");
+  const [spinWheelGiftSearch, setSpinWheelGiftSearch] = useState("");
+  const [spinWheelGiftResults, setSpinWheelGiftResults] = useState<
+    { _id: string; name: string }[]
+  >([]);
+  const [spinWheelGiftSearchLoading, setSpinWheelGiftSearchLoading] = useState(false);
 
   useEffect(() => {
     if (!appSettings) return;
@@ -292,6 +300,7 @@ export default function SettingsPage() {
         defaultLowStockThreshold: appSettings.defaultLowStockThreshold,
         receiptFooter: appSettings.receiptFooter,
         marketplaceFulfillmentBranchId: appSettings.marketplaceFulfillmentBranchId ?? "",
+        spinWheelFreeGiftProductId: appSettings.spinWheelFreeGiftProductId ?? "",
         purchaseOrderDiscountByOrgType: {
           ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
           ...appSettings.purchaseOrderDiscountByOrgType,
@@ -299,6 +308,42 @@ export default function SettingsPage() {
       });
     });
   }, [appSettings]);
+
+  useEffect(() => {
+    const id = appSettings?.spinWheelFreeGiftProductId;
+    if (!id) {
+      setSpinWheelGiftProductName("");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/products/${id}`);
+        const json = await res.json();
+        if (!cancelled && json.success) setSpinWheelGiftProductName(json.data?.name ?? "");
+      } catch {
+        /* ignore — field still shows the raw id state */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [appSettings?.spinWheelFreeGiftProductId]);
+
+  async function searchSpinWheelGiftProducts(q: string) {
+    if (!q.trim()) {
+      setSpinWheelGiftResults([]);
+      return;
+    }
+    setSpinWheelGiftSearchLoading(true);
+    try {
+      const res = await fetch(`/api/marketplace/products?search=${encodeURIComponent(q)}&limit=8`);
+      const json = await res.json();
+      setSpinWheelGiftResults(json.data ?? []);
+    } finally {
+      setSpinWheelGiftSearchLoading(false);
+    }
+  }
 
   const appSettingsMutation = useMutation({
     mutationFn: async () => {
@@ -316,6 +361,7 @@ export default function SettingsPage() {
           defaultLowStockThreshold: Number(appForm.defaultLowStockThreshold),
           receiptFooter: appForm.receiptFooter.trim(),
           marketplaceFulfillmentBranchId: appForm.marketplaceFulfillmentBranchId || "",
+          spinWheelFreeGiftProductId: appForm.spinWheelFreeGiftProductId || "",
           purchaseOrderDiscountByOrgType: appForm.purchaseOrderDiscountByOrgType,
         }),
       });
@@ -327,6 +373,7 @@ export default function SettingsPage() {
       queryClient.setQueryData(["app-settings"], {
         ...data,
         marketplaceFulfillmentBranchId: data.marketplaceFulfillmentBranchId ?? "",
+        spinWheelFreeGiftProductId: data.spinWheelFreeGiftProductId ?? "",
       });
       toast({ title: "Application settings saved" });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
@@ -1309,6 +1356,68 @@ export default function SettingsPage() {
                       </Select>
                       <p className="text-xs text-muted-foreground">
                         Branch inventory used when customers place online orders. Leave as head office if unset.
+                      </p>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label>Spin wheel "Free Perfume" gift product</Label>
+                      {appForm.spinWheelFreeGiftProductId ? (
+                        <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                          <span className="flex-1 font-medium">
+                            {spinWheelGiftProductName || appForm.spinWheelFreeGiftProductId}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs text-muted-foreground"
+                            onClick={() =>
+                              setAppForm((f) => ({ ...f, spinWheelFreeGiftProductId: "" }))
+                            }
+                          >
+                            Change
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              className="pl-9"
+                              placeholder="Search product name..."
+                              value={spinWheelGiftSearch}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setSpinWheelGiftSearch(v);
+                                void searchSpinWheelGiftProducts(v);
+                              }}
+                            />
+                            {spinWheelGiftSearchLoading && (
+                              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+                            )}
+                          </div>
+                          {spinWheelGiftResults.length > 0 && (
+                            <div className="max-h-40 overflow-y-auto rounded-md border bg-popover shadow-sm">
+                              {spinWheelGiftResults.map((p) => (
+                                <button
+                                  key={p._id}
+                                  type="button"
+                                  className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                                  onClick={() => {
+                                    setAppForm((f) => ({ ...f, spinWheelFreeGiftProductId: p._id }));
+                                    setSpinWheelGiftProductName(p.name);
+                                    setSpinWheelGiftResults([]);
+                                    setSpinWheelGiftSearch("");
+                                  }}
+                                >
+                                  {p.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Awarded by the storefront spin wheel. Leave unset to exclude "Free Perfume" from the prize pool.
                       </p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">

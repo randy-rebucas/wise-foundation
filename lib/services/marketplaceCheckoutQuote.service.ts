@@ -1,4 +1,4 @@
-import type { Types } from "mongoose";
+import type { ClientSession, Types } from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { Inventory } from "@/lib/db/models/Inventory";
 import { Product } from "@/lib/db/models/Product";
@@ -30,7 +30,13 @@ export type MarketplaceCheckoutQuote = {
   shippingCost: number;
   total: number;
   amountCentavos: number;
-  coupon?: { code: string; applied: boolean; message?: string; discountAmount?: number };
+  coupon?: {
+    code: string;
+    applied: boolean;
+    message?: string;
+    discountAmount?: number;
+    freeShipping?: boolean;
+  };
 };
 
 export type MarketplaceCheckoutQuoteMethod = {
@@ -63,7 +69,8 @@ export type MarketplaceCheckoutQuoteInput = Pick<
 /** Validates cart lines and stock; returns pricing for checkout / PayMongo intent. */
 export async function quoteMarketplaceCheckout(
   input: MarketplaceCheckoutQuoteInput,
-  customerUserId: string | null
+  customerUserId: string | null,
+  opts?: { session?: ClientSession }
 ): Promise<MarketplaceCheckoutQuoteExtended> {
   await connectDB();
   const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
@@ -157,13 +164,29 @@ export async function quoteMarketplaceCheckout(
       ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
       : 0;
 
+  const cartUnitPriceForProduct = (productId: string): number | undefined => {
+    const item = input.items.find((i) => i.productId === productId);
+    if (!item) return undefined;
+    if (item.variantId) {
+      const v = variantMap.get(item.variantId);
+      if (v) return v.retailPrice;
+    }
+    const product = productMap.get(productId);
+    return product?.retailPrice;
+  };
+
   let couponResult: Awaited<ReturnType<typeof validateCoupon>> | undefined;
   let couponDiscountAmount = 0;
   const couponCode = input.couponCode?.trim();
   if (couponCode) {
-    couponResult = await validateCoupon(couponCode, customerUserId, subtotal);
+    couponResult = await validateCoupon(couponCode, customerUserId, subtotal, {
+      email: input.shipping?.email,
+      cartUnitPriceForProduct,
+      session: opts?.session,
+    });
     if (couponResult.ok) couponDiscountAmount = couponResult.discountAmount;
   }
+  const freeShipping = couponResult?.ok === true && couponResult.freeShipping === true;
 
   // Coupon and member discounts don't stack — take whichever is larger.
   const discountAmount = Math.max(memberDiscountAmount, couponDiscountAmount);
@@ -195,7 +218,7 @@ export async function quoteMarketplaceCheckout(
       supportsCod: method.supportsCod,
       baseShipping: quote.baseShipping,
       codFee: quote.codFee,
-      shippingCost: quote.shippingCost,
+      shippingCost: freeShipping ? 0 : quote.shippingCost,
     };
   });
 
@@ -215,7 +238,7 @@ export async function quoteMarketplaceCheckout(
     city,
   });
   const selectedOption = getMarketplaceShippingOption(selected.id);
-  const shippingCost = selectedQuote.shippingCost;
+  const shippingCost = freeShipping ? 0 : selectedQuote.shippingCost;
   const total = computeMarketplaceOrderTotal(subtotal, discountAmount, shippingCost);
 
   return {
@@ -228,7 +251,12 @@ export async function quoteMarketplaceCheckout(
     coupon: couponCode
       ? couponResult && !couponResult.ok
         ? { code: couponCode, applied: false, message: couponResult.message }
-        : { code: couponCode, applied: true, discountAmount: couponDiscountAmount }
+        : {
+            code: couponCode,
+            applied: true,
+            discountAmount: couponDiscountAmount,
+            freeShipping: freeShipping || undefined,
+          }
       : undefined,
     shippingMethods,
     shippingBreakdown: {

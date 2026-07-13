@@ -23,6 +23,10 @@ export const patchAppSettingsSchema = z.object({
     .union([z.string().regex(/^[a-f\d]{24}$/i), z.literal(""), z.null()])
     .optional()
     .transform((v) => (v === "" || v === null ? null : v)),
+  spinWheelFreeGiftProductId: z
+    .union([z.string().regex(/^[a-f\d]{24}$/i), z.literal(""), z.null()])
+    .optional()
+    .transform((v) => (v === "" || v === null ? null : v)),
   purchaseOrderDiscountByOrgType: purchaseOrderDiscountByOrgTypeSchema.optional(),
 });
 

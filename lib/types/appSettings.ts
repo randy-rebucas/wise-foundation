@@ -24,4 +24,6 @@ export interface PublicAppSettings {
 /** Admin-only fields from GET /api/settings/app */
 export interface AdminAppSettings extends PublicAppSettings {
   marketplaceFulfillmentBranchId?: string;
+  /** Product awarded as the "Free Perfume" spin-wheel prize. Unset = that prize is excluded. */
+  spinWheelFreeGiftProductId?: string;
 }
