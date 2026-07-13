@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { connectDB } from "@/lib/db/connect";
 import { User } from "@/lib/db/models/User";
 import { getSiteUrl } from "@/lib/seo/site";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail } from "@/lib/email/mailer";
 import { passwordResetTemplate } from "@/lib/email/templates";
 import { successResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { z } from "zod";

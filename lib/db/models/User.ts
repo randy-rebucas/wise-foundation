@@ -37,6 +37,9 @@ export interface IUser extends Document {
   passwordResetToken?: string | null;
   passwordResetExpiry?: Date | null;
   marketplace?: IUserMarketplace;
+  marketingOptIn: boolean;
+  marketingOptInUpdatedAt?: Date | null;
+  welcomeCouponIssuedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -141,6 +144,9 @@ const UserSchema = new Schema<IUser>(
     passwordResetToken: { type: String, select: false, default: null },
     passwordResetExpiry: { type: Date, select: false, default: null },
     marketplace: { type: MarketplaceSchema, default: () => ({}) },
+    marketingOptIn: { type: Boolean, default: true },
+    marketingOptInUpdatedAt: { type: Date, default: null },
+    welcomeCouponIssuedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true }

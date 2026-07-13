@@ -110,6 +110,7 @@ type CheckoutQuoteState = {
   total: number;
   shippingMethods: MarketplaceCheckoutQuoteMethod[];
   shippingBreakdown?: { baseShipping: number; codFee: number; courier: string };
+  coupon?: { code: string; applied: boolean; message?: string; discountAmount?: number };
 };
 
 const PAYMENT_OPTIONS = [
@@ -172,6 +173,8 @@ export default function MarketplaceCheckoutPage() {
     useState<MarketplaceShippingMethodId>("jt_economy");
   const [checkoutQuote, setCheckoutQuote] = useState<CheckoutQuoteState | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
   const [marketingOptIn, setMarketingOptIn] = useState(true);
   const [saveInfo, setSaveInfo] = useState(true);
   const [savedAddresses, setSavedAddresses] = useState<MarketplaceSavedAddress[]>([]);
@@ -418,6 +421,7 @@ export default function MarketplaceCheckoutPage() {
               },
               shippingMethod,
               paymentMethod: form.paymentMethod,
+              couponCode: appliedCouponCode || undefined,
             }),
             signal: controller.signal,
           });
@@ -460,6 +464,7 @@ export default function MarketplaceCheckoutPage() {
     form.postalCode,
     memberDiscountPercent,
     subtotal,
+    appliedCouponCode,
   ]);
 
   useEffect(() => {
@@ -736,6 +741,8 @@ export default function MarketplaceCheckoutPage() {
         },
         shippingMethod,
         paymentMethod: form.paymentMethod,
+        couponCode:
+          appliedCouponCode && checkoutQuote?.coupon?.applied ? appliedCouponCode : undefined,
         notes: form.notes.trim() || undefined,
         saveAddress: saveInfo && session?.user?.role === "CUSTOMER",
       };
@@ -1257,10 +1264,60 @@ export default function MarketplaceCheckoutPage() {
                 </div>
                 {discountAmount > 0 ? (
                   <div className="flex justify-between text-green-700">
-                    <span>Member discount ({memberDiscountPercent}%)</span>
+                    <span>
+                      {checkoutQuote?.coupon?.applied
+                        ? `Coupon (${checkoutQuote.coupon.code})`
+                        : `Member discount (${memberDiscountPercent}%)`}
+                    </span>
                     <span className="font-semibold">−{money(discountAmount)}</span>
                   </div>
                 ) : null}
+
+                <div className="space-y-1.5 pt-1">
+                  {appliedCouponCode ? (
+                    <div className="flex items-center justify-between rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs">
+                      <span className="font-semibold text-[#1e3157]">
+                        {appliedCouponCode}
+                        {checkoutQuote?.coupon && !checkoutQuote.coupon.applied
+                          ? " — invalid"
+                          : " applied"}
+                      </span>
+                      <button
+                        type="button"
+                        className="font-semibold text-[#6ea43f] hover:underline"
+                        onClick={() => {
+                          setAppliedCouponCode("");
+                          setCouponCodeInput("");
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponCodeInput}
+                        onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                        placeholder="Coupon code"
+                        className="h-9 text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9 shrink-0"
+                        disabled={!couponCodeInput.trim()}
+                        onClick={() => setAppliedCouponCode(couponCodeInput.trim())}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  )}
+                  {checkoutQuote?.coupon && !checkoutQuote.coupon.applied ? (
+                    <p className="text-xs text-red-600">{checkoutQuote.coupon.message}</p>
+                  ) : null}
+                </div>
+
                 <div className="flex justify-between text-[#2A4C6A]/80">
                   <span>Shipping</span>
                   <span className="font-semibold text-[#1e3157]">

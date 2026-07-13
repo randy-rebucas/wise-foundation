@@ -11,6 +11,7 @@ import { OrderItem } from "@/lib/db/models/OrderItem";
 import { Product } from "@/lib/db/models/Product";
 import { ProductVariant } from "@/lib/db/models/ProductVariant";
 import { Ad } from "@/lib/db/models/Ad";
+import { BlogPost, type IBlogPost } from "@/lib/db/models/BlogPost";
 import { StockMovement } from "@/lib/db/models/StockMovement";
 import { Transaction } from "@/lib/db/models/Transaction";
 import { User } from "@/lib/db/models/User";
@@ -27,6 +28,7 @@ import {
   type MarketplaceShopListParams,
 } from "@/lib/services/marketplaceShopFilters";
 import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
+import { validateCoupon, redeemCoupon } from "@/lib/services/coupon.service";
 import {
   addCustomerPaymentMethod,
   addCustomerSavedAddress,
@@ -569,6 +571,24 @@ export async function listMarketplaceAds(limit = 8): Promise<MarketplaceAd[]> {
     });
 }
 
+export async function listPublishedBlogPosts(): Promise<IBlogPost[]> {
+  await connectDB();
+  const posts = await BlogPost.find({ isPublished: true, deletedAt: null })
+    .sort({ publishedAt: -1 })
+    .lean();
+  return posts as unknown as IBlogPost[];
+}
+
+export async function getPublishedBlogPostBySlug(slug: string): Promise<IBlogPost | null> {
+  await connectDB();
+  const post = await BlogPost.findOne({
+    slug: slug.toLowerCase().trim(),
+    isPublished: true,
+    deletedAt: null,
+  }).lean();
+  return post as unknown as IBlogPost | null;
+}
+
 export async function getMarketplaceProductBySlug(slug: string) {
   await connectDB();
   const { branchId } = await getMarketplaceFulfillmentContext();
@@ -778,10 +798,26 @@ export async function placeMarketplaceOrder(
         discountPercent = dashboard.memberDiscountPercent;
       }
     }
-    const discountAmount =
+    const memberDiscountAmount =
       discountPercent > 0
         ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
         : 0;
+
+    let couponId: Types.ObjectId | null = null;
+    let couponDiscountAmount = 0;
+    const couponCode = input.couponCode?.trim();
+    if (couponCode) {
+      const couponResult = await validateCoupon(couponCode, customerUserId, subtotal);
+      if (!couponResult.ok) throw new Error(couponResult.message);
+      couponId = couponResult.couponId;
+      couponDiscountAmount = couponResult.discountAmount;
+    }
+
+    // Coupon and member discounts don't stack — take whichever is larger.
+    const discountAmount = Math.max(memberDiscountAmount, couponDiscountAmount);
+    if (couponId && couponDiscountAmount >= memberDiscountAmount) {
+      discountPercent = subtotal > 0 ? Math.round((discountAmount / subtotal) * 10000) / 100 : 0;
+    }
 
     const shippingCost = computeCheckoutShippingCost(subtotal, input.shippingMethod, {
       discountAmount,
@@ -803,6 +839,7 @@ export async function placeMarketplaceOrder(
           shippingMethod: input.shippingMethod,
           shipping: input.shipping,
           paymentMethod: input.paymentMethod,
+          couponCode: input.couponCode,
         },
         customerUserId
       );
@@ -884,6 +921,8 @@ export async function placeMarketplaceOrder(
           subtotal,
           discountAmount,
           discountPercent,
+          couponCode: couponId ? couponCode?.toUpperCase() : undefined,
+          couponId: couponId ?? undefined,
           shippingAmount: shippingCost,
           total,
           amountPaid,
@@ -948,6 +987,10 @@ export async function placeMarketplaceOrder(
       ],
       { session }
     );
+
+    if (couponId && customerOid) {
+      await redeemCoupon(couponId, customerOid, order._id as Types.ObjectId, session);
+    }
 
     const orderItems = lines.map((l) => ({
       orderId: order._id,

@@ -59,6 +59,7 @@ export const marketplaceCheckoutSchema = z.object({
   shipping: marketplaceShippingSchema,
   shippingMethod: z.enum(shippingMethodIds),
   paymentMethod: z.enum(["cash", "gcash", "card", "bank_transfer", "credit"]),
+  couponCode: z.string().trim().max(32).optional(),
   savedPaymentMethodId: z.string().min(1).max(64).optional(),
   cardPayment: marketplaceCardPaymentSchema.optional(),
   gcashPayment: marketplaceGcashPaymentSchema.optional(),

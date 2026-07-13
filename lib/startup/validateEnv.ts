@@ -27,9 +27,29 @@ const ENV_SPECS: EnvSpec[] = [
     description: "PayMongo public key (client-side tokenisation)",
   },
   {
-    key: "RESEND_API_KEY",
+    key: "SMTP_HOST",
     required: false,
-    description: "Resend API key for transactional email (verification, order confirmation)",
+    description: "SMTP host for transactional email (verification, password reset)",
+  },
+  {
+    key: "SMTP_PORT",
+    required: false,
+    description: "SMTP port (587 for STARTTLS, 465 for implicit TLS)",
+  },
+  {
+    key: "SMTP_USER",
+    required: false,
+    description: "SMTP username (usually the full mailbox address)",
+  },
+  {
+    key: "SMTP_PASS",
+    required: false,
+    description: "SMTP password",
+  },
+  {
+    key: "EMAIL_FROM",
+    required: false,
+    description: "From address for transactional email, e.g. \"Glowish <noreply@yourdomain.com>\"",
   },
 ];
 

@@ -4,6 +4,7 @@ import { Inventory } from "@/lib/db/models/Inventory";
 import { Product } from "@/lib/db/models/Product";
 import { ProductVariant } from "@/lib/db/models/ProductVariant";
 import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
+import { validateCoupon } from "@/lib/services/coupon.service";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { Branch } from "@/lib/db/models/Branch";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
@@ -29,6 +30,7 @@ export type MarketplaceCheckoutQuote = {
   shippingCost: number;
   total: number;
   amountCentavos: number;
+  coupon?: { code: string; applied: boolean; message?: string; discountAmount?: number };
 };
 
 export type MarketplaceCheckoutQuoteMethod = {
@@ -55,6 +57,7 @@ export type MarketplaceCheckoutQuoteInput = Pick<
   "items" | "shippingMethod" | "shipping"
 > & {
   paymentMethod?: MarketplaceCheckoutInput["paymentMethod"];
+  couponCode?: string;
 };
 
 /** Validates cart lines and stock; returns pricing for checkout / PayMongo intent. */
@@ -149,10 +152,24 @@ export async function quoteMarketplaceCheckout(
     const dashboard = await getCustomerDashboard(customerUserId);
     if (dashboard) discountPercent = dashboard.memberDiscountPercent;
   }
-  const discountAmount =
+  const memberDiscountAmount =
     discountPercent > 0
       ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
       : 0;
+
+  let couponResult: Awaited<ReturnType<typeof validateCoupon>> | undefined;
+  let couponDiscountAmount = 0;
+  const couponCode = input.couponCode?.trim();
+  if (couponCode) {
+    couponResult = await validateCoupon(couponCode, customerUserId, subtotal);
+    if (couponResult.ok) couponDiscountAmount = couponResult.discountAmount;
+  }
+
+  // Coupon and member discounts don't stack — take whichever is larger.
+  const discountAmount = Math.max(memberDiscountAmount, couponDiscountAmount);
+  if (couponDiscountAmount > 0 && couponDiscountAmount >= memberDiscountAmount) {
+    discountPercent = subtotal > 0 ? Math.round((discountAmount / subtotal) * 10000) / 100 : 0;
+  }
 
   const region = input.shipping?.region ?? "";
   const city = input.shipping?.city ?? "";
@@ -208,6 +225,11 @@ export async function quoteMarketplaceCheckout(
     shippingCost,
     total,
     amountCentavos: phpAmountToCentavos(total),
+    coupon: couponCode
+      ? couponResult && !couponResult.ok
+        ? { code: couponCode, applied: false, message: couponResult.message }
+        : { code: couponCode, applied: true, discountAmount: couponDiscountAmount }
+      : undefined,
     shippingMethods,
     shippingBreakdown: {
       baseShipping: selectedQuote.baseShipping,

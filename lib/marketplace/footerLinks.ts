@@ -31,6 +31,7 @@ export const MARKETPLACE_FOOTER_COLUMNS: MarketplaceFooterColumn[] = [
     title: "Company",
     links: [
       { label: "About Us", href: "/about-us" },
+      { label: "Blog", href: "/blog" },
       { label: "Our Ingredients", href: "/categories" },
       { label: "Reviews", href: "/reviews" },
       { label: "Privacy Policy", href: "/privacy-policy" },

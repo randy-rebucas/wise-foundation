@@ -68,6 +68,38 @@ export function orderConfirmationTemplate(opts: {
   };
 }
 
+export function welcomeCouponTemplate(opts: {
+  name: string;
+  code: string;
+  percent: number;
+  expiresAt: Date;
+  shopUrl: string;
+  appName: string;
+}): { subject: string; html: string } {
+  const expiresFormatted = opts.expiresAt.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return {
+    subject: `Welcome to ${opts.appName} — here's ${opts.percent}% off`,
+    html: base(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#18181b">Welcome, ${opts.name}!</h2>
+      <p style="margin:0 0 16px;color:#52525b;font-size:15px;line-height:1.6">
+        Thanks for joining ${opts.appName}. Here's a coupon for ${opts.percent}% off your first order.
+      </p>
+      <p style="margin:0 0 16px;padding:16px;border:2px dashed #d4d4d8;border-radius:8px;text-align:center;font-size:20px;font-weight:700;letter-spacing:2px;color:#18181b">
+        ${opts.code}
+      </p>
+      ${btn(opts.shopUrl, "Start shopping")}
+      <p style="margin:16px 0 0;color:#a1a1aa;font-size:13px">
+        Valid until ${expiresFormatted}. One-time use, applied at checkout.
+      </p>
+    `),
+  };
+}
+
 export function passwordResetTemplate(opts: {
   name: string;
   resetUrl: string;

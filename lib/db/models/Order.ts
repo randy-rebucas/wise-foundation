@@ -15,6 +15,8 @@ export interface IOrder extends Document {
   subtotal: number;
   discountAmount: number;
   discountPercent: number;
+  couponCode?: string;
+  couponId?: Types.ObjectId | null;
   total: number;
   amountPaid: number;
   change: number;
@@ -109,6 +111,8 @@ const OrderSchema = new Schema<IOrder>(
     subtotal: { type: Number, required: true, min: 0 },
     discountAmount: { type: Number, default: 0, min: 0 },
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
+    couponCode: { type: String },
+    couponId: { type: Schema.Types.ObjectId, ref: "Coupon", default: null },
     total: { type: Number, required: true, min: 0 },
     amountPaid: { type: Number, default: 0 },
     change: { type: Number, default: 0 },

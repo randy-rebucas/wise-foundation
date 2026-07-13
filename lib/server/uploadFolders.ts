@@ -37,3 +37,7 @@ export function getBrandingFolder(): string {
 export function getAdsCreativeFolder(): string {
   return `${getUploadRootFolder()}/ads/creative`;
 }
+
+export function getBlogCoverFolder(): string {
+  return `${getUploadRootFolder()}/blog/covers`;
+}

@@ -21,6 +21,7 @@ const quoteBodySchema = z.object({
   shipping: marketplaceShippingSchema.partial().optional(),
   shippingMethod: z.enum(shippingMethodIds).optional(),
   paymentMethod: z.enum(["cash", "gcash", "card", "bank_transfer", "credit"]).optional(),
+  couponCode: z.string().trim().max(32).optional(),
 });
 
 export async function POST(req: Request) {
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
           postalCode: shipping.postalCode ?? "1100",
         },
         paymentMethod: parsed.data.paymentMethod,
+        couponCode: parsed.data.couponCode,
       },
       customerUserId
     );
