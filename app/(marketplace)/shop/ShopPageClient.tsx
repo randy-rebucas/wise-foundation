@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trash2,
+  Video,
 } from "lucide-react";
 import { ProductRatingBadge } from "@/components/marketplace/reviews/ProductRatingBadge";
 import { useProductReviewSummaries } from "@/components/marketplace/reviews/useProductReviewSummaries";
@@ -52,6 +53,7 @@ type Row = {
   slug: string;
   sku?: string;
   images: string[];
+  video?: string;
   retailPrice: number;
   category: string;
   stock: number;
@@ -331,6 +333,12 @@ export function ShopPageClient() {
             <span className="absolute right-3 top-3 rounded-full border border-white/70 bg-white/65 p-2 text-[#3c2e60] shadow-sm backdrop-blur">
               <Heart className="h-4 w-4" />
             </span>
+            {product.video ? (
+              <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full border border-white/70 bg-black/55 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur">
+                <Video className="h-3 w-3" />
+                Video
+              </span>
+            ) : null}
           </div>
         </Link>
         <CardContent className="space-y-2 p-4">

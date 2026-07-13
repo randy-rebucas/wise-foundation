@@ -470,7 +470,7 @@ const _cachedListMarketplaceProducts = unstable_cache(
     const [rows, total] = await Promise.all([
       Product.find(filter)
         .select(
-          "name slug images retailPrice category sku shortDescription description seoTitle seoDescription tags"
+          "name slug images video retailPrice category sku shortDescription description seoTitle seoDescription tags"
         )
         .sort(sort)
         .skip(skip)
@@ -496,6 +496,7 @@ const _cachedListMarketplaceProducts = unstable_cache(
         name: p.name,
         slug: p.slug,
         images: p.images ?? [],
+        video: p.video,
         retailPrice: p.retailPrice,
         category: p.category,
         sku: p.sku,
@@ -637,6 +638,7 @@ export async function getMarketplaceProductBySlug(slug: string) {
     category: product.category,
     sku: product.sku,
     images: product.images ?? [],
+    video: product.video,
     retailPrice: product.retailPrice,
     baseStock,
     variants: variantRows,

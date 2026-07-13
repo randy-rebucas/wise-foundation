@@ -18,10 +18,12 @@ import {
   DEFAULT_MAX_GALLERY_IMAGES,
 } from "@/components/products/ImageGalleryEditor";
 import { uploadProductImageFiles } from "@/lib/client/uploadProductImages";
+import { uploadProductVideoFile } from "@/lib/client/uploadProductVideo";
 import { useImageUploadEnabled } from "@/hooks/useImageUploadEnabled";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownEditor } from "@/components/shared/MarkdownEditor";
-import { Dices, Loader2 } from "lucide-react";
+import { FileDropzone } from "@/components/shared/FileDropzone";
+import { Dices, Loader2, Video, X } from "lucide-react";
 import {
   PRODUCT_CATEGORIES,
   randomEan13Barcode,
@@ -70,6 +72,7 @@ export function ProductForm({
   const [productImageUploading, setProductImageUploading] = useState(false);
   const [productPendingUploadCount, setProductPendingUploadCount] = useState(0);
   const productUploadsInFlight = useRef(0);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   useEffect(() => {
     if (initialValues) {
@@ -127,6 +130,26 @@ export function ProductForm({
         productUploadsInFlight.current = 0;
         setProductImageUploading(false);
       }
+    }
+  }
+
+  async function handleVideoSelected(files: File[]) {
+    const file = files[0];
+    if (!file) return;
+    setVideoUploading(true);
+    try {
+      const url = await uploadProductVideoFile(file);
+      setForm((f) => ({ ...f, video: url }));
+      queryClient.invalidateQueries({ queryKey: ["media"] });
+      toast({ title: "Video uploaded" });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setVideoUploading(false);
     }
   }
 
@@ -304,6 +327,48 @@ export function ProductForm({
             : "Add images by URL. The first image is the cover. To enable uploads, configure Cloudinary or a writable public/uploads folder."
         }
       />
+
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold text-muted-foreground">
+          Product video (short vertical clip)
+        </Label>
+        {form.video ? (
+          <div className="relative w-40 overflow-hidden rounded-md border bg-muted">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video src={form.video} controls muted className="aspect-[9/16] w-full object-cover" />
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              className="absolute right-1 top-1 h-6 w-6"
+              onClick={() => setForm((f) => ({ ...f, video: "" }))}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : imageUploadEnabled ? (
+          <FileDropzone
+            accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+            disabled={videoUploading}
+            busy={videoUploading}
+            onFilesSelected={handleVideoSelected}
+            idleLabel={videoUploading ? "Uploading…" : "Drag a vertical video here or click to browse"}
+          >
+            {videoUploading ? (
+              <>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm font-medium">Uploading…</span>
+              </>
+            ) : (
+              <Video className="h-8 w-8 text-muted-foreground" />
+            )}
+          </FileDropzone>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          15–30s vertical clip covering texture, application, results, packaging, and customer
+          reaction. Shown on the product page and reused across TikTok, Reels, and Shorts.
+        </p>
+      </div>
 
       <div>
         <p className="text-sm font-semibold text-muted-foreground mb-3">Pricing</p>

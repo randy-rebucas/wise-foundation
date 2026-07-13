@@ -14,6 +14,7 @@ export type ProductFormValues = {
   marketplaceListed: boolean;
   tags: string;
   images: string[];
+  video: string;
 };
 
 export const defaultProductFormValues: ProductFormValues = {
@@ -30,6 +31,7 @@ export const defaultProductFormValues: ProductFormValues = {
   marketplaceListed: true,
   tags: "",
   images: [],
+  video: "",
 };
 
 export type ProductFormSource = {
@@ -46,6 +48,7 @@ export type ProductFormSource = {
   marketplaceListed?: boolean;
   tags?: string[];
   images?: string[];
+  video?: string;
 };
 
 export function productToFormValues(product: ProductFormSource): ProductFormValues {
@@ -63,6 +66,7 @@ export function productToFormValues(product: ProductFormSource): ProductFormValu
     marketplaceListed: product.marketplaceListed !== false,
     tags: (product.tags ?? []).join(", "),
     images: product.images ?? [],
+    video: product.video ?? "",
   };
 }
 
@@ -75,6 +79,7 @@ export function buildProductSavePayload(form: ProductFormValues) {
       .filter(Boolean),
     category: form.category || undefined,
     images: form.images,
+    video: form.video || undefined,
   };
 }
 

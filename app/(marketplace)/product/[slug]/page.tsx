@@ -58,6 +58,7 @@ type Product = {
   category?: string;
   sku: string;
   images: string[];
+  video?: string;
   retailPrice: number;
   baseStock: number;
   hasVariants: boolean;
@@ -261,12 +262,28 @@ export default function MarketplaceProductPage() {
 
       <article className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
         <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-2 lg:gap-10">
-          <ProductImageGallery
-            images={galleryImages}
-            activeIndex={activeImageIdx}
-            onActiveIndexChange={setActiveImageIdx}
-            productName={data.name}
-          />
+          <div className="space-y-4">
+            <ProductImageGallery
+              images={galleryImages}
+              activeIndex={activeImageIdx}
+              onActiveIndexChange={setActiveImageIdx}
+              productName={data.name}
+            />
+            {data.video ? (
+              <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-2xl border border-white/60 bg-black shadow-[0_10px_30px_rgba(94,70,135,0.18)]">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video
+                  src={data.video}
+                  controls
+                  playsInline
+                  muted
+                  className="aspect-[9/16] w-full object-cover"
+                >
+                  Your browser does not support video playback.
+                </video>
+              </div>
+            ) : null}
+          </div>
 
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-2">

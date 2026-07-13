@@ -16,6 +16,9 @@ export interface IProduct extends Document {
   sku: string;
   barcode?: string;
   images: string[];
+  /** Short vertical product video (texture/application/results/packaging/reaction). */
+  video?: string;
+  videoPosterUrl?: string;
   retailPrice: number;
   isActive: boolean;
   tags: string[];
@@ -42,6 +45,8 @@ const ProductSchema = new Schema<IProduct>(
     sku: { type: String, required: true, unique: true, trim: true },
     barcode: { type: String },
     images: [{ type: String }],
+    video: { type: String },
+    videoPosterUrl: { type: String },
     retailPrice: { type: Number, required: true, min: 0 },
     isActive: { type: Boolean, default: true },
     tags: [{ type: String }],

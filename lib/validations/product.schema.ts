@@ -36,6 +36,8 @@ export const createProductSchema = z.object({
   marketplaceListed: z.boolean().default(true),
   tags: z.array(z.string()).default([]),
   images: z.array(imageUrlSchema).max(MAX_GALLERY_IMAGES).default([]),
+  video: imageUrlSchema.optional(),
+  videoPosterUrl: imageUrlSchema.optional(),
 });
 
 export const createVariantSchema = z.object({
