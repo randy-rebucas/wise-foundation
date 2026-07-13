@@ -42,9 +42,13 @@ type SpinResponse = {
 
 export function SpinWheelPopup() {
   const hasSpun = useSpinWheelStore((s) => s.hasSpun);
+  const wonCouponCode = useSpinWheelStore((s) => s.wonCouponCode);
+  const wonPrizeLabel = useSpinWheelStore((s) => s.wonPrizeLabel);
   const markSpun = useSpinWheelStore((s) => s.markSpun);
+  const open = useSpinWheelStore((s) => s.isOpen);
+  const openWheel = useSpinWheelStore((s) => s.openWheel);
+  const closeWheel = useSpinWheelStore((s) => s.closeWheel);
 
-  const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
@@ -56,15 +60,27 @@ export function SpinWheelPopup() {
     if (hasSpun) return;
     if (typeof window !== "undefined" && sessionStorage.getItem(DISMISS_SESSION_KEY)) return;
 
-    const timer = setTimeout(() => setOpen(true), POPUP_DELAY_MS);
+    const timer = setTimeout(() => openWheel(), POPUP_DELAY_MS);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSpun]);
+
+  // Reopening (e.g. via the floating button) after already winning shows the existing prize
+  // instead of the entry form — the API would just reject a second spin anyway.
+  useEffect(() => {
+    if (open && hasSpun && wonCouponCode && !result) {
+      setResult({ alreadySpun: false, couponCode: wonCouponCode, prizeLabel: wonPrizeLabel ?? undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function handleOpenChange(next: boolean) {
     if (!next && !result) {
       sessionStorage.setItem(DISMISS_SESSION_KEY, "1");
     }
-    setOpen(next);
+    if (!next) setResult(null);
+    if (next) openWheel();
+    else closeWheel();
   }
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -100,7 +116,7 @@ export function SpinWheelPopup() {
       window.setTimeout(() => {
         setResult(data);
         setSpinning(false);
-        if (data.couponCode) markSpun(data.couponCode);
+        if (data.couponCode) markSpun(data.couponCode, data.prizeLabel);
       }, 4200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not spin right now");
@@ -182,7 +198,7 @@ export function SpinWheelPopup() {
             <p className="mt-1 text-sm text-[#2A4C6A]/75">
               Check your inbox for your coupon, or use the one already on your account.
             </p>
-            <Button className="mt-4" variant="outline" onClick={() => setOpen(false)}>
+            <Button className="mt-4" variant="outline" onClick={() => handleOpenChange(false)}>
               Close
             </Button>
           </div>
@@ -202,7 +218,7 @@ export function SpinWheelPopup() {
             </p>
             <Button
               className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
             >
               Continue shopping
             </Button>

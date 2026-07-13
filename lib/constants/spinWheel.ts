@@ -1,5 +1,3 @@
-import { randomInt } from "node:crypto";
-
 export type SpinPrizeId = "percent_5" | "percent_10" | "free_shipping" | "free_perfume";
 
 export type SpinPrizeDef = {
@@ -33,16 +31,3 @@ export const SPIN_PRIZES: SpinPrizeDef[] = [
 ];
 
 export const SPIN_COUPON_VALID_DAYS = 30;
-
-/** Server-authoritative weighted pick. `hasFreeGiftProduct` excludes free_perfume when unset, renormalizing weights. */
-export function pickWeightedPrize(hasFreeGiftProduct: boolean): SpinPrizeDef {
-  const pool = SPIN_PRIZES.filter((p) => !p.requiresFreeGiftProduct || hasFreeGiftProduct);
-  const totalWeight = pool.reduce((sum, p) => sum + p.weight, 0);
-  const roll = randomInt(totalWeight);
-  let cursor = 0;
-  for (const prize of pool) {
-    cursor += prize.weight;
-    if (roll < cursor) return prize;
-  }
-  return pool[pool.length - 1];
-}

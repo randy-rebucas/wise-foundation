@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db/connect";
 import { Coupon } from "@/lib/db/models/Coupon";
 import { AppSettings } from "@/lib/db/models/AppSettings";
 import { issueSpinCoupon } from "@/lib/services/coupon.service";
-import { pickWeightedPrize } from "@/lib/constants/spinWheel";
+import { pickWeightedPrize } from "@/lib/server/spinWheelPrize";
 import { enforceRateLimit } from "@/lib/utils/rateLimit";
 import { errorResponse, successResponse } from "@/lib/utils/apiResponse";
 
