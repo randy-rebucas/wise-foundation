@@ -50,6 +50,7 @@ journeys:
 | `online-store` | Sidebar link to public storefront |
 | `deliveries` | HQ B2B fulfillment queue |
 | `products` | Catalog, marketplace listing, per-product SEO |
+| `guide-admin`, `guide-org-admin`, `guide-branch-manager`, `guide-inventory-manager`, `guide-staff`, `guide-member`, `guide-customer` | Complete per-role guides (category: `user-journeys`) |
 
 See `docs/help-knowledgebase-sync.md` for the full audit list.
 

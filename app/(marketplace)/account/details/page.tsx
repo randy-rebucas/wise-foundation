@@ -138,7 +138,7 @@ export default function AccountDetailsPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <form
           onSubmit={saveProfile}
-          className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm"
+          className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm"
         >
           <h2 className="font-semibold text-[#1e3157]">Profile</h2>
           <p className="mt-1 text-xs text-[#2A4C6A]/65">
@@ -151,7 +151,7 @@ export default function AccountDetailsPage() {
                 id="email"
                 value={profile?.email ?? ""}
                 disabled
-                className="mt-1 rounded-xl border-white/70 bg-white/50"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/50"
               />
             </div>
             <div>
@@ -161,7 +161,7 @@ export default function AccountDetailsPage() {
                 value={profileForm.name}
                 onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
                 required
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
             <div>
@@ -171,7 +171,7 @@ export default function AccountDetailsPage() {
                 value={profileForm.phone}
                 onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
                 placeholder="+63 912 345 6789"
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
             {profileError ? (
@@ -185,7 +185,7 @@ export default function AccountDetailsPage() {
             <Button
               type="submit"
               disabled={savingProfile}
-              className="rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]"
+              className="rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]"
             >
               {savingProfile ? "Saving…" : "Save profile"}
             </Button>
@@ -194,7 +194,7 @@ export default function AccountDetailsPage() {
 
         <form
           onSubmit={savePassword}
-          className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm"
+          className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm"
         >
           <h2 className="font-semibold text-[#1e3157]">Password</h2>
           <p className="mt-1 text-xs text-[#2A4C6A]/65">Use at least 8 characters.</p>
@@ -209,7 +209,7 @@ export default function AccountDetailsPage() {
                   setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))
                 }
                 required
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
             <div>
@@ -220,7 +220,7 @@ export default function AccountDetailsPage() {
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
                 required
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
             <div>
@@ -233,7 +233,7 @@ export default function AccountDetailsPage() {
                   setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))
                 }
                 required
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
             {passwordError ? (
@@ -247,7 +247,7 @@ export default function AccountDetailsPage() {
             <Button
               type="submit"
               disabled={savingPassword}
-              className="rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+              className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700"
             >
               {savingPassword ? "Updating…" : "Change password"}
             </Button>

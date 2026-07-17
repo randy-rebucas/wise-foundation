@@ -10,7 +10,6 @@ import {
   Loader2,
   Minus,
   Plus,
-  ShoppingBag,
   ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,17 +72,17 @@ function categoryLabel(value?: string) {
 function ProductPageSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-9 w-28 rounded-xl bg-white/50" />
-      <div className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/40 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <Skeleton className="h-9 w-28 rounded-[10px] bg-white/50" />
+      <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
         <div className="grid gap-8 lg:grid-cols-2">
-          <Skeleton className="aspect-square w-full rounded-2xl bg-white/50" />
+          <Skeleton className="aspect-square w-full rounded-[10px] bg-white/50" />
           <div className="space-y-4">
             <Skeleton className="h-5 w-24 rounded-full bg-white/50" />
-            <Skeleton className="h-10 w-3/4 rounded-xl bg-white/50" />
-            <Skeleton className="h-9 w-32 rounded-xl bg-white/50" />
-            <Skeleton className="h-24 w-full rounded-xl bg-white/50" />
-            <Skeleton className="h-11 w-full rounded-xl bg-white/50" />
-            <Skeleton className="h-12 w-full rounded-xl bg-white/50" />
+            <Skeleton className="h-10 w-3/4 rounded-[10px] bg-white/50" />
+            <Skeleton className="h-9 w-32 rounded-[10px] bg-white/50" />
+            <Skeleton className="h-24 w-full rounded-[10px] bg-white/50" />
+            <Skeleton className="h-11 w-full rounded-[10px] bg-white/50" />
+            <Skeleton className="h-12 w-full rounded-[10px] bg-white/50" />
           </div>
         </div>
       </div>
@@ -213,7 +212,7 @@ export default function MarketplaceProductPage() {
 
   if (err || !data) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+      <div className="flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
         <AlertCircle className="h-10 w-10 text-destructive" />
         <p className="text-sm font-medium text-[#3c2e60]">{err || "Product not found"}</p>
         <p className="max-w-sm text-sm text-[#2A4C6A]/70">
@@ -221,7 +220,7 @@ export default function MarketplaceProductPage() {
         </p>
         <Button
           asChild
-          className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+          className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
         >
           <Link href="/shop">Browse shop</Link>
         </Button>
@@ -251,7 +250,7 @@ export default function MarketplaceProductPage() {
       <Button
         variant="ghost"
         size="sm"
-        className="-ml-2 gap-1 rounded-xl text-[#2A4C6A] hover:bg-white/50 hover:text-[#2B6B56]"
+        className="-ml-2 gap-1 rounded-[10px] text-[#2A4C6A] hover:bg-white/50 hover:text-[#2B6B56]"
         asChild
       >
         <Link href="/shop">
@@ -260,7 +259,7 @@ export default function MarketplaceProductPage() {
         </Link>
       </Button>
 
-      <article className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+      <article className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
         <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-2 lg:gap-10">
           <div className="space-y-4">
             <ProductImageGallery
@@ -270,7 +269,7 @@ export default function MarketplaceProductPage() {
               productName={data.name}
             />
             {data.video ? (
-              <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-2xl border border-white/60 bg-black shadow-[0_10px_30px_rgba(94,70,135,0.18)]">
+              <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-[10px] border border-white/60 bg-black shadow-[0_10px_30px_rgba(94,70,135,0.18)]">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                   src={data.video}
@@ -357,7 +356,7 @@ export default function MarketplaceProductPage() {
                   value={variantId ?? ""}
                   onValueChange={(v) => setVariantId(v)}
                 >
-                  <SelectTrigger className="rounded-xl border-white/70 bg-white/60">
+                  <SelectTrigger className="rounded-[10px] border-white/70 bg-white/60">
                     <SelectValue placeholder="Choose variant" />
                   </SelectTrigger>
                   <SelectContent>
@@ -375,12 +374,12 @@ export default function MarketplaceProductPage() {
             <div className="space-y-2">
               <Label className="text-[#3c2e60]">Quantity</Label>
               <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex items-center rounded-xl border border-white/70 bg-white/70 shadow-sm">
+                <div className="inline-flex items-center rounded-[10px] border border-white/70 bg-white/70 shadow-sm">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-l-xl"
+                    className="h-10 w-10 rounded-l-[10px]"
                     disabled={qty <= 1 || maxStock <= 0}
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                     aria-label="Decrease quantity"
@@ -394,7 +393,7 @@ export default function MarketplaceProductPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-10 w-10 rounded-r-xl"
+                    className="h-10 w-10 rounded-r-[10px]"
                     disabled={qty >= maxStock || maxStock <= 0}
                     onClick={() => setQty((q) => Math.min(maxStock, q + 1))}
                     aria-label="Increase quantity"
@@ -411,11 +410,11 @@ export default function MarketplaceProductPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 size="lg"
-                className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-[0_10px_30px_rgba(71,125,52,0.25)] hover:opacity-95"
+                className="flex-1 gap-2 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-[0_10px_30px_rgba(71,125,52,0.25)] hover:opacity-95"
                 onClick={addToCart}
                 disabled={maxStock <= 0}
               >
-                <ShoppingBag className="h-4 w-4" />
+                <ShoppingCart className="h-4 w-4" />
                 {maxStock <= 0 ? "Out of stock" : "Add to cart"}
               </Button>
               <WishlistButton
@@ -427,14 +426,14 @@ export default function MarketplaceProductPage() {
                 sku={displaySku}
                 price={price}
                 image={displayImage}
-                className="h-11 w-11 shrink-0 rounded-xl border-white/70 bg-white/60"
+                className="h-11 w-11 shrink-0 rounded-[10px] border-white/70 bg-white/60"
               />
             </div>
 
             {cartCount > 0 ? (
               <Button
                 variant="outline"
-                className="w-full rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] hover:bg-white/75"
+                className="w-full rounded-[10px] border-white/70 bg-white/55 text-[#2A4C6A] hover:bg-white/75"
                 asChild
               >
                 <Link href="/cart">

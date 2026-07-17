@@ -16,7 +16,7 @@ import {
   Leaf,
   Package,
   Search,
-  ShoppingBag,
+  ShoppingCart,
   SlidersHorizontal,
   Sparkles,
   Trash2,
@@ -326,7 +326,7 @@ export function ShopPageClient() {
 
   function ShopProductGridCard({ product }: { product: Row }) {
     return (
-      <Card className="group overflow-hidden rounded-3xl border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
+      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
         <Link href={`/product/${encodeURIComponent(product.slug)}`} className="block">
           <div className="relative aspect-square">
             <ProductImage product={product} className="aspect-square" />
@@ -355,12 +355,12 @@ export function ShopPageClient() {
           <ProductRatingBadge summary={reviewSummaries[product._id]} />
           <Button
             type="button"
-            className="mt-2 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
+            className="mt-2 h-9 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
             disabled={product.stock <= 0}
             onClick={() => addProductToCart(product)}
           >
             {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
-            <ShoppingBag className="ml-2 h-3.5 w-3.5" />
+            <ShoppingCart className="ml-2 h-3.5 w-3.5" />
           </Button>
         </CardContent>
       </Card>
@@ -369,13 +369,13 @@ export function ShopPageClient() {
 
   function ShopProductListRow({ product }: { product: Row }) {
     return (
-      <Card className="group overflow-hidden rounded-2xl border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur transition duration-200 hover:bg-white/70 hover:shadow-[0_16px_44px_rgba(94,70,135,0.16)]">
+      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur transition duration-200 hover:bg-white/70 hover:shadow-[0_16px_44px_rgba(94,70,135,0.16)]">
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
           <Link
             href={`/product/${encodeURIComponent(product.slug)}`}
-            className="relative mx-auto h-28 w-28 shrink-0 overflow-hidden rounded-2xl sm:mx-0 sm:h-32 sm:w-32"
+            className="relative mx-auto h-28 w-28 shrink-0 overflow-hidden rounded-[10px] sm:mx-0 sm:h-32 sm:w-32"
           >
-            <ProductImage product={product} className="h-full w-full rounded-2xl" />
+            <ProductImage product={product} className="h-full w-full rounded-[10px]" />
           </Link>
           <div className="min-w-0 flex-1 space-y-2 text-center sm:text-left">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2A4C6A]/60">
@@ -396,19 +396,19 @@ export function ShopPageClient() {
             <Button
               type="button"
               variant="outline"
-              className="h-9 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] sm:hidden"
+              className="h-9 rounded-[10px] border-white/70 bg-white/55 text-[#2A4C6A] sm:hidden"
               asChild
             >
               <Link href={`/product/${encodeURIComponent(product.slug)}`}>View details</Link>
             </Button>
             <Button
               type="button"
-              className="h-10 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-sm text-white"
+              className="h-10 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-sm text-white"
               disabled={product.stock <= 0}
               onClick={() => addProductToCart(product)}
             >
               {product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
-              <ShoppingBag className="ml-2 h-4 w-4" />
+              <ShoppingCart className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -418,7 +418,7 @@ export function ShopPageClient() {
 
   return (
     <MarketplacePageShell>
-        <section className="relative isolate overflow-hidden rounded-[2rem] border border-white/60 bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[340px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[340px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_70%_35%,rgba(255,255,255,0.68),transparent_24%),radial-gradient(circle_at_78%_48%,rgba(0,229,255,0.16),transparent_34%)]" />
           <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
             <div className="max-w-md">
@@ -432,7 +432,7 @@ export function ShopPageClient() {
                 Premium skincare for healthy, radiant and glowing skin.
               </p>
               <Button
-                className="mt-6 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-[0_10px_30px_rgba(71,125,52,0.28)]"
+                className="mt-6 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-[0_10px_30px_rgba(71,125,52,0.28)]"
                 onClick={() =>
                   document.getElementById("shop-products")?.scrollIntoView({ behavior: "smooth" })
                 }
@@ -455,9 +455,9 @@ export function ShopPageClient() {
                 return (
                   <div
                     key={product._id}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-3xl border border-white/70 bg-white/55 p-3 shadow-[0_20px_55px_rgba(68,47,107,0.2)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/70 bg-white/55 p-3 shadow-[0_20px_55px_rgba(68,47,107,0.2)] backdrop-blur`}
                   >
-                    <div className="relative h-full overflow-hidden rounded-2xl bg-white/60">
+                    <div className="relative h-full overflow-hidden rounded-[10px] bg-white/60">
                       {imageUrl ? (
                         isRemote(imageUrl) ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -475,7 +475,7 @@ export function ShopPageClient() {
                 );
               })}
               {heroProducts.length === 0 && (
-                <div className="absolute inset-8 flex items-center justify-center rounded-[2rem] border border-white/70 bg-white/35">
+                <div className="absolute inset-8 flex items-center justify-center rounded-[10px] border border-white/70 bg-white/35">
                   <Package className="h-20 w-20 text-[#6ea43f]/50" />
                 </div>
               )}
@@ -493,7 +493,7 @@ export function ShopPageClient() {
             <Button
               type="button"
               variant="outline"
-              className="h-10 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] lg:hidden"
+              className="h-10 rounded-[10px] border-white/70 bg-white/55 text-[#2A4C6A] lg:hidden"
               onClick={() => setFiltersOpen((o) => !o)}
             >
               <SlidersHorizontal className="mr-2 h-4 w-4" />
@@ -509,7 +509,7 @@ export function ShopPageClient() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-10 rounded-xl border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-48">
+              <SelectTrigger className="h-10 rounded-[10px] border-white/70 bg-white/55 text-[#2A4C6A] shadow-sm sm:w-48">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -528,7 +528,7 @@ export function ShopPageClient() {
                 type="button"
                 size="icon"
                 className={cn(
-                  "h-10 w-10 rounded-xl",
+                  "h-10 w-10 rounded-[10px]",
                   viewMode === "grid"
                     ? "bg-[#6ea43f] text-white hover:bg-[#5f9438]"
                     : "border-white/70 bg-white/55 text-[#2A4C6A]"
@@ -545,7 +545,7 @@ export function ShopPageClient() {
                 type="button"
                 size="icon"
                 className={cn(
-                  "h-10 w-10 rounded-xl",
+                  "h-10 w-10 rounded-[10px]",
                   viewMode === "list"
                     ? "bg-[#6ea43f] text-white hover:bg-[#5f9438]"
                     : "border-white/70 bg-white/55 text-[#2A4C6A]"
@@ -565,7 +565,7 @@ export function ShopPageClient() {
         <div id="shop-products" className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside
             className={cn(
-              "space-y-5 rounded-[1.5rem] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl",
+              "space-y-5 rounded-[10px] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl",
               filtersOpen ? "block" : "hidden lg:block"
             )}
           >
@@ -579,7 +579,7 @@ export function ShopPageClient() {
                   key={cat.label}
                   type="button"
                   onClick={() => selectCategory(cat.value)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
+                  className={`flex w-full items-center justify-between rounded-[10px] px-3 py-2 text-left text-sm transition ${
                     category === cat.value ? "bg-[#6ea43f]/15 text-[#2B6B56]" : "hover:bg-white/55"
                   }`}
                 >
@@ -601,7 +601,7 @@ export function ShopPageClient() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2A4C6A]/55" />
                 <Input
-                  className="h-11 rounded-xl border-white/70 bg-white/60 pl-9 text-[#2A4C6A]"
+                  className="h-11 rounded-[10px] border-white/70 bg-white/60 pl-9 text-[#2A4C6A]"
                   placeholder="Search products..."
                   value={search}
                   onChange={(e) => {
@@ -626,7 +626,7 @@ export function ShopPageClient() {
                     type="number"
                     min={0}
                     step={0.01}
-                    className="h-10 rounded-xl border-white/70 bg-white/60 text-[#2A4C6A]"
+                    className="h-10 rounded-[10px] border-white/70 bg-white/60 text-[#2A4C6A]"
                     value={priceMinDraft}
                     onChange={(e) => setPriceMinDraft(e.target.value)}
                     placeholder={facets ? String(facets.priceMin) : "0"}
@@ -638,7 +638,7 @@ export function ShopPageClient() {
                     type="number"
                     min={0}
                     step={0.01}
-                    className="h-10 rounded-xl border-white/70 bg-white/60 text-[#2A4C6A]"
+                    className="h-10 rounded-[10px] border-white/70 bg-white/60 text-[#2A4C6A]"
                     value={priceMaxDraft}
                     onChange={(e) => setPriceMaxDraft(e.target.value)}
                     placeholder={facets ? String(facets.priceMax) : ""}
@@ -647,7 +647,7 @@ export function ShopPageClient() {
               </div>
               <Button
                 type="button"
-                className="mt-3 w-full rounded-xl bg-[#6ea43f]/15 text-[#2B6B56] hover:bg-[#6ea43f]/25"
+                className="mt-3 w-full rounded-[10px] bg-[#6ea43f]/15 text-[#2B6B56] hover:bg-[#6ea43f]/25"
                 onClick={applyPriceFilter}
               >
                 Apply price
@@ -698,7 +698,7 @@ export function ShopPageClient() {
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-xl border-white/70 bg-white/55 text-violet-700"
+              className="w-full rounded-[10px] border-white/70 bg-white/55 text-violet-700"
               onClick={clearAllFilters}
             >
               Clear all filters
@@ -708,7 +708,7 @@ export function ShopPageClient() {
 
           <main className="min-w-0">
             {error && (
-              <p className="mb-4 rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-destructive" role="alert">
+              <p className="mb-4 rounded-[10px] border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-destructive" role="alert">
                 {error}
               </p>
             )}
@@ -717,7 +717,7 @@ export function ShopPageClient() {
               viewMode === "grid" ? (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="overflow-hidden rounded-3xl border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur">
+                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur">
                       <div className="relative aspect-square w-full">
                         <Skeleton className="absolute inset-0 rounded-none bg-white/60" />
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -729,7 +729,7 @@ export function ShopPageClient() {
                         <Skeleton className="h-4 w-full rounded-lg bg-white/60" />
                         <Skeleton className="h-4 w-3/4 rounded-lg bg-white/60" />
                         <Skeleton className="h-4 w-20 rounded-lg bg-white/60" />
-                        <Skeleton className="mt-2 h-9 w-full rounded-xl bg-white/60" />
+                        <Skeleton className="mt-2 h-9 w-full rounded-[10px] bg-white/60" />
                       </div>
                     </div>
                   ))}
@@ -737,10 +737,10 @@ export function ShopPageClient() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="overflow-hidden rounded-2xl border border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur">
+                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur">
                       <div className="flex gap-4 p-4">
                         <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
-                          <Skeleton className="absolute inset-0 rounded-2xl bg-white/60" />
+                          <Skeleton className="absolute inset-0 rounded-[10px] bg-white/60" />
                           <div className="absolute inset-0 flex items-center justify-center">
                             <ImageIcon className="h-8 w-8 text-[#2A4C6A]/20" />
                           </div>
@@ -752,7 +752,7 @@ export function ShopPageClient() {
                             <Skeleton className="h-5 w-1/2 rounded-lg bg-white/60" />
                             <Skeleton className="h-4 w-24 rounded-lg bg-white/60" />
                           </div>
-                          <Skeleton className="h-10 w-36 rounded-xl bg-white/60" />
+                          <Skeleton className="h-10 w-36 rounded-[10px] bg-white/60" />
                         </div>
                       </div>
                     </div>
@@ -760,7 +760,7 @@ export function ShopPageClient() {
                 </div>
               )
             ) : rows.length === 0 ? (
-              <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-3xl border border-dashed border-white/70 bg-white/35 py-20 text-center">
+              <div className="flex min-h-[24rem] flex-col items-center justify-center rounded-[10px] border border-dashed border-white/70 bg-white/35 py-20 text-center">
                 <Package className="mb-3 h-10 w-10 text-[#2A4C6A]/45" />
                 <p className="font-semibold text-[#3c2e60]">No products match your filters.</p>
                 <p className="mt-1 text-sm text-[#2A4C6A]/70">Try another search or category.</p>
@@ -785,7 +785,7 @@ export function ShopPageClient() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 rounded-xl border-white/70 bg-white/55"
+                    className="h-10 w-10 rounded-[10px] border-white/70 bg-white/55"
                     disabled={page <= 1 || loading}
                     onClick={() => void load(page - 1)}
                   >
@@ -797,7 +797,7 @@ export function ShopPageClient() {
                       <Button
                         key={n}
                         variant={page === n ? "default" : "outline"}
-                        className={`h-10 w-10 rounded-xl ${
+                        className={`h-10 w-10 rounded-[10px] ${
                           page === n
                             ? "bg-[#6ea43f] text-white"
                             : "border-white/70 bg-white/55 text-[#2A4C6A]"
@@ -812,7 +812,7 @@ export function ShopPageClient() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 rounded-xl border-white/70 bg-white/55"
+                    className="h-10 w-10 rounded-[10px] border-white/70 bg-white/55"
                     disabled={page >= totalPages || loading}
                     onClick={() => void load(page + 1)}
                   >

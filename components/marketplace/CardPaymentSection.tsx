@@ -47,7 +47,7 @@ export function CardPaymentSection({
   }
 
   return (
-    <div className="mt-4 space-y-4 rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4">
+    <div className="mt-4 space-y-4 rounded-[10px] border border-violet-200/80 bg-violet-50/40 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
         <CreditCard className="h-4 w-4 text-violet-600" />
         Card details
@@ -62,7 +62,7 @@ export function CardPaymentSection({
               <label
                 key={method.id}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                  "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
                   selected
                     ? "border-violet-400 bg-white/90"
                     : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -88,7 +88,7 @@ export function CardPaymentSection({
           })}
           <label
             className={cn(
-              "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+              "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
               value.mode === "new"
                 ? "border-violet-400 bg-white/90"
                 : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -112,7 +112,7 @@ export function CardPaymentSection({
             <Label htmlFor="cardholderName">Name on card</Label>
             <Input
               id="cardholderName"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={value.cardholderName}
               onChange={(e) => patch({ cardholderName: e.target.value })}
               placeholder="As shown on card"
@@ -124,7 +124,7 @@ export function CardPaymentSection({
             <Label htmlFor="cardNumber">Card number</Label>
             <Input
               id="cardNumber"
-              className="rounded-xl border-white/70 bg-white/80 font-mono"
+              className="rounded-[10px] border-white/70 bg-white/80 font-mono"
               value={value.cardNumber}
               onChange={(e) =>
                 patch({ cardNumber: formatCardNumberDisplay(e.target.value) })
@@ -142,7 +142,7 @@ export function CardPaymentSection({
             <Label htmlFor="expMonth">Expiry month</Label>
             <Input
               id="expMonth"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={value.expMonth}
               onChange={(e) =>
                 patch({ expMonth: e.target.value.replace(/\D/g, "").slice(0, 2) })
@@ -158,7 +158,7 @@ export function CardPaymentSection({
             <Label htmlFor="expYear">Expiry year</Label>
             <Input
               id="expYear"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={value.expYear}
               onChange={(e) =>
                 patch({ expYear: e.target.value.replace(/\D/g, "").slice(0, 2) })
@@ -174,7 +174,7 @@ export function CardPaymentSection({
             <Label htmlFor="cvv">Security code (CVV)</Label>
             <Input
               id="cvv"
-              className="max-w-[140px] rounded-xl border-white/70 bg-white/80 font-mono"
+              className="max-w-[140px] rounded-[10px] border-white/70 bg-white/80 font-mono"
               value={value.cvv}
               onChange={(e) =>
                 patch({ cvv: e.target.value.replace(/\D/g, "").slice(0, cvvMaxLength(brand)) })

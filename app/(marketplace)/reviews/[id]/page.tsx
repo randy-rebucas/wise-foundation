@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, Calendar, Leaf, ShoppingBag, Sparkles } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Calendar, Leaf, ShoppingCart, Sparkles } from "lucide-react";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import {
   getPublicReviewById,
@@ -57,7 +57,7 @@ export default async function ReviewDetailPage({ params }: Props) {
       </nav>
 
       {/* Main card */}
-      <section className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-10">
+      <section className="overflow-hidden rounded-[10px] border border-white/60 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-10">
         {/* Back link */}
         <Button variant="ghost" size="sm" className="mb-6 -ml-2 gap-1.5 text-[#2A4C6A]/70 hover:text-[#2A4C6A]" asChild>
           <Link href="/reviews">
@@ -110,7 +110,7 @@ export default async function ReviewDetailPage({ params }: Props) {
 
             {/* Featured image — full display */}
             {featuredImage && (
-              <div className="overflow-hidden rounded-2xl border border-white/60 shadow-[0_12px_40px_rgba(94,70,135,0.16)]">
+              <div className="overflow-hidden rounded-[10px] border border-white/60 shadow-[0_12px_40px_rgba(94,70,135,0.16)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={cloudinaryTransformedUrl(featuredImage, { width: 800, crop: "limit" })}
@@ -121,18 +121,18 @@ export default async function ReviewDetailPage({ params }: Props) {
             )}
 
             {/* Product card */}
-            <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-[10px] border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#6ea43f]">
                 Reviewed product
               </p>
               <p className="font-semibold leading-snug text-[#1e3157]">{review.productName}</p>
               {review.productSlug && (
                 <Button
-                  className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                  className="mt-4 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
                   asChild
                 >
                   <Link href={`/product/${encodeURIComponent(review.productSlug)}`}>
-                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    <ShoppingCart className="mr-2 h-4 w-4" />
                     View product
                   </Link>
                 </Button>
@@ -140,7 +140,7 @@ export default async function ReviewDetailPage({ params }: Props) {
             </div>
 
             {/* Share */}
-            <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-[10px] border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
               <ShareButtons
                 url={`/reviews/${review.id}`}
                 title={`${review.reviewerName}'s review of ${review.productName}`}
@@ -150,7 +150,7 @@ export default async function ReviewDetailPage({ params }: Props) {
             </div>
 
             {/* CTA card */}
-            <div className="rounded-2xl border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
+            <div className="rounded-[10px] border border-white/70 bg-white/60 p-5 shadow-sm backdrop-blur">
               <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#6ea43f]">
                 <Leaf className="h-3.5 w-3.5" />
                 Share your experience
@@ -158,7 +158,7 @@ export default async function ReviewDetailPage({ params }: Props) {
               <p className="text-xs leading-5 text-[#2A4C6A]/70">
                 Purchased from us? Sign in and leave your own review after delivery.
               </p>
-              <Button variant="outline" size="sm" className="mt-3 w-full rounded-xl border-white/80 bg-white/55" asChild>
+              <Button variant="outline" size="sm" className="mt-3 w-full rounded-[10px] border-white/80 bg-white/55" asChild>
                 <Link href="/account/reviews">Write a review</Link>
               </Button>
             </div>
@@ -169,7 +169,7 @@ export default async function ReviewDetailPage({ params }: Props) {
 
       {/* Related reviews */}
       {relatedOthers.length > 0 && (
-        <section className="rounded-[2rem] border border-white/60 bg-white/35 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:p-8">
+        <section className="rounded-[10px] border border-white/60 bg-white/35 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:p-8">
           <h2 className="mb-5 font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
             More customer reviews
           </h2>
@@ -178,10 +178,10 @@ export default async function ReviewDetailPage({ params }: Props) {
               <Link
                 key={r.id}
                 href={`/reviews/${r.id}`}
-                className="group flex flex-col rounded-2xl border border-white/65 bg-white/55 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]"
+                className="group flex flex-col rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]"
               >
                 {r.images?.[0] && (
-                  <div className="mb-3 h-32 overflow-hidden rounded-xl">
+                  <div className="mb-3 h-32 overflow-hidden rounded-[10px]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={cloudinaryTransformedUrl(r.images[0], { width: 400, crop: "limit" })}
@@ -205,7 +205,7 @@ export default async function ReviewDetailPage({ params }: Props) {
             ))}
           </div>
           <div className="mt-6 text-center">
-            <Button variant="outline" className="rounded-xl border-white/70 bg-white/55" asChild>
+            <Button variant="outline" className="rounded-[10px] border-white/70 bg-white/55" asChild>
               <Link href="/reviews">View all reviews</Link>
             </Button>
           </div>

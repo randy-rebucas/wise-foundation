@@ -35,7 +35,7 @@ import {
   UserCheck,
   UserX,
   MoreHorizontal,
-  ShoppingBag,
+  ShoppingCart,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -307,7 +307,7 @@ export default function MembersPage() {
             title="Purchase History"
             onClick={() => openHistory(m)}
           >
-            <ShoppingBag className="h-4 w-4" />
+            <ShoppingCart className="h-4 w-4" />
           </Button>
           <RoleGuard requiredPermissions={["manage:members"]}>
             <Button variant="ghost" size="icon" onClick={() => openEdit(m)}>

@@ -101,7 +101,7 @@ export default function AccountRewardsPage() {
       />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <article className="rounded-2xl border border-white/65 bg-white/60 p-6 shadow-sm">
+        <article className="rounded-[10px] border border-white/65 bg-white/60 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#2A4C6A]/60">
               Your points
@@ -116,7 +116,7 @@ export default function AccountRewardsPage() {
           </p>
         </article>
 
-        <article className="rounded-2xl border border-white/65 bg-white/60 p-6 shadow-sm">
+        <article className="rounded-[10px] border border-white/65 bg-white/60 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#2A4C6A]/60">
               Status
@@ -130,7 +130,7 @@ export default function AccountRewardsPage() {
         </article>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+      <section className="mt-6 rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
         <h2 className="font-semibold text-[#1e3157]">Progress to Premium</h2>
         <p className="mt-1 text-sm text-[#2A4C6A]/75">
           Reach {PREMIUM_POINTS_THRESHOLD} points, {PREMIUM_ORDER_COUNT}+ orders, or{" "}
@@ -148,7 +148,7 @@ export default function AccountRewardsPage() {
         </p>
       </section>
 
-      <section className="mt-6 rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
+      <section className="mt-6 rounded-[10px] border border-violet-200/70 bg-gradient-to-br from-violet-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
         <div className="flex items-start gap-3">
           <Gift className="h-6 w-6 shrink-0 text-violet-600" />
           <div>
@@ -158,7 +158,7 @@ export default function AccountRewardsPage() {
               <li>Points accrue from confirmed purchases</li>
               <li>Premium members get early access to new drops</li>
             </ul>
-            <Button asChild className="mt-4 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+            <Button asChild className="mt-4 rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
               <Link href="/shop">Shop & earn points</Link>
             </Button>
           </div>

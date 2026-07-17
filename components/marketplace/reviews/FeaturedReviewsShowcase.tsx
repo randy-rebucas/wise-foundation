@@ -17,7 +17,7 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
   return (
     <Link
       href={`/reviews/${review.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-3xl border border-[#d965c9]/30 bg-white/60 shadow-[0_24px_60px_rgba(94,70,135,0.18)] backdrop-blur transition hover:-translate-y-1 hover:shadow-[0_30px_72px_rgba(94,70,135,0.22)]"
+      className="group relative flex flex-col overflow-hidden rounded-[10px] border border-[#d965c9]/30 bg-white/60 shadow-[0_24px_60px_rgba(94,70,135,0.18)] backdrop-blur transition hover:-translate-y-1 hover:shadow-[0_30px_72px_rgba(94,70,135,0.22)]"
     >
       {/* Image */}
       {image ? (
@@ -93,11 +93,11 @@ function MiniReviewCard({ review }: { review: PublicReview }) {
   return (
     <Link
       href={`/reviews/${review.id}`}
-      className="group flex shrink-0 snap-start gap-3 rounded-2xl border border-white/65 bg-white/55 p-4 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_12px_36px_rgba(94,70,135,0.14)]"
+      className="group flex shrink-0 snap-start gap-3 rounded-[10px] border border-white/65 bg-white/55 p-4 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_12px_36px_rgba(94,70,135,0.14)]"
     >
       {/* Thumbnail */}
       {image ? (
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[10px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cloudinaryTransformedUrl(image, { width: 200, crop: "fill" })}
@@ -106,7 +106,7 @@ function MiniReviewCard({ review }: { review: PublicReview }) {
           />
         </div>
       ) : (
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xl font-bold text-violet-700">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[10px] bg-violet-100 text-xl font-bold text-violet-700">
           {review.reviewerName.charAt(0).toUpperCase()}
         </span>
       )}
@@ -142,7 +142,7 @@ export function FeaturedReviewsShowcase() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-3 rounded-2xl border border-dashed border-white/70 bg-white/30 py-16">
+      <div className="flex items-center justify-center gap-3 rounded-[10px] border border-dashed border-white/70 bg-white/30 py-16">
         <Loader2 className="h-7 w-7 animate-spin text-[#d965c9]" />
         <p className="text-sm text-[#2A4C6A]/70">Loading featured reviews…</p>
       </div>
@@ -151,7 +151,7 @@ export function FeaturedReviewsShowcase() {
 
   if (error) {
     return (
-      <p className="rounded-2xl border border-red-200/80 bg-red-50/80 py-8 text-center text-sm text-red-800/90">
+      <p className="rounded-[10px] border border-red-200/80 bg-red-50/80 py-8 text-center text-sm text-red-800/90">
         {error}
       </p>
     );
@@ -159,7 +159,7 @@ export function FeaturedReviewsShowcase() {
 
   if (!reviews.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#d965c9]/30 bg-white/35 px-6 py-12 text-center">
+      <div className="rounded-[10px] border border-dashed border-[#d965c9]/30 bg-white/35 px-6 py-12 text-center">
         <Star className="mx-auto h-10 w-10 text-[#FBC02D]/80" aria-hidden />
         <p className="mt-4 font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
           No featured reviews yet
@@ -220,7 +220,7 @@ export function FeaturedReviewsShowcase() {
         </div>
 
         {reviews.length > 5 && (
-          <Button variant="outline" size="sm" className="mt-1 w-full rounded-xl border-white/70 bg-white/55 text-[#2A4C6A]" asChild>
+          <Button variant="outline" size="sm" className="mt-1 w-full rounded-[10px] border-white/70 bg-white/55 text-[#2A4C6A]" asChild>
             <Link href="/reviews">
               View all {reviews.length} featured reviews
               <ArrowRight className="ml-1.5 h-3.5 w-3.5" />

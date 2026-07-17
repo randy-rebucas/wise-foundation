@@ -11,7 +11,7 @@ export function ReviewStatsBar({ stats, className }: ReviewStatsBarProps) {
     <div
       className={
         className ??
-        "mb-6 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/60 bg-white/45 px-4 py-3 text-center sm:justify-between sm:text-left"
+        "mb-6 flex flex-wrap items-center justify-center gap-3 rounded-[10px] border border-white/60 bg-white/45 px-4 py-3 text-center sm:justify-between sm:text-left"
       }
     >
       <p className="text-sm font-medium text-[#1e3157]">

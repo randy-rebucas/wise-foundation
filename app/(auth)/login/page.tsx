@@ -49,7 +49,11 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError(
+          result.code === "AccountLocked"
+            ? "Too many failed attempts. Your account is temporarily locked — try again in a few minutes."
+            : "Invalid email or password"
+        );
       } else {
         const nextSession = await getSession();
         if (nextSession?.user) {

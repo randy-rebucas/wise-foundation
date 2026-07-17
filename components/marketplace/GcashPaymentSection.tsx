@@ -38,7 +38,7 @@ export function GcashPaymentSection({
   }
 
   return (
-    <div className="mt-4 space-y-4 rounded-2xl border border-sky-200/80 bg-sky-50/50 p-4">
+    <div className="mt-4 space-y-4 rounded-[10px] border border-sky-200/80 bg-sky-50/50 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
         <Wallet className="h-4 w-4 text-sky-600" />
         GCash wallet
@@ -57,7 +57,7 @@ export function GcashPaymentSection({
               <label
                 key={method.id}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                  "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
                   selected
                     ? "border-sky-400 bg-white/90"
                     : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -84,7 +84,7 @@ export function GcashPaymentSection({
           })}
           <label
             className={cn(
-              "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+              "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
               value.mode === "new"
                 ? "border-sky-400 bg-white/90"
                 : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -108,7 +108,7 @@ export function GcashPaymentSection({
             <Label htmlFor="gcashAccountName">Account name</Label>
             <Input
               id="gcashAccountName"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={value.accountName}
               onChange={(e) => patch({ accountName: e.target.value })}
               placeholder="Name on GCash account"
@@ -120,7 +120,7 @@ export function GcashPaymentSection({
             <Label htmlFor="gcashMobile">GCash mobile number</Label>
             <Input
               id="gcashMobile"
-              className="rounded-xl border-white/70 bg-white/80 font-mono"
+              className="rounded-[10px] border-white/70 bg-white/80 font-mono"
               value={value.mobileNumber}
               onChange={(e) =>
                 patch({ mobileNumber: formatPhilippineMobileDisplay(e.target.value) })

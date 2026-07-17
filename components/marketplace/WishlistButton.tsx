@@ -99,7 +99,7 @@ export function WishlistButton({
     <Button
       type="button"
       variant="outline"
-      className={cn("rounded-xl", className)}
+      className={cn("rounded-[10px]", className)}
       disabled={loading}
       onClick={() => void toggle()}
       aria-pressed={saved}

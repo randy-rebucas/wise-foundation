@@ -73,7 +73,7 @@ export default function FaqsPage() {
         {FAQ_ITEMS.map((item) => (
           <details
             key={item.q}
-            className="group rounded-2xl border border-white/70 bg-white/50 px-5 py-4 open:shadow-sm"
+            className="group rounded-[10px] border border-white/70 bg-white/50 px-5 py-4 open:shadow-sm"
           >
             <summary className="cursor-pointer list-none font-semibold text-[#1e3157] marker:content-none [&::-webkit-details-marker]:hidden">
               <span className="flex items-center justify-between gap-3">

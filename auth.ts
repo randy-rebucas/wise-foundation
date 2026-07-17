@@ -1,8 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { loginSchema } from "@/lib/validations/auth.schema";
-import { verifyCredentials } from "@/lib/services/auth.service";
+import { AccountLockedError, verifyCredentials } from "@/lib/services/auth.service";
 import { getUserById } from "@/lib/services/auth.service";
+
+class AccountLockedSignInError extends CredentialsSignin {
+  code = "AccountLocked";
+}
 import { loadOrganizationCapabilities } from "@/lib/organization/capabilities";
 import { effectivePermissions } from "@/lib/permissions";
 import type { UserRole } from "@/types";
@@ -73,12 +77,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!parsed.success) return null;
 
-        const result = await verifyCredentials(parsed.data.email, parsed.data.password, {
-          audience: parsed.data.audience,
-          totpToken: typeof credentials?.totp === "string" && credentials.totp.trim()
-            ? credentials.totp.trim()
-            : undefined,
-        });
+        let result;
+        try {
+          result = await verifyCredentials(parsed.data.email, parsed.data.password, {
+            audience: parsed.data.audience,
+            totpToken: typeof credentials?.totp === "string" && credentials.totp.trim()
+              ? credentials.totp.trim()
+              : undefined,
+          });
+        } catch (err) {
+          if (err instanceof AccountLockedError) throw new AccountLockedSignInError();
+          throw err;
+        }
 
         // totpRequired: password was correct but 2FA token still needed
         if (!result || "totpRequired" in result) return null;

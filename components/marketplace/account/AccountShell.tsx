@@ -59,7 +59,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
   if (isGuest) {
     return (
       <MarketplacePageShell gap="">
-        <div className="mx-auto w-full max-w-md rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        <div className="mx-auto w-full max-w-md rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-600">
             <Lock className="h-6 w-6" />
           </div>
@@ -72,13 +72,13 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
           <div className="mt-6 flex flex-col gap-3">
             <Link
               href={`/account/login?callbackUrl=${encodeURIComponent(pathname)}`}
-              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] px-6 py-3 text-sm font-semibold text-white shadow hover:opacity-90"
+              className="inline-flex items-center justify-center rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] px-6 py-3 text-sm font-semibold text-white shadow hover:opacity-90"
             >
               Sign in
             </Link>
             <Link
               href="/account/register"
-              className="inline-flex items-center justify-center rounded-xl border border-white/70 bg-white/65 px-6 py-3 text-sm font-semibold text-[#1e3157] hover:bg-white/80"
+              className="inline-flex items-center justify-center rounded-[10px] border border-white/70 bg-white/65 px-6 py-3 text-sm font-semibold text-[#1e3157] hover:bg-white/80"
             >
               Create an account
             </Link>
@@ -102,7 +102,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
 
   return (
     <MarketplacePageShell gap="">
-      <section className="w-full overflow-hidden rounded-[2rem] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl">
+      <section className="w-full overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl">
         <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="border-b border-white/60 bg-white/40 p-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center gap-3 border-b border-white/60 pb-5">
@@ -123,7 +123,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition lg:shrink",
+                      "flex shrink-0 items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium transition lg:shrink",
                       active
                         ? "bg-violet-100/80 text-violet-700"
                         : "text-[#2A4C6A]/75 hover:bg-white/60 hover:text-[#1e3157]"
@@ -152,7 +152,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
             <Button
               type="button"
               variant="ghost"
-              className="mt-6 w-full justify-start rounded-xl text-[#2A4C6A]/75 hover:bg-white/60 hover:text-[#1e3157]"
+              className="mt-6 w-full justify-start rounded-[10px] text-[#2A4C6A]/75 hover:bg-white/60 hover:text-[#1e3157]"
               onClick={() => void signOut({ callbackUrl: "/" })}
             >
               <LogOut className="mr-2 h-4 w-4" />

@@ -24,7 +24,7 @@ export function ProductReviewsSection({
   return (
     <section
       id="product-reviews"
-      className="scroll-mt-24 rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
+      className="scroll-mt-24 rounded-[10px] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
       aria-labelledby="product-reviews-heading"
     >
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -51,7 +51,7 @@ export function ProductReviewsSection({
         <Button
           variant="outline"
           size="sm"
-          className="rounded-xl border-white/70 bg-white/55"
+          className="rounded-[10px] border-white/70 bg-white/55"
           asChild
         >
           <Link href={writeHref}>Write a review</Link>
@@ -63,17 +63,17 @@ export function ProductReviewsSection({
           <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" aria-hidden />
         </div>
       ) : error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-destructive">
+        <p className="rounded-[10px] border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-destructive">
           {error}
         </p>
       ) : !reviews.length ? (
-        <div className="rounded-2xl border border-dashed border-white/70 bg-white/35 px-6 py-12 text-center">
+        <div className="rounded-[10px] border border-dashed border-white/70 bg-white/35 px-6 py-12 text-center">
           <MessageCircle className="mx-auto h-10 w-10 text-violet-400" aria-hidden />
           <p className="mt-4 text-sm text-[#2A4C6A]/75">
             No reviews for this product yet. Purchased {productName}? Share your experience after
             delivery.
           </p>
-          <Button className="mt-4 rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]" asChild>
+          <Button className="mt-4 rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]" asChild>
             <Link href={writeHref}>Be the first to review</Link>
           </Button>
         </div>

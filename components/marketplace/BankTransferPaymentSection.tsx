@@ -64,7 +64,7 @@ export function BankTransferPaymentSection({
   }
 
   return (
-    <div className="mt-4 space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/45 p-4">
+    <div className="mt-4 space-y-4 rounded-[10px] border border-amber-200/80 bg-amber-50/45 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
         <Building2 className="h-4 w-4 text-amber-700" />
         Bank transfer
@@ -85,7 +85,7 @@ export function BankTransferPaymentSection({
             <div
               key={account.id}
               className={cn(
-                "rounded-xl border p-3 transition",
+                "rounded-[10px] border p-3 transition",
                 selected
                   ? "border-amber-400 bg-white/90"
                   : "border-white/70 bg-white/55"
@@ -126,7 +126,7 @@ export function BankTransferPaymentSection({
               <label
                 key={method.id}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+                  "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
                   selected
                     ? "border-amber-400 bg-white/90"
                     : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -145,7 +145,7 @@ export function BankTransferPaymentSection({
           })}
           <label
             className={cn(
-              "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition",
+              "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
               value.mode === "new"
                 ? "border-amber-400 bg-white/90"
                 : "border-white/70 bg-white/60 hover:bg-white/80"
@@ -169,7 +169,7 @@ export function BankTransferPaymentSection({
             <Label htmlFor="depositorName">Name on your bank account</Label>
             <Input
               id="depositorName"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={value.depositorName}
               onChange={(e) => patch({ depositorName: e.target.value })}
               placeholder="Account holder name"
@@ -182,7 +182,7 @@ export function BankTransferPaymentSection({
               value={value.depositorBank || undefined}
               onValueChange={(v) => patch({ depositorBank: v })}
             >
-              <SelectTrigger className="rounded-xl border-white/70 bg-white/80">
+              <SelectTrigger className="rounded-[10px] border-white/70 bg-white/80">
                 <SelectValue placeholder="Select bank" />
               </SelectTrigger>
               <SelectContent>
@@ -198,7 +198,7 @@ export function BankTransferPaymentSection({
             <Label htmlFor="accountLast4">Last 4 digits of your account (optional)</Label>
             <Input
               id="accountLast4"
-              className="rounded-xl border-white/70 bg-white/80 font-mono"
+              className="rounded-[10px] border-white/70 bg-white/80 font-mono"
               value={value.accountLast4}
               onChange={(e) =>
                 patch({ accountLast4: e.target.value.replace(/\D/g, "").slice(0, 4) })
@@ -212,7 +212,7 @@ export function BankTransferPaymentSection({
             <Label htmlFor="transferReference">Transfer reference no.</Label>
             <Input
               id="transferReference"
-              className="rounded-xl border-white/70 bg-white/80 font-mono"
+              className="rounded-[10px] border-white/70 bg-white/80 font-mono"
               value={value.transferReference}
               onChange={(e) => patch({ transferReference: e.target.value })}
               placeholder="Reference from your bank app or receipt"
@@ -240,7 +240,7 @@ export function BankTransferPaymentSection({
           <Label htmlFor="transferReferenceSaved">Transfer reference no.</Label>
           <Input
             id="transferReferenceSaved"
-            className="rounded-xl border-white/70 bg-white/80 font-mono"
+            className="rounded-[10px] border-white/70 bg-white/80 font-mono"
             value={value.transferReference}
             onChange={(e) => patch({ transferReference: e.target.value })}
             placeholder="Reference from your bank app or receipt"

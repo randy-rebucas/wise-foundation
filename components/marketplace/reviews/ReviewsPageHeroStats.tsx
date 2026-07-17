@@ -83,7 +83,7 @@ export function ReviewsPageHeroStats({ appName }: ReviewsPageHeroStatsProps) {
           {highlights.map((stat) => (
             <article
               key={stat.label}
-              className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-2 rounded-2xl border border-white/55 bg-white/40 p-3 text-center"
+              className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-2 rounded-[10px] border border-white/55 bg-white/40 p-3 text-center"
             >
               <span
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${stat.tone}`}
@@ -104,7 +104,7 @@ export function ReviewsPageHeroStats({ appName }: ReviewsPageHeroStatsProps) {
       ) : null}
 
       <Button
-        className="mt-8 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
+        className="mt-8 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
         asChild
       >
         <Link href="/shop">Shop bestsellers</Link>

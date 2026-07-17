@@ -29,7 +29,7 @@ export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredO
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/70 bg-white/30 py-14">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-[10px] border border-dashed border-white/70 bg-white/30 py-14">
         <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" aria-hidden />
         <p className="text-sm text-[#2A4C6A]/70">Loading reviews…</p>
       </div>
@@ -38,7 +38,7 @@ export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredO
 
   if (error) {
     return (
-      <p className="rounded-2xl border border-red-200/80 bg-red-50/80 py-8 text-center text-sm text-red-800/90">
+      <p className="rounded-[10px] border border-red-200/80 bg-red-50/80 py-8 text-center text-sm text-red-800/90">
         {error}
       </p>
     );
@@ -46,7 +46,7 @@ export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredO
 
   if (!reviews.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/70 bg-white/35 px-6 py-12 text-center">
+      <div className="rounded-[10px] border border-dashed border-white/70 bg-white/35 px-6 py-12 text-center">
         <Star className="mx-auto h-10 w-10 text-[#FBC02D]/80" aria-hidden />
         <p className="mt-4 font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
           No reviews yet
@@ -55,7 +55,7 @@ export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredO
           Be the first to share your experience after your order arrives.
         </p>
         {showAllLink ? (
-          <Button variant="outline" className="mt-4 rounded-xl border-white/70 bg-white/55" asChild>
+          <Button variant="outline" className="mt-4 rounded-[10px] border-white/70 bg-white/55" asChild>
             <Link href="/account/reviews">Write a review</Link>
           </Button>
         ) : null}
@@ -67,7 +67,7 @@ export function PublicReviewsCarousel({ limit = 8, showAllLink = true, featuredO
     <>
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {showAllLink ? (
-          <Button variant="outline" className="rounded-xl border-white/70 bg-white/55" asChild>
+          <Button variant="outline" className="rounded-[10px] border-white/70 bg-white/55" asChild>
             <Link href="/reviews">All reviews</Link>
           </Button>
         ) : null}

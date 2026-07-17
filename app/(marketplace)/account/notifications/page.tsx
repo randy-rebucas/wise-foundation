@@ -67,7 +67,7 @@ export default function AccountNotificationsPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="rounded-xl border-white/70 bg-white/65"
+            className="rounded-[10px] border-white/70 bg-white/65"
             onClick={() => markAllRead(items.map((n) => n.id))}
           >
             <CheckCheck className="mr-2 h-4 w-4" />
@@ -86,7 +86,7 @@ export default function AccountNotificationsPage() {
             <Loader2 className="h-6 w-6 animate-spin text-[#6ea43f]" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-white/65 bg-white/60 p-10 text-center shadow-sm">
+          <div className="rounded-[10px] border border-white/65 bg-white/60 p-10 text-center shadow-sm">
             <Bell className="mx-auto h-10 w-10 text-[#6ea43f]" />
             <p className="mt-4 text-sm text-[#2A4C6A]/75">No notifications yet.</p>
           </div>
@@ -100,7 +100,7 @@ export default function AccountNotificationsPage() {
                     href={n.href}
                     onClick={() => markRead(n.id)}
                     className={cn(
-                      "flex gap-4 rounded-2xl border border-white/65 p-4 shadow-sm transition hover:bg-white/70",
+                      "flex gap-4 rounded-[10px] border border-white/65 p-4 shadow-sm transition hover:bg-white/70",
                       read ? "bg-white/45 opacity-80" : "bg-white/65"
                     )}
                   >

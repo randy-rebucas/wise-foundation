@@ -50,7 +50,7 @@ Steer clear of products that promise "overnight whitening" or "permanent fairnes
 
 ## Our pick
 
-Our [GlowWish Whitening Serum Burst UV Lotion](/shop) combines SPF50+ PA++++ sun protection with brightening actives in one lightweight step — ideal for the Philippine climate where you need daily sun protection anyway. Pair it with a gentle cleanser and you've got a complete brightening routine without extra steps.
+Our [Glowish Whitening Serum Burst UV Lotion](/shop) combines SPF50+ PA++++ sun protection with brightening actives in one lightweight step — ideal for the Philippine climate where you need daily sun protection anyway. Pair it with a gentle cleanser and you've got a complete brightening routine without extra steps.
 
 ## The realistic timeline
 

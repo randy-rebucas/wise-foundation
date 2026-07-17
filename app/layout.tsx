@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Great_Vibes, Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Great_Vibes,
+  Playfair_Display,
+  Plus_Jakarta_Sans,
+  Yellowtail,
+} from "next/font/google";
 import { APP_LOGO_SRC } from "@/lib/constants/branding";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { buildRootMetadata } from "@/lib/seo/site";
@@ -36,6 +43,13 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const yellowtail = Yellowtail({
+  variable: "--font-yellowtail",
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+});
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
   const googleVerification = process.env.GOOGLE_SITE_VERIFICATION;
@@ -53,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${plusJakartaSans.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${plusJakartaSans.variable} ${yellowtail.variable} antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

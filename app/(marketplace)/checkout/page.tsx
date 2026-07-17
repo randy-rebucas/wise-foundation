@@ -11,7 +11,7 @@ import {
   Loader2,
   Lock,
   Package,
-  ShoppingBag,
+  ShoppingCart,
   Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -899,13 +899,13 @@ export default function MarketplaceCheckoutPage() {
   if (items.length === 0) {
     return (
       <MarketplacePageShell gap="" innerClassName="flex justify-center">
-        <div className="w-full max-w-xl rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        <div className="w-full max-w-xl rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
           <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
           <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
             Checkout
           </h1>
           <p className="mt-2 text-sm text-[#2A4C6A]/75">Your cart is empty.</p>
-          <Button className="mt-6 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+          <Button className="mt-6 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
             <Link href="/shop">Browse products</Link>
           </Button>
         </div>
@@ -919,7 +919,7 @@ export default function MarketplaceCheckoutPage() {
       className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT)}
     >
       <div className={cn(MARKETPLACE_PAGE_INNER, "space-y-5")}>
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[260px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[260px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
             <div>
@@ -950,10 +950,10 @@ export default function MarketplaceCheckoutPage() {
                 return (
                   <div
                     key={image}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-[2rem] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
                   >
                     <div
-                      className="h-full rounded-[1.4rem] bg-cover bg-center"
+                      className="h-full rounded-[10px] bg-cover bg-center"
                       style={{ backgroundImage: `url(${image})` }}
                     />
                   </div>
@@ -963,7 +963,7 @@ export default function MarketplaceCheckoutPage() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-white/65 bg-white/55 px-4 py-5 shadow-sm backdrop-blur-xl sm:px-6">
+        <section className="rounded-[10px] border border-white/65 bg-white/55 px-4 py-5 shadow-sm backdrop-blur-xl sm:px-6">
           <ol className="flex flex-wrap items-center justify-between gap-4">
             {CHECKOUT_STEPS.map((step, index) => {
               const active = step.id === "information";
@@ -999,7 +999,7 @@ export default function MarketplaceCheckoutPage() {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-5">
-            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
               {savedAddresses.length > 0 ? (
                 <div className="mb-4 space-y-2">
                   <Label>Saved address</Label>
@@ -1012,7 +1012,7 @@ export default function MarketplaceCheckoutPage() {
                       if (addr) applyAddress(addr);
                     }}
                   >
-                    <SelectTrigger className="rounded-xl border-white/70 bg-white/65">
+                    <SelectTrigger className="rounded-[10px] border-white/70 bg-white/65">
                       <SelectValue placeholder="Choose address" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1037,7 +1037,7 @@ export default function MarketplaceCheckoutPage() {
                     type="email"
                     required
                     autoComplete="email"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.email}
                     onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   />
@@ -1052,7 +1052,7 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Shipping Address
               </h2>
@@ -1063,7 +1063,7 @@ export default function MarketplaceCheckoutPage() {
                     id="fullName"
                     required
                     autoComplete="name"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.fullName}
                     onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
                   />
@@ -1074,7 +1074,7 @@ export default function MarketplaceCheckoutPage() {
                     id="phone"
                     required
                     autoComplete="tel"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.phone}
                     onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                   />
@@ -1085,7 +1085,7 @@ export default function MarketplaceCheckoutPage() {
                     value={form.country}
                     onValueChange={(value) => setForm((f) => ({ ...f, country: value }))}
                   >
-                    <SelectTrigger id="country" className="rounded-xl border-white/70 bg-white/65">
+                    <SelectTrigger id="country" className="rounded-[10px] border-white/70 bg-white/65">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1099,7 +1099,7 @@ export default function MarketplaceCheckoutPage() {
                     id="line1"
                     required
                     autoComplete="address-line1"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.line1}
                     onChange={(e) => setForm((f) => ({ ...f, line1: e.target.value }))}
                   />
@@ -1109,7 +1109,7 @@ export default function MarketplaceCheckoutPage() {
                   <Input
                     id="line2"
                     autoComplete="address-line2"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.line2}
                     onChange={(e) => setForm((f) => ({ ...f, line2: e.target.value }))}
                   />
@@ -1120,7 +1120,7 @@ export default function MarketplaceCheckoutPage() {
                     id="city"
                     required
                     autoComplete="address-level2"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.city}
                     onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                   />
@@ -1131,7 +1131,7 @@ export default function MarketplaceCheckoutPage() {
                     id="postal"
                     required
                     autoComplete="postal-code"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.postalCode}
                     onChange={(e) => setForm((f) => ({ ...f, postalCode: e.target.value }))}
                   />
@@ -1142,7 +1142,7 @@ export default function MarketplaceCheckoutPage() {
                     id="region"
                     required
                     autoComplete="address-level1"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     value={form.region}
                     onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
                   />
@@ -1166,7 +1166,7 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Shipping Method
               </h2>
@@ -1186,7 +1186,7 @@ export default function MarketplaceCheckoutPage() {
                       <label
                         key={option.id}
                         className={cn(
-                          "flex cursor-pointer items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition",
+                          "flex cursor-pointer items-center justify-between gap-4 rounded-[10px] border px-4 py-3 transition",
                           selected
                             ? "border-violet-300 bg-violet-50/80"
                             : "border-white/70 bg-white/50 hover:bg-white/70"
@@ -1230,7 +1230,7 @@ export default function MarketplaceCheckoutPage() {
           </div>
 
           <div className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
                   Order Summary
@@ -1355,7 +1355,7 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
               <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
                 Payment Method
               </h2>
@@ -1373,7 +1373,7 @@ export default function MarketplaceCheckoutPage() {
                     <label
                       key={option.id}
                       className={cn(
-                        "flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition",
+                        "flex items-center justify-between gap-3 rounded-[10px] border px-4 py-3 transition",
                         enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50",
                         selected && enabled
                           ? "border-violet-300 bg-violet-50/80"
@@ -1471,7 +1471,7 @@ export default function MarketplaceCheckoutPage() {
 
               <Button
                 type="submit"
-                className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                className="mt-5 h-12 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
                 disabled={
                   loading ||
                   (form.paymentMethod === "cash" &&

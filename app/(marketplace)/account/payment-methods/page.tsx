@@ -202,7 +202,7 @@ export default function AccountPaymentMethodsPage() {
 
       <Button
         type="button"
-        className="mt-6 rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]"
+        className="mt-6 rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]"
         onClick={() => setShowForm((v) => !v)}
       >
         <Plus className="mr-2 h-4 w-4" />
@@ -212,7 +212,7 @@ export default function AccountPaymentMethodsPage() {
       {showForm ? (
         <form
           onSubmit={handleAdd}
-          className="mt-4 grid gap-4 rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm sm:grid-cols-2"
+          className="mt-4 grid gap-4 rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm sm:grid-cols-2"
         >
           <div className="sm:col-span-2">
             <Label>Type</Label>
@@ -224,7 +224,7 @@ export default function AccountPaymentMethodsPage() {
                   size="sm"
                   variant={type === t ? "default" : "outline"}
                   className={cn(
-                    "rounded-xl",
+                    "rounded-[10px]",
                     type === t ? "bg-violet-600 text-white" : "border-white/70 bg-white/65"
                   )}
                   onClick={() => setType(t)}
@@ -243,7 +243,7 @@ export default function AccountPaymentMethodsPage() {
                   value={gcashAccountName}
                   onChange={(e) => setGcashAccountName(e.target.value)}
                   placeholder="Name on GCash"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -254,7 +254,7 @@ export default function AccountPaymentMethodsPage() {
                   onChange={(e) => setGcashMobile(formatPhilippineMobileDisplay(e.target.value))}
                   placeholder="0917 123 4567"
                   inputMode="tel"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80 font-mono"
                 />
                 <p className="mt-1 text-xs text-[#2A4C6A]/65">
                   Only the last 4 digits of your mobile number are saved.
@@ -271,7 +271,7 @@ export default function AccountPaymentMethodsPage() {
                   value={cardholderName}
                   onChange={(e) => setCardholderName(e.target.value)}
                   placeholder="Jane Doe"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -282,7 +282,7 @@ export default function AccountPaymentMethodsPage() {
                   onChange={(e) => setCardNumber(formatCardNumberDisplay(e.target.value))}
                   placeholder="4111 1111 1111 1111"
                   inputMode="numeric"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80 font-mono"
                 />
                 <p className="mt-1 text-xs text-[#2A4C6A]/65">
                   Only the last 4 digits are saved — never the full number.
@@ -299,13 +299,13 @@ export default function AccountPaymentMethodsPage() {
                   value={bankDepositorName}
                   onChange={(e) => setBankDepositorName(e.target.value)}
                   placeholder="Name on bank account"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Your bank</Label>
                 <Select value={bankDepositorBank || undefined} onValueChange={setBankDepositorBank}>
-                  <SelectTrigger className="rounded-xl border-white/70 bg-white/80">
+                  <SelectTrigger className="rounded-[10px] border-white/70 bg-white/80">
                     <SelectValue placeholder="Select bank" />
                   </SelectTrigger>
                   <SelectContent>
@@ -328,7 +328,7 @@ export default function AccountPaymentMethodsPage() {
                   placeholder="1234"
                   maxLength={4}
                   inputMode="numeric"
-                  className="mt-1 rounded-xl border-white/70 bg-white/80 font-mono"
+                  className="mt-1 rounded-[10px] border-white/70 bg-white/80 font-mono"
                 />
               </div>
             </>
@@ -348,7 +348,7 @@ export default function AccountPaymentMethodsPage() {
                       ? "Auto-filled from bank"
                       : "My account"
               }
-              className="mt-1 rounded-xl border-white/70 bg-white/80"
+              className="mt-1 rounded-[10px] border-white/70 bg-white/80"
             />
           </div>
           {type !== "card" && type !== "gcash" ? (
@@ -360,15 +360,15 @@ export default function AccountPaymentMethodsPage() {
                 onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
                 placeholder="1234"
                 maxLength={4}
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
           ) : null}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={saving} className="rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+            <Button type="submit" disabled={saving} className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
               {saving ? "Saving…" : "Save method"}
             </Button>
-            <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setShowForm(false)}>
+            <Button type="button" variant="ghost" className="rounded-[10px]" onClick={() => setShowForm(false)}>
               Cancel
             </Button>
           </div>
@@ -386,7 +386,7 @@ export default function AccountPaymentMethodsPage() {
           {items.map((method) => (
             <li
               key={method.id}
-              className="flex flex-col gap-4 rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-4 rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
@@ -413,7 +413,7 @@ export default function AccountPaymentMethodsPage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="rounded-xl text-xs"
+                    className="rounded-[10px] text-xs"
                     onClick={() => void setDefault(method.id)}
                   >
                     <Star className="mr-1 h-3.5 w-3.5" />
@@ -424,7 +424,7 @@ export default function AccountPaymentMethodsPage() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="rounded-xl text-xs text-destructive"
+                  className="rounded-[10px] text-xs text-destructive"
                   onClick={() => void removeMethod(method.id)}
                 >
                   <Trash2 className="mr-1 h-3.5 w-3.5" />

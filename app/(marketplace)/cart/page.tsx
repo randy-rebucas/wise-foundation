@@ -12,7 +12,7 @@ import {
   Heart,
   Lock,
   Package,
-  ShoppingBag,
+  ShoppingCart,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -141,7 +141,7 @@ export default function MarketplaceCartPage() {
 
   return (
     <MarketplacePageShell gap="space-y-5">
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[280px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[280px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
           <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
             <div>
@@ -168,10 +168,10 @@ export default function MarketplaceCartPage() {
                 return (
                   <div
                     key={image}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-[2rem] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
                   >
                     <div
-                      className="h-full rounded-[1.4rem] bg-cover bg-center"
+                      className="h-full rounded-[10px] bg-cover bg-center"
                       style={{ backgroundImage: `url(${image})` }}
                     />
                   </div>
@@ -182,7 +182,7 @@ export default function MarketplaceCartPage() {
         </section>
 
         {items.length === 0 ? (
-          <section className="rounded-[2rem] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+          <section className="rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
             <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
             <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
               Your cart is empty
@@ -190,7 +190,7 @@ export default function MarketplaceCartPage() {
             <p className="mt-2 text-sm text-[#2A4C6A]/75">
               Add a few Glowish favorites and come back when you are ready to checkout.
             </p>
-            <Button className="mt-6 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+            <Button className="mt-6 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
               <Link href="/shop">
                 Continue Shopping
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -200,7 +200,7 @@ export default function MarketplaceCartPage() {
         ) : (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="space-y-5">
-              <section className="overflow-hidden rounded-[2rem] border border-white/65 bg-white/55 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+              <section className="overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
                 <div className="border-b border-white/60 bg-emerald-50/80 px-5 py-3">
                   <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
                     <div
@@ -240,7 +240,7 @@ export default function MarketplaceCartPage() {
                         className="grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.6fr)_0.7fr_0.8fr_0.7fr_2rem] md:items-center md:gap-4"
                       >
                         <div className="flex gap-4">
-                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/70 bg-white/60">
+                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[10px] border border-white/70 bg-white/60">
                             {isRemote(imageUrl) ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={imageUrl} alt={line.name} className="h-full w-full object-cover" />
@@ -267,12 +267,12 @@ export default function MarketplaceCartPage() {
                         </p>
 
                         <div className="flex items-center justify-start md:justify-center">
-                          <div className="inline-flex items-center rounded-xl border border-white/70 bg-white/70 shadow-sm">
+                          <div className="inline-flex items-center rounded-[10px] border border-white/70 bg-white/70 shadow-sm">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-l-xl"
+                              className="h-9 w-9 rounded-l-[10px]"
                               onClick={() =>
                                 updateQty(line.productId, line.variantId, line.quantity - 1)
                               }
@@ -286,7 +286,7 @@ export default function MarketplaceCartPage() {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-9 w-9 rounded-r-xl"
+                              className="h-9 w-9 rounded-r-[10px]"
                               onClick={() =>
                                 updateQty(line.productId, line.variantId, line.quantity + 1)
                               }
@@ -329,7 +329,7 @@ export default function MarketplaceCartPage() {
                 <div className="flex flex-col gap-3 border-t border-white/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <Button
                     variant="outline"
-                    className="rounded-xl border-violet-200 bg-violet-100/70 text-violet-700 hover:bg-violet-200"
+                    className="rounded-[10px] border-violet-200 bg-violet-100/70 text-violet-700 hover:bg-violet-200"
                     asChild
                   >
                     <Link href="/shop">
@@ -357,7 +357,7 @@ export default function MarketplaceCartPage() {
                 </div>
               </section>
 
-              <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-violet-500" />
@@ -399,9 +399,9 @@ export default function MarketplaceCartPage() {
                     return (
                       <article
                         key={product._id}
-                        className="min-w-[14rem] max-w-[14rem] snap-start rounded-2xl border border-white/65 bg-white/60 p-3 shadow-sm"
+                        className="min-w-[14rem] max-w-[14rem] snap-start rounded-[10px] border border-white/65 bg-white/60 p-3 shadow-sm"
                       >
-                        <div className="relative mb-3 aspect-square overflow-hidden rounded-xl bg-white/50">
+                        <div className="relative mb-3 aspect-square overflow-hidden rounded-[10px] bg-white/50">
                           {isRemote(imageUrl) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" />
@@ -430,12 +430,12 @@ export default function MarketplaceCartPage() {
                         />
                         <Button
                           type="button"
-                          className="mt-3 h-9 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
+                          className="mt-3 h-9 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-xs text-white"
                           disabled={product.stock <= 0}
                           onClick={() => addSuggestedToCart(product)}
                         >
                           Add to Cart
-                          <ShoppingBag className="ml-2 h-3.5 w-3.5" />
+                          <ShoppingCart className="ml-2 h-3.5 w-3.5" />
                         </Button>
                       </article>
                     );
@@ -444,7 +444,7 @@ export default function MarketplaceCartPage() {
               </section>
             </div>
 
-            <aside className="h-fit rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl xl:sticky xl:top-24">
+            <aside className="h-fit rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl xl:sticky xl:top-24">
               <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
                 Order Summary
               </h2>
@@ -465,7 +465,7 @@ export default function MarketplaceCartPage() {
                 </div>
               </div>
 
-              <Button className="mt-5 h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+              <Button className="mt-5 h-12 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
                 <Link href="/checkout">
                   <Lock className="mr-2 h-4 w-4" />
                   Proceed to Checkout

@@ -14,8 +14,7 @@ import {
   Check,
   Mail,
   Package,
-  ShoppingBag,
-  Sparkles,
+  ShoppingCart,
   Truck,
 } from "lucide-react";
 import { MARKETPLACE_DEPOSIT_BANK_ACCOUNTS } from "@/lib/constants/marketplaceBankAccounts";
@@ -42,7 +41,7 @@ const NEXT_STEPS = [
   {
     title: "Delivered",
     description: "Get ready to glow! Your skincare is on its way.",
-    icon: ShoppingBag,
+    icon: ShoppingCart,
     tone: "bg-pink-100 text-pink-600",
   },
 ];
@@ -71,7 +70,7 @@ function SuccessInner() {
 
   return (
     <MarketplacePageShell>
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(255,51,204,0.14),transparent_40%)]" />
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[0_20px_55px_rgba(110,164,63,0.35)]">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#6ea43f] text-white">
@@ -91,8 +90,29 @@ function SuccessInner() {
           </p>
         </section>
 
+        <section className="rounded-[10px] border border-[#cfe5b8]/70 bg-gradient-to-r from-[#f3f9ec]/90 via-white/70 to-[#f3f9ec]/90 p-5 text-center shadow-[0_18px_55px_rgba(110,164,63,0.14)] backdrop-blur-xl sm:p-6">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
+            <Image
+              src="/wise.jpg"
+              alt="WISE Foundation — Women In the Service for Everyone"
+              width={64}
+              height={64}
+              className="h-full w-full object-contain"
+            />
+          </span>
+          <h2 className="mt-3 font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+            Your order just did more than glow
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#2A4C6A]/78">
+            Every Glowish order supports the{" "}
+            <span className="font-semibold text-[#477d34]">Wise Foundation</span> — so along with
+            treating yourself today, you helped brighten someone else&rsquo;s tomorrow. Thank you
+            for glowing with purpose.
+          </p>
+        </section>
+
         {isCodPending ? (
-          <section className="rounded-[2rem] border border-emerald-200/80 bg-emerald-50/50 p-5 shadow-sm sm:p-6">
+          <section className="rounded-[10px] border border-emerald-200/80 bg-emerald-50/50 p-5 shadow-sm sm:p-6">
             <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
               <Banknote className="h-5 w-5" />
               Cash on delivery
@@ -115,7 +135,7 @@ function SuccessInner() {
         ) : null}
 
         {isBankTransferPending ? (
-          <section className="rounded-[2rem] border border-amber-200/80 bg-amber-50/50 p-5 shadow-sm sm:p-6">
+          <section className="rounded-[10px] border border-amber-200/80 bg-amber-50/50 p-5 shadow-sm sm:p-6">
             <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
               <Building2 className="h-5 w-5" />
               Bank transfer instructions
@@ -130,7 +150,7 @@ function SuccessInner() {
               {MARKETPLACE_DEPOSIT_BANK_ACCOUNTS.map((account) => (
                 <li
                   key={account.id}
-                  className="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-sm"
+                  className="rounded-[10px] border border-white/70 bg-white/80 px-4 py-3 text-sm"
                 >
                   <p className="font-semibold text-[#1e3157]">{account.bankName}</p>
                   <p className="text-[#2A4C6A]/75">{account.accountName}</p>
@@ -144,7 +164,7 @@ function SuccessInner() {
           </section>
         ) : null}
 
-        <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
           <div className="flex flex-col gap-2 border-b border-white/60 pb-4 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>
               <span className="text-[#2A4C6A]/65">Order Number </span>
@@ -157,7 +177,7 @@ function SuccessInner() {
           </div>
 
           <div className="mt-4 flex gap-4 border-b border-white/60 pb-4">
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-white/70 bg-white/60">
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[10px] border border-white/70 bg-white/60">
               <Image
                 src={STOCK_PRODUCT_IMAGE}
                 alt=""
@@ -176,7 +196,7 @@ function SuccessInner() {
             </p>
           </div>
 
-          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-violet-50/70 px-4 py-3">
+          <div className="mt-4 flex items-start gap-3 rounded-[10px] bg-violet-50/70 px-4 py-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
               <Mail className="h-5 w-5" />
             </span>
@@ -187,7 +207,7 @@ function SuccessInner() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-7">
+        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-7">
           <h2 className="text-center font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
             What&apos;s Next?
           </h2>
@@ -207,12 +227,12 @@ function SuccessInner() {
 
           <div className="mt-8 space-y-3">
             <Button
-              className="h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+              className="h-12 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
               asChild
             >
               <Link href="/shop">
                 Continue Shopping
-                <ShoppingBag className="ml-2 h-4 w-4" />
+                <ShoppingCart className="ml-2 h-4 w-4" />
               </Link>
             </Button>
             <p className="text-center">

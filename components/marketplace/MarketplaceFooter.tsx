@@ -9,10 +9,12 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   className?: string;
+  /** Constrains footer content (e.g. to match a page's content column) without affecting the background. */
+  innerClassName?: string;
   showSocial?: boolean;
 };
 
-export function MarketplaceFooter({ className, showSocial = false }: Props) {
+export function MarketplaceFooter({ className, innerClassName, showSocial = false }: Props) {
   const { appName, appTagline } = useTenant();
   const year = new Date().getFullYear();
   const blurb =
@@ -22,10 +24,11 @@ export function MarketplaceFooter({ className, showSocial = false }: Props) {
   return (
     <footer
       className={cn(
-        "overflow-hidden rounded-[2rem] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl",
+        "overflow-hidden rounded-[10px] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl",
         className
       )}
     >
+      <div className={cn("w-full", innerClassName)}>
       <div className="grid gap-6 border-b border-white/55 p-5 sm:p-7 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
         <div className="space-y-4">
           <AppLogo size="lg" />
@@ -69,6 +72,7 @@ export function MarketplaceFooter({ className, showSocial = false }: Props) {
         <span>
           Made with <span className="text-[#FF33CC]">♥</span> for your glow.
         </span>
+      </div>
       </div>
     </footer>
   );

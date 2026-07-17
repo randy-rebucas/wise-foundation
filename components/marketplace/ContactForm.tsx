@@ -44,7 +44,7 @@ export function ContactForm() {
     <form className="mt-6 space-y-3" onSubmit={handleSubmit}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input
-          className="rounded-xl border-white/70 bg-white/65"
+          className="rounded-[10px] border-white/70 bg-white/65"
           placeholder="Your Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -52,7 +52,7 @@ export function ContactForm() {
           minLength={2}
         />
         <Input
-          className="rounded-xl border-white/70 bg-white/65"
+          className="rounded-[10px] border-white/70 bg-white/65"
           type="email"
           placeholder="Your Email"
           value={email}
@@ -61,7 +61,7 @@ export function ContactForm() {
         />
       </div>
       <Input
-        className="rounded-xl border-white/70 bg-white/65"
+        className="rounded-[10px] border-white/70 bg-white/65"
         placeholder="Subject"
         value={subject}
         onChange={(e) => setSubject(e.target.value)}
@@ -69,7 +69,7 @@ export function ContactForm() {
         minLength={2}
       />
       <textarea
-        className="min-h-32 w-full rounded-xl border border-white/70 bg-white/65 px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[#6ea43f]/30"
+        className="min-h-32 w-full rounded-[10px] border border-white/70 bg-white/65 px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[#6ea43f]/30"
         placeholder="Your Message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -80,7 +80,7 @@ export function ContactForm() {
         <Button
           type="submit"
           disabled={submitting}
-          className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+          className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
         >
           {submitting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

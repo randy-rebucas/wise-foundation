@@ -91,6 +91,18 @@ Organization **type** (distributor, franchise, partner, headquarters) changes **
 
 Separate from user roles, each organization can have flags such as retail selling, distribution, inventory, commissions, and order submission. Platform admins manage these under **Organizations**.
 
+## Complete role guides
+
+Full standalone walkthrough per role—what you can access, daily loops, and troubleshooting:
+
+- [Administrator (ADMIN)](/help/guide-admin)
+- [Org admin (ORG_ADMIN)](/help/guide-org-admin)
+- [Branch manager (BRANCH_MANAGER)](/help/guide-branch-manager)
+- [Inventory manager (INVENTORY_MANAGER)](/help/guide-inventory-manager)
+- [Staff / cashier (STAFF)](/help/guide-staff)
+- [Member (MEMBER)](/help/guide-member)
+- [Customer (CUSTOMER)](/help/guide-customer)
+
 ## If something is blocked
 
 1. Compare your sidebar to [User journeys](/help/user-journeys) for your role.

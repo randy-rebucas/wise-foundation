@@ -55,7 +55,7 @@ function AddressCard({
   onSetDefault?: () => void;
 }) {
   return (
-    <li className="rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm">
+    <li className="rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 font-semibold text-[#1e3157]">
@@ -78,13 +78,13 @@ function AddressCard({
         </div>
         <div className="flex shrink-0 flex-col gap-2">
           {onSetDefault ? (
-            <Button type="button" size="sm" variant="outline" className="rounded-xl text-xs" onClick={onSetDefault}>
+            <Button type="button" size="sm" variant="outline" className="rounded-[10px] text-xs" onClick={onSetDefault}>
               <Star className="mr-1 h-3.5 w-3.5" />
               Default
             </Button>
           ) : null}
           {onRemove ? (
-            <Button type="button" size="sm" variant="ghost" className="rounded-xl text-xs text-destructive" onClick={onRemove}>
+            <Button type="button" size="sm" variant="ghost" className="rounded-[10px] text-xs text-destructive" onClick={onRemove}>
               <Trash2 className="mr-1 h-3.5 w-3.5" />
               Remove
             </Button>
@@ -193,7 +193,7 @@ export default function AccountAddressesPage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <Button
           type="button"
-          className="rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]"
+          className="rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]"
           onClick={() => setShowForm((v) => !v)}
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -204,7 +204,7 @@ export default function AccountAddressesPage() {
       {showForm ? (
         <form
           onSubmit={handleAdd}
-          className="mt-4 grid gap-4 rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm sm:grid-cols-2"
+          className="mt-4 grid gap-4 rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm sm:grid-cols-2"
         >
           {(
             [
@@ -226,15 +226,15 @@ export default function AccountAddressesPage() {
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                 placeholder={placeholder}
                 required={key !== "line2"}
-                className="mt-1 rounded-xl border-white/70 bg-white/80"
+                className="mt-1 rounded-[10px] border-white/70 bg-white/80"
               />
             </div>
           ))}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={saving} className="rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+            <Button type="submit" disabled={saving} className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
               {saving ? "Saving…" : "Save address"}
             </Button>
-            <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setShowForm(false)}>
+            <Button type="button" variant="ghost" className="rounded-[10px]" onClick={() => setShowForm(false)}>
               Cancel
             </Button>
           </div>

@@ -87,12 +87,12 @@ export default async function BlogPostPage({
         )}
 
         {post.coverImage && (
-          <div className="relative mt-8 h-64 w-full overflow-hidden rounded-[1.5rem] sm:h-80">
+          <div className="relative mt-8 h-64 w-full overflow-hidden rounded-[10px] sm:h-80">
             <MarketplaceFillImage src={post.coverImage} alt={post.title} priority />
           </div>
         )}
 
-        <div className="mt-8 rounded-[2rem] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+        <div className="mt-8 rounded-[10px] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
           <MarkdownContent content={post.bodyMarkdown} />
         </div>
       </article>

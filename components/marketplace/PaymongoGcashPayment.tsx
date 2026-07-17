@@ -165,7 +165,7 @@ export const PaymongoGcashPaymentForm = forwardRef<
   }
 
   return (
-    <div className="mt-4 space-y-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-4">
+    <div className="mt-4 space-y-3 rounded-[10px] border border-emerald-200/80 bg-emerald-50/40 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
         <Smartphone className="h-4 w-4 text-emerald-600" />
         GCash (secured by PayMongo)

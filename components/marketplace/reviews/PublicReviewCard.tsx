@@ -31,7 +31,7 @@ export function PublicReviewCard({
     <>
       {/* Featured image banner (carousel only) */}
       {isCarousel && featuredImage ? (
-        <div className="relative h-44 w-full overflow-hidden rounded-t-3xl">
+        <div className="relative h-44 w-full overflow-hidden rounded-t-[10px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cloudinaryTransformedUrl(featuredImage, { width: 600, crop: "limit" })}
@@ -115,7 +115,7 @@ export function PublicReviewCard({
   // Grid variant: whole card is a link
   if (!isCarousel) {
     return (
-      <Link href={detailHref} className={cn("group flex flex-col backdrop-blur transition rounded-2xl border border-white/65 bg-white/55 p-5 shadow-[0_8px_30px_rgba(94,70,135,0.08)] hover:border-white hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]", className)}>
+      <Link href={detailHref} className={cn("group flex flex-col backdrop-blur transition rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_8px_30px_rgba(94,70,135,0.08)] hover:border-white hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]", className)}>
         {inner}
       </Link>
     );
@@ -126,7 +126,7 @@ export function PublicReviewCard({
     <Link
       href={detailHref}
       className={cn(
-        "group flex flex-col backdrop-blur transition min-w-[82%] snap-start rounded-3xl border bg-white/50 shadow-sm hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(94,70,135,0.16)] sm:min-w-[22rem] lg:min-w-[calc((100%_-_2rem)/3)]",
+        "group flex flex-col backdrop-blur transition min-w-[82%] snap-start rounded-[10px] border bg-white/50 shadow-sm hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(94,70,135,0.16)] sm:min-w-[22rem] lg:min-w-[calc((100%_-_2rem)/3)]",
         isFeatured ? "border-[#d965c9]/40 hover:bg-white/65" : "border-white/60 hover:bg-white/65",
         className
       )}

@@ -92,7 +92,7 @@ export default async function CategoriesPage() {
 
   return (
     <MarketplacePageShell>
-      <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
+      <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.72),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.14),transparent_38%)]" />
         <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
           <div>
@@ -115,7 +115,7 @@ export default async function CategoriesPage() {
               card highlights a real product from that category in our shop.
             </p>
             <Button
-              className="mt-8 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
+              className="mt-8 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
               asChild
             >
               <Link href="/shop">
@@ -131,14 +131,14 @@ export default async function CategoriesPage() {
             {heroFloats.map((card) => (
               <div
                 key={card.category}
-                className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
               >
                 {card.product ? (
                   <Link
                     href={`/product/${encodeURIComponent(card.product.slug)}`}
                     className="block"
                   >
-                    <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[1.35rem]">
+                    <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[10px]">
                       <MarketplaceFillImage
                         src={card.image}
                         alt={card.product.name}
@@ -152,7 +152,7 @@ export default async function CategoriesPage() {
                   </Link>
                 ) : (
                   <>
-                    <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[1.35rem]">
+                    <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[10px]">
                       <MarketplaceFillImage
                         src={card.image}
                         alt={card.label}
@@ -180,7 +180,7 @@ export default async function CategoriesPage() {
               Four categories—each card links to the shop with that filter applied.
             </p>
           </div>
-          <Button variant="outline" size="sm" className="rounded-xl border-white/80 bg-white/50" asChild>
+          <Button variant="outline" size="sm" className="rounded-[10px] border-white/80 bg-white/50" asChild>
             <Link href="/about-us">About our formulas</Link>
           </Button>
         </div>
@@ -190,7 +190,7 @@ export default async function CategoriesPage() {
             <Link
               key={category.value}
               href={category.href}
-              className="group flex flex-col overflow-hidden rounded-[1.75rem] border border-white/65 bg-white/50 shadow-[0_12px_40px_rgba(94,70,135,0.1)] backdrop-blur transition hover:-translate-y-1 hover:border-white hover:bg-white/75 hover:shadow-[0_22px_55px_rgba(94,70,135,0.18)]"
+              className="group flex flex-col overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_12px_40px_rgba(94,70,135,0.1)] backdrop-blur transition hover:-translate-y-1 hover:border-white hover:bg-white/75 hover:shadow-[0_22px_55px_rgba(94,70,135,0.18)]"
             >
               <div
                 className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${category.accent}`}
@@ -223,7 +223,7 @@ export default async function CategoriesPage() {
                     feature it here.
                   </p>
                 )}
-                <span className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#6ea43f]/12 px-3 py-2.5 text-sm font-semibold text-[#2B6B56] transition group-hover:bg-[#6ea43f]/20">
+                <span className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-[#6ea43f]/12 px-3 py-2.5 text-sm font-semibold text-[#2B6B56] transition group-hover:bg-[#6ea43f]/20">
                   Shop {category.label}
                   <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 </span>
@@ -233,7 +233,7 @@ export default async function CategoriesPage() {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-white/60 bg-white/45 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <section className="rounded-[10px] border border-white/60 bg-white/45 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
         <div className="mb-6 flex items-center justify-center gap-3 text-center">
           <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
           <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
@@ -245,7 +245,7 @@ export default async function CategoriesPage() {
           {INGREDIENT_PROMISES.map((item) => (
             <article
               key={item.title}
-              className="flex items-start gap-3 rounded-2xl border border-white/60 bg-white/40 p-4 lg:border-r lg:last:border-r-0"
+              className="flex items-start gap-3 rounded-[10px] border border-white/60 bg-white/40 p-4 lg:border-r lg:last:border-r-0"
             >
               <span
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${item.tone}`}
@@ -261,7 +261,7 @@ export default async function CategoriesPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-white/65 lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="grid gap-5 overflow-hidden rounded-[10px] border border-white/65 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="relative min-h-[240px] overflow-hidden lg:min-h-full">
           <MarketplaceFillImage
             src={ctaImage}
@@ -282,10 +282,10 @@ export default async function CategoriesPage() {
             skin goals—or message our team for personalized suggestions.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+            <Button className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
               <Link href="/faqs">View FAQs</Link>
             </Button>
-            <Button variant="outline" className="rounded-xl border-white/80 bg-white/60" asChild>
+            <Button variant="outline" className="rounded-[10px] border-white/80 bg-white/60" asChild>
               <Link href="/contact">Contact us</Link>
             </Button>
           </div>

@@ -18,7 +18,7 @@ import dynamic from "next/dynamic";
 
 const FeaturedReviewsShowcase = dynamic(
   () => import("@/components/marketplace/reviews/FeaturedReviewsShowcase").then((m) => m.FeaturedReviewsShowcase),
-  { loading: () => <div className="h-72 animate-pulse rounded-2xl bg-white/30" /> }
+  { loading: () => <div className="h-72 animate-pulse rounded-[10px] bg-white/30" /> }
 );
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -47,7 +47,7 @@ export default async function ReviewsPage() {
   return (
     <MarketplacePageShell>
         {/* Hero */}
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_42%,rgba(255,255,255,0.75),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.16),transparent_38%)]" />
           <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
@@ -75,9 +75,9 @@ export default async function ReviewsPage() {
               {heroFloats.map((card) => (
                 <div
                   key={card.label}
-                  className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
-                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[1.35rem]">
+                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[10px]">
                     <MarketplaceFillImage
                       src={card.image}
                       alt={card.label}
@@ -97,7 +97,7 @@ export default async function ReviewsPage() {
         </section>
 
         {/* Featured reviews showcase */}
-        <section className="rounded-[2rem] border border-[#d965c9]/25 bg-gradient-to-br from-[#f6def8]/40 to-white/40 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+        <section className="rounded-[10px] border border-[#d965c9]/25 bg-gradient-to-br from-[#f6def8]/40 to-white/40 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
           <div className="mb-5 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-[#d965c9]" aria-hidden />
             <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
@@ -108,7 +108,7 @@ export default async function ReviewsPage() {
         </section>
 
         {/* Reviews list */}
-        <section className="rounded-[2rem] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+        <section className="rounded-[10px] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div className="flex items-center gap-3">
               <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
@@ -116,14 +116,14 @@ export default async function ReviewsPage() {
                 What our customers say
               </h2>
             </div>
-            <Button variant="outline" size="sm" className="rounded-xl border-white/80 bg-white/55" asChild>
+            <Button variant="outline" size="sm" className="rounded-[10px] border-white/80 bg-white/55" asChild>
               <Link href="/account/login">Sign in to review</Link>
             </Button>
           </div>
 
           <PublicReviewsList />
 
-          <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-white/60 bg-gradient-to-r from-[#f6def8]/60 to-white/50 p-6 sm:flex-row sm:items-center">
+          <div className="mt-10 flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-gradient-to-r from-[#f6def8]/60 to-white/50 p-6 sm:flex-row sm:items-center">
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-600">
               <Heart className="h-7 w-7" aria-hidden />
             </span>
@@ -136,7 +136,7 @@ export default async function ReviewsPage() {
                 feedback helps others choose with confidence.
               </p>
             </div>
-            <Button className="shrink-0 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+            <Button className="shrink-0 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
               <Link href="/account/reviews">Write a review</Link>
             </Button>
           </div>

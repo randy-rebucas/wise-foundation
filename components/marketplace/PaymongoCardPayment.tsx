@@ -198,7 +198,7 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
     }
 
     return (
-      <div className="mt-4 space-y-4 rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4">
+      <div className="mt-4 space-y-4 rounded-[10px] border border-violet-200/80 bg-violet-50/40 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
           <CreditCard className="h-4 w-4 text-violet-600" />
           Card payment (secured by PayMongo)
@@ -213,7 +213,7 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
             <Label htmlFor="pmBillingName">Name on card</Label>
             <Input
               id="pmBillingName"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={billingName}
               onChange={(e) => onBillingChange("billingName", e.target.value)}
               required
@@ -224,7 +224,7 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
             <Input
               id="pmBillingEmail"
               type="email"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={billingEmail}
               onChange={(e) => onBillingChange("billingEmail", e.target.value)}
               required
@@ -234,7 +234,7 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
             <Label htmlFor="pmBillingPhone">Phone (optional)</Label>
             <Input
               id="pmBillingPhone"
-              className="rounded-xl border-white/70 bg-white/80"
+              className="rounded-[10px] border-white/70 bg-white/80"
               value={billingPhone}
               onChange={(e) => onBillingChange("billingPhone", e.target.value)}
             />
@@ -245,7 +245,7 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
           <Label>Card details</Label>
           <div
             id="paymongo-card-element"
-            className="min-h-[44px] rounded-xl border border-white/70 bg-white/90 px-3 py-3"
+            className="min-h-[44px] rounded-[10px] border border-white/70 bg-white/90 px-3 py-3"
           />
           {!ready ? (
             <p className="flex items-center gap-2 text-xs text-[#2A4C6A]/65">

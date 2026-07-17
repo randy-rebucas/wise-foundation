@@ -66,7 +66,7 @@ export function ProductImageGallery({
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-square overflow-hidden rounded-2xl border border-white/70 bg-white/50 shadow-inner">
+      <div className="relative aspect-square overflow-hidden rounded-[10px] border border-white/70 bg-white/50 shadow-inner">
         {displayImage ? (
           <>
             <GalleryImage
@@ -123,7 +123,7 @@ export function ProductImageGallery({
               role="tab"
               onClick={() => onActiveIndexChange(idx)}
               className={cn(
-                "relative h-16 w-16 shrink-0 snap-start overflow-hidden rounded-xl border-2 transition-all",
+                "relative h-16 w-16 shrink-0 snap-start overflow-hidden rounded-[10px] border-2 transition-all",
                 idx === safeIndex
                   ? "border-[#6ea43f] ring-2 ring-[#6ea43f]/30"
                   : "border-white/70 opacity-80 hover:opacity-100"

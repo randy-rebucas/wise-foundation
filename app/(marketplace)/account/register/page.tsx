@@ -126,7 +126,7 @@ export default function AccountRegisterPage() {
 
   return (
     <MarketplacePageShell>
-        <section className="grid gap-6 overflow-hidden rounded-[2rem] border border-white/60 bg-white/35 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        <section className="grid gap-6 overflow-hidden rounded-[10px] border border-white/60 bg-white/35 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
           <article className="bg-white/80 p-6 sm:p-8 lg:p-10">
             <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157] sm:text-4xl">
               Create Your Account
@@ -153,7 +153,7 @@ export default function AccountRegisterPage() {
                     id="name"
                     autoComplete="name"
                     placeholder="Enter your full name"
-                    className="rounded-xl border-white/70 bg-white/65 pl-9"
+                    className="rounded-[10px] border-white/70 bg-white/65 pl-9"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
@@ -171,7 +171,7 @@ export default function AccountRegisterPage() {
                     type="email"
                     autoComplete="email"
                     placeholder="Enter your email"
-                    className="rounded-xl border-white/70 bg-white/65 pl-9"
+                    className="rounded-[10px] border-white/70 bg-white/65 pl-9"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -188,7 +188,7 @@ export default function AccountRegisterPage() {
                     type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     placeholder="Create a password"
-                    className="rounded-xl border-white/70 bg-white/65 px-9"
+                    className="rounded-[10px] border-white/70 bg-white/65 px-9"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -225,7 +225,7 @@ export default function AccountRegisterPage() {
                     type={showConfirmPassword ? "text" : "password"}
                     autoComplete="new-password"
                     placeholder="Confirm your password"
-                    className="rounded-xl border-white/70 bg-white/65 px-9"
+                    className="rounded-[10px] border-white/70 bg-white/65 px-9"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -266,7 +266,7 @@ export default function AccountRegisterPage() {
 
               <Button
                 type="submit"
-                className="h-12 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                className="h-12 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
                 disabled={loading}
               >
                 {loading ? (
@@ -293,7 +293,7 @@ export default function AccountRegisterPage() {
                     key={provider}
                     type="button"
                     variant="outline"
-                    className="rounded-xl border-white/70 bg-white/65 text-xs"
+                    className="rounded-[10px] border-white/70 bg-white/65 text-xs"
                   >
                     {provider}
                   </Button>
@@ -337,7 +337,7 @@ export default function AccountRegisterPage() {
                 ))}
               </ul>
               <div
-                className="mt-8 h-56 rounded-[2rem] bg-cover bg-center shadow-[0_24px_65px_rgba(68,47,107,0.2)]"
+                className="mt-8 h-56 rounded-[10px] bg-cover bg-center shadow-[0_24px_65px_rgba(68,47,107,0.2)]"
                 style={{ backgroundImage: `url(${STOCK_PRODUCT_IMAGE})` }}
               />
             </div>

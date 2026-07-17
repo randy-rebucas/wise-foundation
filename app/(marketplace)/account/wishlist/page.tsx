@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Loader2, ShoppingBag, Trash2 } from "lucide-react";
+import { Heart, Loader2, ShoppingCart, Trash2 } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
 import { useAccountWishlist } from "@/components/marketplace/account/useAccountWishlist";
 import { Button } from "@/components/ui/button";
@@ -45,10 +45,10 @@ export default function AccountWishlistPage() {
           <Loader2 className="h-8 w-8 animate-spin text-[#6ea43f]" />
         </div>
       ) : items.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-white/65 bg-white/60 p-10 text-center shadow-sm">
+        <div className="mt-8 rounded-[10px] border border-white/65 bg-white/60 p-10 text-center shadow-sm">
           <Heart className="mx-auto h-10 w-10 text-pink-400" />
           <p className="mt-4 text-sm text-[#2A4C6A]/75">Your wishlist is empty.</p>
-          <Button asChild className="mt-4 rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]">
+          <Button asChild className="mt-4 rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]">
             <Link href="/shop">Browse products</Link>
           </Button>
         </div>
@@ -57,9 +57,9 @@ export default function AccountWishlistPage() {
           {items.map((item) => (
             <li
               key={`${item.productId}-${item.variantId ?? "base"}`}
-              className="flex flex-col gap-4 rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center"
+              className="flex flex-col gap-4 rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center"
             >
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-violet-50">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[10px] bg-violet-50">
                 {item.image ? (
                   isRemote(item.image) ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -89,7 +89,7 @@ export default function AccountWishlistPage() {
                 <Button
                   type="button"
                   size="sm"
-                  className="rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]"
+                  className="rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]"
                   onClick={() =>
                     addToCart({
                       productId: item.productId,
@@ -105,14 +105,14 @@ export default function AccountWishlistPage() {
                     })
                   }
                 >
-                  <ShoppingBag className="mr-1.5 h-4 w-4" />
+                  <ShoppingCart className="mr-1.5 h-4 w-4" />
                   Add to cart
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="rounded-xl border-white/70 bg-white/65"
+                  className="rounded-[10px] border-white/70 bg-white/65"
                   onClick={() => void handleRemove(item.productId, item.variantId)}
                 >
                   <Trash2 className="mr-1.5 h-4 w-4" />

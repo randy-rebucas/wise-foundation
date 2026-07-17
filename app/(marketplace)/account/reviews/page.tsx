@@ -142,7 +142,7 @@ export default function AccountReviewsPage() {
               {reviews.map((review) => (
                 <li
                   key={review.id}
-                  className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm"
+                  className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-2">
                     {review.productSlug ? (
@@ -169,7 +169,7 @@ export default function AccountReviewsPage() {
               ))}
             </ul>
           ) : (
-            <div className="mt-8 rounded-2xl border border-white/65 bg-white/60 p-8 text-center shadow-sm">
+            <div className="mt-8 rounded-[10px] border border-white/65 bg-white/60 p-8 text-center shadow-sm">
               <MessageCircle className="mx-auto h-10 w-10 text-violet-400" />
               <p className="mt-4 text-sm text-[#2A4C6A]/75">You haven&apos;t written any reviews yet.</p>
             </div>
@@ -178,7 +178,7 @@ export default function AccountReviewsPage() {
           {draft ? (
             <form
               onSubmit={submitReview}
-              className="mt-8 rounded-2xl border border-violet-200/70 bg-white/60 p-5 shadow-sm"
+              className="mt-8 rounded-[10px] border border-violet-200/70 bg-white/60 p-5 shadow-sm"
             >
               <h2 className="font-semibold text-[#1e3157]">Review {draft.productName}</h2>
               <div className="mt-4">
@@ -200,7 +200,7 @@ export default function AccountReviewsPage() {
                   required
                   minLength={10}
                   rows={4}
-                  className="mt-1 w-full rounded-xl border border-white/70 bg-white/80 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-[10px] border border-white/70 bg-white/80 px-3 py-2 text-sm"
                   placeholder="Share your experience with this product…"
                 />
               </div>
@@ -208,11 +208,11 @@ export default function AccountReviewsPage() {
                 <Button
                   type="submit"
                   disabled={submitting || draft.text.length < 10}
-                  className="rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]"
+                  className="rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]"
                 >
                   {submitting ? "Submitting…" : "Submit review"}
                 </Button>
-                <Button type="button" variant="ghost" className="rounded-xl" onClick={() => setDraft(null)}>
+                <Button type="button" variant="ghost" className="rounded-[10px]" onClick={() => setDraft(null)}>
                   Cancel
                 </Button>
               </div>
@@ -232,7 +232,7 @@ export default function AccountReviewsPage() {
                 {reviewable.map((p) => (
                   <li
                     key={p.productId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/65 bg-white/55 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-white/65 bg-white/55 px-4 py-3"
                   >
                     <div>
                       <p className="font-medium text-[#1e3157]">{p.productName}</p>
@@ -241,7 +241,7 @@ export default function AccountReviewsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      className="rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+                      className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700"
                       onClick={() =>
                         setDraft({
                           productId: p.productId,
@@ -261,7 +261,7 @@ export default function AccountReviewsPage() {
           </section>
 
           <div className="mt-8 flex justify-center">
-            <Button asChild variant="outline" className="rounded-xl border-white/70 bg-white/65">
+            <Button asChild variant="outline" className="rounded-[10px] border-white/70 bg-white/65">
               <Link href="/shop">Browse more products</Link>
             </Button>
           </div>

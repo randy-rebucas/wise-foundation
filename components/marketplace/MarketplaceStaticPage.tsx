@@ -29,7 +29,7 @@ export function MarketplaceStaticPage({ eyebrow, title, subtitle, children }: Pr
         </Button>
       </div>
 
-      <section className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/25 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:px-10">
+      <section className="overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:px-10">
         <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">{eyebrow}</p>
         <h1 className="mt-3 font-[family-name:var(--font-playfair-display)] text-3xl font-semibold tracking-tight text-[#1e3157] sm:text-4xl">
           {title}
@@ -37,7 +37,7 @@ export function MarketplaceStaticPage({ eyebrow, title, subtitle, children }: Pr
         <p className="mt-4 max-w-3xl text-base leading-7 text-[#1e3157]/82">{subtitle}</p>
       </section>
 
-      <section className="mx-auto w-full max-w-4xl space-y-6 rounded-[2rem] border border-white/60 bg-white/30 px-6 py-8 shadow-[0_18px_60px_rgba(94,70,135,0.1)] backdrop-blur-xl sm:px-10">
+      <section className="mx-auto w-full max-w-4xl space-y-6 rounded-[10px] border border-white/60 bg-white/30 px-6 py-8 shadow-[0_18px_60px_rgba(94,70,135,0.1)] backdrop-blur-xl sm:px-10">
         {children}
       </section>
 

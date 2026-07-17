@@ -6,7 +6,7 @@ import {
   Crown,
   Heart,
   Loader2,
-  ShoppingBag,
+  ShoppingCart,
   Star,
 } from "lucide-react";
 import { AccountPageHeader } from "@/components/marketplace/account/AccountPageHeader";
@@ -84,7 +84,7 @@ export default function ShopAccountPage() {
     {
       title: "Total Orders",
       value: dashboard ? String(totalOrders) : "—",
-      icon: ShoppingBag,
+      icon: ShoppingCart,
       tone: "bg-emerald-100 text-emerald-600",
       href: "/account/orders",
       linkLabel: "View all orders",
@@ -128,7 +128,7 @@ export default function ShopAccountPage() {
         {stats.map((stat) => (
           <article
             key={stat.title}
-            className="rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm"
+            className="rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -149,7 +149,7 @@ export default function ShopAccountPage() {
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+        <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="font-semibold text-[#1e3157]">Recent Orders</h2>
             <Link href="/account/orders" className="text-xs font-semibold text-[#6ea43f] hover:underline">
@@ -164,7 +164,7 @@ export default function ShopAccountPage() {
         </section>
 
         <div className="space-y-5">
-          <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+          <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-[#1e3157]">Account Overview</h2>
               <Link href="/account/details" className="text-xs font-semibold text-[#6ea43f] hover:underline">
@@ -204,24 +204,24 @@ export default function ShopAccountPage() {
           </section>
 
           {dashboard && isPremium ? (
-            <section className="overflow-hidden rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
+            <section className="overflow-hidden rounded-[10px] border border-violet-200/70 bg-gradient-to-br from-violet-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
               <p className="font-semibold text-[#1e3157]">You&apos;re a Premium Member! ✨</p>
               <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/75">
                 Enjoy exclusive deals, early access to new products, and bonus reward points on
                 every purchase. You have {rewardPoints.toLocaleString()} reward points.
               </p>
-              <Button asChild className="mt-4 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+              <Button asChild className="mt-4 rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
                 <Link href="/account/rewards">View Benefits</Link>
               </Button>
             </section>
           ) : dashboard ? (
-            <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+            <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
               <p className="font-semibold text-[#1e3157]">Earn reward points</p>
               <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/75">
                 You have {rewardPoints.toLocaleString()} points from purchases. Place more orders
                 to unlock premium perks.
               </p>
-              <Button asChild className="mt-4 rounded-xl bg-[#6ea43f] text-white hover:bg-[#5d9235]">
+              <Button asChild className="mt-4 rounded-[10px] bg-[#6ea43f] text-white hover:bg-[#5d9235]">
                 <Link href="/shop">Shop now</Link>
               </Button>
             </section>

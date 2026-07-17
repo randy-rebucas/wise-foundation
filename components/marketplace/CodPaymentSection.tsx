@@ -36,13 +36,13 @@ export function CodPaymentSection({ amountDue, value, onChange }: CodPaymentSect
   const belowMin = amountDue < MARKETPLACE_COD_MIN_ORDER;
 
   return (
-    <div className="mt-4 space-y-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/45 p-4">
+    <div className="mt-4 space-y-4 rounded-[10px] border border-emerald-200/80 bg-emerald-50/45 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
         <Banknote className="h-4 w-4 text-emerald-700" />
         Cash on delivery
       </div>
 
-      <div className="rounded-xl border border-white/70 bg-white/80 px-4 py-3">
+      <div className="rounded-[10px] border border-white/70 bg-white/80 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-[#2A4C6A]/65">
           Amount to prepare
         </p>
@@ -74,7 +74,7 @@ export function CodPaymentSection({ amountDue, value, onChange }: CodPaymentSect
           type="number"
           min={amountDue}
           step={1}
-          className="max-w-xs rounded-xl border-white/70 bg-white/80"
+          className="max-w-xs rounded-[10px] border-white/70 bg-white/80"
           value={value.prepareChangeFor}
           onChange={(e) => patch({ prepareChangeFor: e.target.value })}
           placeholder={String(Math.ceil(amountDue / 100) * 100)}
@@ -89,7 +89,7 @@ export function CodPaymentSection({ amountDue, value, onChange }: CodPaymentSect
         ) : null}
       </div>
 
-      <label className="flex items-start gap-3 rounded-xl border border-white/70 bg-white/60 px-3 py-3">
+      <label className="flex items-start gap-3 rounded-[10px] border border-white/70 bg-white/60 px-3 py-3">
         <Checkbox
           checked={value.acknowledged}
           onCheckedChange={(c) => patch({ acknowledged: c === true })}

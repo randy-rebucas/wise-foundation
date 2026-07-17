@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Loader2, X, CheckCircle, ShoppingBag } from "lucide-react";
+import { Plus, Loader2, X, CheckCircle, ShoppingCart } from "lucide-react";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 
 type OrganizationType = "distributor" | "franchise" | "partner" | "headquarters";
@@ -408,7 +408,7 @@ export default function ResellerSalesPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <ShoppingBag className="h-5 w-5" />
+                  <ShoppingCart className="h-5 w-5" />
                   Record Reseller Sale
                 </DialogTitle>
               </DialogHeader>

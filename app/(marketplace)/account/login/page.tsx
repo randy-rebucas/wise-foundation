@@ -49,7 +49,11 @@ function AccountLoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError(
+          result.code === "AccountLocked"
+            ? "Too many failed attempts. Your account is temporarily locked — try again in a few minutes."
+            : "Invalid email or password"
+        );
       } else {
         router.push(callbackUrl);
         router.refresh();
@@ -70,7 +74,7 @@ function AccountLoginForm() {
   }
 
   return (
-    <Card className="border-0 shadow-xl">
+    <Card className="rounded-[10px] border-0 shadow-xl">
       <CardHeader className="space-y-1 pb-4">
         <AppBrand
           theme="account"

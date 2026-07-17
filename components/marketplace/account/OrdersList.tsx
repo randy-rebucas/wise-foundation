@@ -46,7 +46,7 @@ export function OrdersList({
         return (
           <li
             key={order._id}
-            className="flex flex-col gap-3 rounded-2xl border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center"
+            className="flex flex-col gap-3 rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center"
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <OrderThumbnail url={order.thumbnailUrl} name={order.orderNumber} />
@@ -77,7 +77,7 @@ export function OrdersList({
                 asChild
                 variant="outline"
                 size="sm"
-                className="rounded-xl border-white/70 bg-white/65 text-xs"
+                className="rounded-[10px] border-white/70 bg-white/65 text-xs"
               >
                 <Link href={`/account/orders/${order._id}`}>View Details</Link>
               </Button>

@@ -120,7 +120,7 @@ export default async function ContactPage() {
   return (
     <MarketplacePageShell>
         {/* Hero */}
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_42%,rgba(255,255,255,0.75),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.16),transparent_38%)]" />
           <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
@@ -147,7 +147,7 @@ export default async function ContactPage() {
                 {heroHighlights.map((stat) => (
                   <article
                     key={stat.label}
-                    className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-2 rounded-2xl border border-white/55 bg-white/40 p-3 text-center"
+                    className="flex min-w-0 flex-1 basis-0 flex-col items-center gap-2 rounded-[10px] border border-white/55 bg-white/40 p-3 text-center"
                   >
                     <span
                       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${stat.tone}`}
@@ -167,7 +167,7 @@ export default async function ContactPage() {
               </div>
 
               <Button
-                className="mt-8 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
+                className="mt-8 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
                 asChild
               >
                 <Link href="/faqs">Browse FAQs</Link>
@@ -181,9 +181,9 @@ export default async function ContactPage() {
               {heroFloats.map((card) => (
                 <div
                   key={card.label}
-                  className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
-                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[1.35rem]">
+                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[10px]">
                     <MarketplaceFillImage
                       src={card.image}
                       alt={card.label}
@@ -201,7 +201,7 @@ export default async function ContactPage() {
         </section>
 
         {/* Form + info + map */}
-        <section className="grid gap-6 rounded-[2rem] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8 lg:grid-cols-3 lg:gap-8">
+        <section className="grid gap-6 rounded-[10px] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-1">
             <div className="mb-4 flex items-center gap-2">
               <Leaf className="h-4 w-4 text-[#6ea43f]" aria-hidden />
@@ -225,7 +225,7 @@ export default async function ContactPage() {
             <div className="space-y-4">
               {contactInfo.map((item) => {
                 const body = (
-                  <article className="flex gap-3 rounded-2xl border border-transparent p-2 transition hover:border-white/70 hover:bg-white/45">
+                  <article className="flex gap-3 rounded-[10px] border border-transparent p-2 transition hover:border-white/70 hover:bg-white/45">
                     <span
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${item.tone}`}
                     >
@@ -245,7 +245,7 @@ export default async function ContactPage() {
                     <Link
                       key={item.title}
                       href={item.href}
-                      className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6ea43f]"
+                      className="block rounded-[10px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#6ea43f]"
                       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     >
                       {body}
@@ -264,7 +264,7 @@ export default async function ContactPage() {
                 Find us
               </h2>
             </div>
-            <div className="relative h-48 overflow-hidden rounded-2xl border border-white/65 sm:h-56">
+            <div className="relative h-48 overflow-hidden rounded-[10px] border border-white/65 sm:h-56">
               <MarketplaceFillImage
                 src={mapImage}
                 alt="Products from our shop"
@@ -275,7 +275,7 @@ export default async function ContactPage() {
                 <MapPin className="h-7 w-7" aria-hidden />
               </span>
             </div>
-            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-white/65 bg-white/45 p-4">
+            <div className="mt-4 flex flex-col gap-3 rounded-[10px] border border-white/65 bg-white/45 p-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
                   <Store className="h-5 w-5" aria-hidden />
@@ -296,7 +296,7 @@ export default async function ContactPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="rounded-xl border-white/70 bg-white/65"
+                    className="rounded-[10px] border-white/70 bg-white/65"
                     asChild
                   >
                     <a href={mapsSearchUrl(addressLine)} target="_blank" rel="noopener noreferrer">
@@ -306,7 +306,7 @@ export default async function ContactPage() {
                 ) : null}
                 <Button
                   size="sm"
-                  className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                  className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
                   asChild
                 >
                   <Link href="/shop">Shop now</Link>
@@ -317,7 +317,7 @@ export default async function ContactPage() {
         </section>
 
         {/* Quick help */}
-        <section className="flex flex-col gap-4 rounded-[2rem] border border-white/60 bg-[#f6def8]/55 p-6 shadow-[0_14px_45px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:flex-row sm:items-center">
+        <section className="flex flex-col gap-4 rounded-[10px] border border-white/60 bg-[#f6def8]/55 p-6 shadow-[0_14px_45px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:flex-row sm:items-center">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
             <HelpCircle className="h-7 w-7" aria-hidden />
           </span>
@@ -330,18 +330,18 @@ export default async function ContactPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 sm:shrink-0">
-            <Button variant="outline" size="sm" className="rounded-xl border-white/80 bg-white/60" asChild>
+            <Button variant="outline" size="sm" className="rounded-[10px] border-white/80 bg-white/60" asChild>
               <Link href="/shipping-delivery">
                 <Package className="mr-1.5 h-4 w-4" aria-hidden />
                 Shipping
               </Link>
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl border-white/80 bg-white/60" asChild>
+            <Button variant="outline" size="sm" className="rounded-[10px] border-white/80 bg-white/60" asChild>
               <Link href="/returns-refunds">Returns</Link>
             </Button>
             <Button
               size="sm"
-              className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+              className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
               asChild
             >
               <Link href="/faqs">FAQs</Link>

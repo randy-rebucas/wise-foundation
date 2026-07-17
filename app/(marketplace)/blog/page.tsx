@@ -33,7 +33,7 @@ export default async function BlogPage() {
 
   return (
     <MarketplacePageShell>
-      <section className="rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
+      <section className="rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
         <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
           {settings.appName} Blog
         </p>
@@ -45,7 +45,7 @@ export default async function BlogPage() {
         </p>
       </section>
 
-      <section className="rounded-[2rem] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <section className="rounded-[10px] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
         {posts.length === 0 ? (
           <EmptyState
             icon={Newspaper}
@@ -58,7 +58,7 @@ export default async function BlogPage() {
               <Link
                 key={String(post._id)}
                 href={`/blog/${post.slug}`}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/40 transition hover:shadow-[0_14px_40px_rgba(94,70,135,0.18)]"
+                className="group flex flex-col overflow-hidden rounded-[10px] border border-white/60 bg-white/40 transition hover:shadow-[0_14px_40px_rgba(94,70,135,0.18)]"
               >
                 <div className="relative h-44 w-full overflow-hidden">
                   <MarketplaceFillImage

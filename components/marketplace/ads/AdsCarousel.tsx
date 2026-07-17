@@ -33,7 +33,7 @@ export function AdsCarousel({ initialAds }: AdsCarouselProps) {
   return (
     <section
       aria-label="Sponsored products"
-      className="rounded-[2rem] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
+      className="rounded-[10px] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
     >
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -76,7 +76,7 @@ export function AdsCarousel({ initialAds }: AdsCarouselProps) {
             key={ad.id}
             type="button"
             onClick={() => setPreviewAd(ad)}
-            className="group relative w-72 flex-shrink-0 snap-start overflow-hidden rounded-3xl border border-white/65 bg-white/50 text-left shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]"
+            className="group relative w-72 flex-shrink-0 snap-start overflow-hidden rounded-[10px] border border-white/65 bg-white/50 text-left shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]"
           >
             <Badge className="absolute left-3 top-3 z-10 gap-1 bg-white/85 text-[#3c2e60] shadow-sm backdrop-blur">
               <Megaphone className="h-3 w-3" />

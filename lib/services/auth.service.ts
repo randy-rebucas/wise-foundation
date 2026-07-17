@@ -13,6 +13,13 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 export type LoginAudience = "staff" | "customer";
 
+export class AccountLockedError extends Error {
+  constructor(public retryAt: Date) {
+    super("Account locked");
+    this.name = "AccountLockedError";
+  }
+}
+
 export type CredentialResult =
   | null
   | { totpRequired: true; userId: string }
@@ -51,7 +58,7 @@ export async function verifyCredentials(
 
   // Enforce lockout
   if (user.lockedUntil && user.lockedUntil > new Date()) {
-    return null;
+    throw new AccountLockedError(user.lockedUntil);
   }
 
   const isValid = await bcrypt.compare(password, user.password);

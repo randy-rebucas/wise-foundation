@@ -65,7 +65,7 @@ export default function AccountOrderDetailPage() {
   if (error || !order) {
     return (
       <>
-        <Button asChild variant="ghost" className="mb-4 rounded-xl">
+        <Button asChild variant="ghost" className="mb-4 rounded-[10px]">
           <Link href="/account/orders">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to orders
@@ -81,7 +81,7 @@ export default function AccountOrderDetailPage() {
 
   return (
     <>
-      <Button asChild variant="ghost" className="mb-4 -ml-2 rounded-xl text-[#2A4C6A]/75">
+      <Button asChild variant="ghost" className="mb-4 -ml-2 rounded-[10px] text-[#2A4C6A]/75">
         <Link href="/account/orders">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to orders
@@ -108,7 +108,7 @@ export default function AccountOrderDetailPage() {
       </div>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+        <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
           <h2 className="font-semibold text-[#1e3157]">Items</h2>
           <ul className="mt-4 space-y-4">
             {order.items.map((item) => (
@@ -146,7 +146,7 @@ export default function AccountOrderDetailPage() {
 
         <div className="space-y-5">
           {order.shipping ? (
-            <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+            <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
               <h2 className="font-semibold text-[#1e3157]">Shipping</h2>
               <p className="mt-3 text-sm text-[#2A4C6A]/80">{order.shipping.fullName}</p>
               <p className="text-sm text-[#2A4C6A]/70">{order.shipping.phone}</p>
@@ -161,7 +161,7 @@ export default function AccountOrderDetailPage() {
           ) : null}
 
           {order.paymentMethod === "cash" && order.codPayment ? (
-            <section className="rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-5 shadow-sm">
+            <section className="rounded-[10px] border border-emerald-200/70 bg-emerald-50/50 p-5 shadow-sm">
               <h2 className="font-semibold text-[#1e3157]">Cash on delivery</h2>
               <p className="mt-2 text-sm text-[#2A4C6A]/80">
                 Pay <span className="font-semibold text-[#6ea43f]">{money(order.codPayment.amountDue)}</span>{" "}
@@ -184,7 +184,7 @@ export default function AccountOrderDetailPage() {
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-white/65 bg-white/60 p-5 shadow-sm">
+          <section className="rounded-[10px] border border-white/65 bg-white/60 p-5 shadow-sm">
             <h2 className="font-semibold text-[#1e3157]">Summary</h2>
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">

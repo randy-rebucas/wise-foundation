@@ -83,7 +83,7 @@ export default async function AboutUsPage() {
   return (
     <MarketplacePageShell>
         {/* Hero */}
-        <section className="relative isolate overflow-hidden rounded-[2.25rem] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[460px]">
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[460px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.72),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.14),transparent_38%)]" />
           <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div>
@@ -107,7 +107,7 @@ export default async function AboutUsPage() {
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <article className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/35 p-3">
+                <article className="flex items-center gap-3 rounded-[10px] border border-white/50 bg-white/35 p-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-sm">
                     <Leaf className="h-6 w-6" aria-hidden />
                   </span>
@@ -120,7 +120,7 @@ export default async function AboutUsPage() {
                     </p>
                   </div>
                 </article>
-                <article className="flex items-center gap-3 rounded-2xl border border-white/50 bg-white/35 p-3">
+                <article className="flex items-center gap-3 rounded-[10px] border border-white/50 bg-white/35 p-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 shadow-sm">
                     <Beaker className="h-6 w-6" aria-hidden />
                   </span>
@@ -136,7 +136,7 @@ export default async function AboutUsPage() {
               </div>
 
               <Button
-                className="mt-8 rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
+                className="mt-8 rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white shadow-md hover:opacity-95"
                 asChild
               >
                 <Link href="/shop">
@@ -154,9 +154,9 @@ export default async function AboutUsPage() {
               {heroFloats.map((card) => (
                 <div
                   key={card.label}
-                  className={`absolute ${card.position} overflow-hidden rounded-[1.75rem] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
                 >
-                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7.5rem] overflow-hidden rounded-[1.35rem]">
+                  <div className="relative h-[calc(100%-1.5rem)] min-h-[7.5rem] overflow-hidden rounded-[10px]">
                     <MarketplaceFillImage
                       src={card.image}
                       alt={card.label}
@@ -170,7 +170,7 @@ export default async function AboutUsPage() {
                 </div>
               ))}
 
-              <div className="absolute bottom-6 left-[42%] flex w-44 flex-col items-center rounded-3xl border border-white/75 bg-white/75 p-4 shadow-[0_20px_55px_rgba(68,47,107,0.18)] backdrop-blur">
+              <div className="absolute bottom-6 left-[42%] flex w-44 flex-col items-center rounded-[10px] border border-white/75 bg-white/75 p-4 shadow-[0_20px_55px_rgba(68,47,107,0.18)] backdrop-blur">
                 <PackageCheck className="h-10 w-10 text-[#6ea43f]" aria-hidden />
                 <p className="mt-2 text-center text-xs font-semibold text-[#1e3157]">
                   Gentle skincare essentials
@@ -181,7 +181,7 @@ export default async function AboutUsPage() {
         </section>
 
         {/* Promise */}
-        <section className="rounded-[2rem] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+        <section className="rounded-[10px] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
           <div className="mb-6 flex items-center justify-center gap-3 text-center">
             <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
             <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
@@ -193,7 +193,7 @@ export default async function AboutUsPage() {
             {promises.map((promise) => (
               <article
                 key={promise.title}
-                className="flex items-start gap-3 rounded-2xl border border-white/60 bg-white/40 p-4 lg:border-r lg:last:border-r-0"
+                className="flex items-start gap-3 rounded-[10px] border border-white/60 bg-white/40 p-4 lg:border-r lg:last:border-r-0"
               >
                 <span
                   className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${promise.tone}`}
@@ -210,7 +210,7 @@ export default async function AboutUsPage() {
         </section>
 
         {/* Story */}
-        <section className="grid gap-5 overflow-hidden rounded-[2rem] border border-white/65 lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="grid gap-5 overflow-hidden rounded-[10px] border border-white/65 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="relative min-h-[280px] overflow-hidden sm:min-h-[320px] lg:min-h-full">
             <MarketplaceFillImage
               src={storyImage}
@@ -243,13 +243,13 @@ export default async function AboutUsPage() {
               on your skin and why it works.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button className="rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
+              <Button className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white" asChild>
                 <Link href="/categories">
                   Our ingredients
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button variant="outline" className="rounded-xl border-white/80 bg-white/60" asChild>
+              <Button variant="outline" className="rounded-[10px] border-white/80 bg-white/60" asChild>
                 <Link href="/contact">Get in touch</Link>
               </Button>
             </div>

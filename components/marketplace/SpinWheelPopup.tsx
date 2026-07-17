@@ -126,7 +126,7 @@ export function SpinWheelPopup() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-sm overflow-hidden rounded-[2rem] border border-white/60 bg-gradient-to-b from-white via-[#fdf6ff] to-white p-6 text-center [&>button]:z-20">
+      <DialogContent className="max-w-sm overflow-hidden rounded-[10px] border border-white/60 bg-gradient-to-b from-white via-[#fdf6ff] to-white p-6 text-center [&>button]:z-20">
         <DialogTitle className="sr-only">Spin the wheel</DialogTitle>
 
         {!result && (
@@ -179,7 +179,7 @@ export function SpinWheelPopup() {
               />
               {error && <p className="text-xs text-red-600">{error}</p>}
               <Button
-                className="w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+                className="w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
                 disabled={!emailValid || spinning}
                 onClick={handleSpin}
               >
@@ -217,7 +217,7 @@ export function SpinWheelPopup() {
               Applied automatically at checkout — or enter it manually.
             </p>
             <Button
-              className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+              className="mt-4 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
               onClick={() => handleOpenChange(false)}
             >
               Continue shopping

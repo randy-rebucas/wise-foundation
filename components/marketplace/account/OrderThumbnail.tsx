@@ -10,7 +10,7 @@ function isRemote(url: string) {
 export function OrderThumbnail({ url, name }: { url: string | null; name: string }) {
   if (!url) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-400">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[10px] bg-violet-50 text-violet-400">
         <Package className="h-6 w-6" aria-hidden />
       </div>
     );
@@ -19,7 +19,7 @@ export function OrderThumbnail({ url, name }: { url: string | null; name: string
   if (isRemote(url)) {
     return (
       <div
-        className="h-14 w-14 shrink-0 rounded-xl bg-cover bg-center"
+        className="h-14 w-14 shrink-0 rounded-[10px] bg-cover bg-center"
         style={{ backgroundImage: `url(${url})` }}
         role="img"
         aria-label={name}
@@ -28,7 +28,7 @@ export function OrderThumbnail({ url, name }: { url: string | null; name: string
   }
 
   return (
-    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px]">
       <Image src={url} alt={name} fill className="object-cover" sizes="56px" />
     </div>
   );
