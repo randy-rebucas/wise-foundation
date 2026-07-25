@@ -1247,7 +1247,7 @@ export default function MarketplaceCheckoutPage() {
                       key={`${line.productId}-${line.variantId ?? ""}`}
                       className="flex gap-3 border-b border-white/50 pb-3 last:border-0 last:pb-0"
                     >
-                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/70 bg-white/60">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[10px] border border-white/70 bg-white/60">
                         {isRemote(imageUrl) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={imageUrl} alt={line.name} className="h-full w-full object-cover" />
@@ -1286,7 +1286,7 @@ export default function MarketplaceCheckoutPage() {
 
                 <div className="space-y-1.5 pt-1">
                   {appliedCouponCode ? (
-                    <div className="flex items-center justify-between rounded-lg border border-white/70 bg-white/50 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between rounded-[10px] border border-white/70 bg-white/50 px-3 py-2 text-xs">
                       <span className="font-semibold text-[#1e3157]">
                         {appliedCouponCode}
                         {checkoutQuote?.coupon && !checkoutQuote.coupon.applied
@@ -1398,7 +1398,7 @@ export default function MarketplaceCheckoutPage() {
                         {option.badges.map((badge) => (
                           <span
                             key={badge}
-                            className="rounded-md border border-white/70 bg-white/65 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#2A4C6A]/60"
+                            className="rounded-[10px] border border-white/70 bg-white/65 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#2A4C6A]/60"
                           >
                             {badge}
                           </span>

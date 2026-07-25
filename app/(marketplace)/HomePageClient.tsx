@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import {
   MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
   MARKETPLACE_PAGE_OUTER,
 } from "@/lib/marketplace/pageLayout";
 import { cn } from "@/lib/utils";
@@ -229,11 +230,11 @@ export function HomePageClient({
   }
 
   return (
-    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "bg-white pt-0 pb-0")}>
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
       <div className="-mx-4">
         <HomeHero slots={heroSlots} totalProducts={meta?.total ?? null} />
       </div>
-      <div className="mx-auto mt-10 w-full space-y-10 lg:max-w-[70%]">
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-10 space-y-10")}>
       {initialAds.length > 0 && <AdsCarousel initialAds={initialAds} />}
 
       <HomeCategoryCards
@@ -461,7 +462,7 @@ export function HomePageClient({
         <MarketplaceFooter
           showSocial
           className="rounded-none border-0 shadow-none backdrop-blur-none"
-          innerClassName="mx-auto lg:max-w-[70%]"
+          innerClassName={MARKETPLACE_PAGE_INNER}
         />
       </div>
       <AdPreviewDialog ad={previewAd} onOpenChange={(open) => !open && setPreviewAd(null)} />

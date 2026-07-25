@@ -36,6 +36,7 @@ import { ProductImageGallery } from "@/components/marketplace/ProductImageGaller
 import { ProductReviewsSection } from "@/components/marketplace/reviews/ProductReviewsSection";
 import { ProductReviewSummary } from "@/components/marketplace/reviews/ProductReviewSummary";
 import { marketplaceCategoryLabel } from "@/lib/marketplace/categories";
+import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 
 type Variant = {
   _id: string;
@@ -207,24 +208,30 @@ export default function MarketplaceProductPage() {
   ]);
 
   if (loading) {
-    return <ProductPageSkeleton />;
+    return (
+      <MarketplacePageShell gap="">
+        <ProductPageSkeleton />
+      </MarketplacePageShell>
+    );
   }
 
   if (err || !data) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
-        <AlertCircle className="h-10 w-10 text-destructive" />
-        <p className="text-sm font-medium text-[#3c2e60]">{err || "Product not found"}</p>
-        <p className="max-w-sm text-sm text-[#2A4C6A]/70">
-          This item may be unavailable or no longer listed in the shop.
-        </p>
-        <Button
-          asChild
-          className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
-        >
-          <Link href="/shop">Browse shop</Link>
-        </Button>
-      </div>
+      <MarketplacePageShell gap="">
+        <div className="flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <p className="text-sm font-medium text-[#3c2e60]">{err || "Product not found"}</p>
+          <p className="max-w-sm text-sm text-[#2A4C6A]/70">
+            This item may be unavailable or no longer listed in the shop.
+          </p>
+          <Button
+            asChild
+            className="rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+          >
+            <Link href="/shop">Browse shop</Link>
+          </Button>
+        </div>
+      </MarketplacePageShell>
     );
   }
 
@@ -235,7 +242,7 @@ export default function MarketplaceProductPage() {
     !!fullDescription && fullDescription.trim() !== (data.shortDescription?.trim() ?? "");
 
   return (
-    <div className="space-y-5 font-[family-name:var(--font-plus-jakarta-sans)] text-[#2A4C6A]">
+    <MarketplacePageShell gap="space-y-5">
       <nav
         className="flex flex-wrap items-center gap-1 text-sm text-[#2A4C6A]/70"
         aria-label="Breadcrumb"
@@ -454,6 +461,6 @@ export default function MarketplaceProductPage() {
       </article>
 
       <ProductReviewsSection productId={data._id} productName={data.name} />
-    </div>
+    </MarketplacePageShell>
   );
 }

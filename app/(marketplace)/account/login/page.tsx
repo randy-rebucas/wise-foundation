@@ -8,7 +8,6 @@ import { getStaffHomePath } from "@/lib/navigation/staffHome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AppBrand } from "@/components/branding/AppBrand";
 import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
@@ -74,85 +73,88 @@ function AccountLoginForm() {
   }
 
   return (
-    <Card className="rounded-[10px] border-0 shadow-xl">
-      <CardHeader className="space-y-1 pb-4">
-        <AppBrand
-          theme="account"
-          className="mb-3"
-          priority
-        />
-        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-        <CardDescription>Use the email and password you chose when you registered.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+    <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-6 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <AppBrand theme="account" className="mb-3" priority />
+      <h1 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+        Sign in
+      </h1>
+      <p className="mt-1 text-sm text-[#2A4C6A]/75">
+        Use the email and password you chose when you registered.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            className="rounded-[10px] border-white/70 bg-white/65"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
             <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              className="rounded-[10px] border-white/70 bg-white/65 pr-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="email"
+              autoComplete="current-password"
             />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#2A4C6A]/45"
+              onClick={() => setShowPassword((open) => !open)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                className="pr-10"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowPassword((open) => !open)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in…
-              </>
-            ) : (
-              "Sign in"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-      <CardFooter className="flex flex-col gap-3 text-sm text-muted-foreground">
+        </div>
+        <Button
+          type="submit"
+          className="h-12 w-full rounded-[10px] bg-gradient-to-r from-[#6ea43f] to-[#477d34] text-white"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Signing in…
+            </>
+          ) : (
+            "Sign in"
+          )}
+        </Button>
+      </form>
+
+      <div className="mt-6 flex flex-col gap-3 text-sm text-[#2A4C6A]/75">
         <p className="text-center">
           New here?{" "}
-          <Link href="/account/register" className="text-primary font-medium hover:underline">
+          <Link href="/account/register" className="font-semibold text-violet-600 hover:underline">
             Create an account
           </Link>
         </p>
-        <p className="text-center border-t pt-3">
-          <span className="block text-xs uppercase tracking-wide mb-1">Distributor or staff?</span>
-          <Link href="/login" className="text-primary font-medium hover:underline">
+        <p className="border-t border-violet-100 pt-3 text-center text-xs text-[#2A4C6A]/65">
+          <span className="mb-1 block uppercase tracking-wide">Distributor or staff?</span>
+          <Link href="/login" className="font-semibold text-[#6ea43f] hover:underline">
             Team & distributor sign in
           </Link>
         </p>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 

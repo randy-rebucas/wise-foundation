@@ -128,7 +128,7 @@ export default function AccountOrderDetailPage() {
                       asChild
                       variant="outline"
                       size="sm"
-                      className="mt-2 h-8 rounded-lg border-white/70 bg-white/55 text-xs"
+                      className="mt-2 h-8 rounded-[10px] border-white/70 bg-white/55 text-xs"
                     >
                       <Link
                         href={`/account/reviews?productId=${encodeURIComponent(item.productId)}`}

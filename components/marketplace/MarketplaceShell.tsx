@@ -36,6 +36,7 @@ import {
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { useMarketplaceCartStore } from "@/store/marketplaceCartStore";
 import { cn } from "@/lib/utils";
+import { MARKETPLACE_MAIN_CLASS } from "@/lib/marketplace/pageLayout";
 import type { UserRole } from "@/types";
 import { getStaffHomeLabel, getStaffHomePath } from "@/lib/navigation/staffHome";
 
@@ -438,7 +439,7 @@ export function MarketplaceShell({
         <main
           className={cn(
             "w-full min-w-0 flex-1 py-8",
-            isHome ? "" : "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8"
+            isHome ? "" : MARKETPLACE_MAIN_CLASS
           )}
         >
           {children}

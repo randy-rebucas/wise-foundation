@@ -476,7 +476,7 @@ export default function MarketplaceCartPage() {
                 {["Visa", "Mastercard", "GCash", "PayPal"].map((label) => (
                   <span
                     key={label}
-                    className="rounded-md border border-white/70 bg-white/65 px-2 py-1"
+                    className="rounded-[10px] border border-white/70 bg-white/65 px-2 py-1"
                   >
                     {label}
                   </span>

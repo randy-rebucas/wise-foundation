@@ -726,9 +726,9 @@ export function ShopPageClient() {
                       </div>
                       <div className="space-y-3 p-4">
                         <Skeleton className="h-3 w-16 rounded-full bg-white/60" />
-                        <Skeleton className="h-4 w-full rounded-lg bg-white/60" />
-                        <Skeleton className="h-4 w-3/4 rounded-lg bg-white/60" />
-                        <Skeleton className="h-4 w-20 rounded-lg bg-white/60" />
+                        <Skeleton className="h-4 w-full rounded-[10px] bg-white/60" />
+                        <Skeleton className="h-4 w-3/4 rounded-[10px] bg-white/60" />
+                        <Skeleton className="h-4 w-20 rounded-[10px] bg-white/60" />
                         <Skeleton className="mt-2 h-9 w-full rounded-[10px] bg-white/60" />
                       </div>
                     </div>
@@ -748,9 +748,9 @@ export function ShopPageClient() {
                         <div className="flex flex-1 flex-col justify-between gap-2">
                           <div className="space-y-2">
                             <Skeleton className="h-3 w-20 rounded-full bg-white/60" />
-                            <Skeleton className="h-5 w-2/3 rounded-lg bg-white/60" />
-                            <Skeleton className="h-5 w-1/2 rounded-lg bg-white/60" />
-                            <Skeleton className="h-4 w-24 rounded-lg bg-white/60" />
+                            <Skeleton className="h-5 w-2/3 rounded-[10px] bg-white/60" />
+                            <Skeleton className="h-5 w-1/2 rounded-[10px] bg-white/60" />
+                            <Skeleton className="h-4 w-24 rounded-[10px] bg-white/60" />
                           </div>
                           <Skeleton className="h-10 w-36 rounded-[10px] bg-white/60" />
                         </div>
