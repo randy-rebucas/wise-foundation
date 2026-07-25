@@ -62,7 +62,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
           <div className="max-w-xl space-y-4">
             <h1 className="font-[family-name:var(--font-yellowtail)] text-5xl font-normal leading-tight text-[#2B6B56] sm:text-6xl lg:text-7xl">
               Glowish
-              <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#a04ecb] sm:text-6xl lg:text-7xl">
+              <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#a04ecb] sm:text-6xl lg:text-7xl">
                 Get the Glow you wish
               </span>
             </h1>
