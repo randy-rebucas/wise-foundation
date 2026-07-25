@@ -5,6 +5,7 @@ import {
   getMarketplaceCategoryShowcase,
   listMarketplaceAds,
 } from "@/lib/services/marketplace.service";
+import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
 
 export const metadata: Metadata = {
   title: "Glowish — Get the Glow you wish",
@@ -19,10 +20,13 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketplaceHomePage() {
-  const [productsResult, samplesResult, adsResult] = await Promise.allSettled([
+  const [productsResult, samplesResult, adsResult, ...categoryResults] = await Promise.allSettled([
     listMarketplaceProducts({ page: 1, limit: 12 }),
     getMarketplaceCategoryShowcase(),
     listMarketplaceAds(),
+    ...PRODUCT_CATEGORIES.map((c) =>
+      listMarketplaceProducts({ page: 1, limit: 3, category: c.value })
+    ),
   ]);
 
   const products =
@@ -38,12 +42,20 @@ export default async function MarketplaceHomePage() {
     samplesResult.status === "fulfilled" ? samplesResult.value : null;
   const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
 
+  const categoryProducts = Object.fromEntries(
+    PRODUCT_CATEGORIES.map((c, i) => [
+      c.value,
+      categoryResults[i].status === "fulfilled" ? (categoryResults[i].value.data ?? []) : [],
+    ])
+  );
+
   return (
     <HomePageClient
       initialProducts={products}
       initialMeta={meta}
       initialCategorySamples={categorySamples}
       initialAds={ads}
+      initialCategoryProducts={categoryProducts}
     />
   );
 }

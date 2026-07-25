@@ -70,6 +70,7 @@ type HomePageClientProps = {
   initialMeta: { total: number; hasMore: boolean } | null;
   initialCategorySamples: MarketplaceCategoryShowcase | null;
   initialAds: MarketplaceAd[];
+  initialCategoryProducts: Partial<Record<ProductCategory, Row[]>>;
 };
 
 export function HomePageClient({
@@ -77,6 +78,7 @@ export function HomePageClient({
   initialMeta,
   initialCategorySamples,
   initialAds,
+  initialCategoryProducts,
 }: HomePageClientProps) {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -218,6 +220,8 @@ export function HomePageClient({
     );
   }
 
+  const isGroupedView = !category && !debounced;
+
   function selectCategory(value: ProductCategory | "") {
     setCategory((prev) => (prev === value && value !== "" ? "" : value));
     setPage(1);
@@ -308,7 +312,37 @@ export function HomePageClient({
 
         <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:items-start xl:gap-6">
           <div>
-            {loading && rows.length === 0 ? (
+            {isGroupedView ? (
+              <div className="space-y-10">
+                {PRODUCT_CATEGORIES.map((c) => {
+                  const catRows = initialCategoryProducts[c.value] ?? [];
+                  if (catRows.length === 0) return null;
+                  return (
+                    <div key={c.value}>
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-[#1f2a44]">{c.label}</h3>
+                        <Link
+                          href={`/shop?category=${c.value}`}
+                          className="flex items-center gap-1 text-sm font-medium text-[#6ea43f] hover:underline"
+                        >
+                          View all
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        {catRows.map((row, index) => (
+                          <HomeProductCard
+                            key={row._id}
+                            product={row}
+                            imageUrl={resolveProductImage(row, index)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : loading && rows.length === 0 ? (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
