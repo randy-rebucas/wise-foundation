@@ -30,7 +30,7 @@ export function HomeCategoryCards({ selected, onSelect, images }: HomeCategoryCa
         </div>
         <Button
           variant="outline"
-          className="rounded-[10px] border-[#e5e0f0] bg-white shadow-sm hover:bg-[#faf7fd]"
+          className="rounded-[10px] border-[#d9e6cd] bg-white shadow-sm hover:bg-[#f4f8f0]"
           asChild
         >
           <Link href="/categories">
@@ -49,10 +49,10 @@ export function HomeCategoryCards({ selected, onSelect, images }: HomeCategoryCa
               onClick={() => onSelect(card.value)}
               aria-pressed={selected === card.value}
               className={cn(
-                "group flex min-h-[190px] cursor-pointer overflow-hidden rounded-[10px] border bg-white text-left shadow-[0_2px_12px_rgba(94,70,135,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(94,70,135,0.12)]",
+                "group flex min-h-[190px] cursor-pointer overflow-hidden rounded-[10px] border bg-white text-left shadow-[0_2px_12px_rgba(70,90,58,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(70,90,58,0.12)]",
                 selected === card.value
                   ? "border-[#6ea43f]/50 ring-2 ring-[#6ea43f]/20"
-                  : "border-[#ece7f5]"
+                  : "border-[#dde8d4]"
               )}
             >
               <div className="flex min-w-0 flex-1 flex-col p-4">

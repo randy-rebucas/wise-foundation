@@ -10,7 +10,7 @@ import { Gift, Sparkles } from "lucide-react";
 
 const SEGMENT_COLORS: Record<SpinPrizeId, string> = {
   percent_5: "#6ea43f",
-  percent_10: "#d965c9",
+  percent_10: "#859d6e",
   free_shipping: "#1e3157",
   free_perfume: "#f5a623",
 };
@@ -140,7 +140,7 @@ export function SpinWheelPopup() {
 
             <div className="relative mx-auto mt-5 h-56 w-56">
               <div
-                className="pointer-events-none absolute inset-0 rounded-full border-4 border-white shadow-[0_10px_35px_rgba(94,70,135,0.25)] transition-transform ease-out"
+                className="pointer-events-none absolute inset-0 rounded-full border-4 border-white shadow-[0_10px_35px_rgba(70,90,58,0.25)] transition-transform ease-out"
                 style={{
                   background: conicGradient(),
                   transform: `rotate(${rotation}deg)`,
@@ -163,7 +163,7 @@ export function SpinWheelPopup() {
                 })}
               </div>
               <div className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#6ea43f] bg-white shadow" />
-              <div className="absolute left-1/2 top-[-6px] -translate-x-1/2 text-2xl leading-none text-[#d965c9]">
+              <div className="absolute left-1/2 top-[-6px] -translate-x-1/2 text-2xl leading-none text-[#859d6e]">
                 ▼
               </div>
             </div>
@@ -206,7 +206,7 @@ export function SpinWheelPopup() {
 
         {result && !result.alreadySpun && (
           <div className="py-4">
-            <Gift className="mx-auto h-10 w-10 text-[#d965c9]" />
+            <Gift className="mx-auto h-10 w-10 text-[#859d6e]" />
             <p className="mt-3 font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
               You won {result.prizeLabel}!
             </p>

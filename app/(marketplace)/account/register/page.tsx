@@ -126,12 +126,12 @@ export default function AccountRegisterPage() {
 
   return (
     <MarketplacePageShell>
-        <section className="grid gap-6 overflow-hidden rounded-[10px] border border-white/60 bg-white/35 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        <section className="grid gap-6 overflow-hidden rounded-[10px] border border-white/60 bg-white/35 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
           <article className="bg-white/80 p-6 sm:p-8 lg:p-10">
             <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157] sm:text-4xl">
               Create Your Account
             </h1>
-            <p className="mt-2 font-[family-name:var(--font-great-vibes)] text-3xl text-[#d965c9] sm:text-4xl">
+            <p className="mt-2 font-[family-name:var(--font-great-vibes)] text-3xl text-[#859d6e] sm:text-4xl">
               Join the Glow Community!
             </p>
             <p className="mt-3 text-sm leading-6 text-[#2A4C6A]/75">
@@ -210,7 +210,7 @@ export default function AccountRegisterPage() {
                       {strength.label}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-violet-100">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
                     <div className={cn("h-full rounded-full transition-all", strength.width, strength.barClass)} />
                   </div>
                 </div>
@@ -254,11 +254,11 @@ export default function AccountRegisterPage() {
                 />
                 <span>
                   I agree to the{" "}
-                  <Link href="/contact" className="font-semibold text-violet-600 hover:underline">
+                  <Link href="/contact" className="font-semibold text-emerald-600 hover:underline">
                     Terms &amp; Conditions
                   </Link>{" "}
                   and{" "}
-                  <Link href="/contact" className="font-semibold text-violet-600 hover:underline">
+                  <Link href="/contact" className="font-semibold text-emerald-600 hover:underline">
                     Privacy Policy
                   </Link>
                 </span>
@@ -284,7 +284,7 @@ export default function AccountRegisterPage() {
 
               <div className="relative py-2 text-center text-xs text-[#2A4C6A]/60">
                 <span className="bg-white/80 px-3">or continue with</span>
-                <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-violet-100" />
+                <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-emerald-100" />
               </div>
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -302,11 +302,11 @@ export default function AccountRegisterPage() {
 
               <p className="text-center text-sm text-[#2A4C6A]/75">
                 Already have an account?{" "}
-                <Link href="/account/login" className="font-semibold text-violet-600 hover:underline">
+                <Link href="/account/login" className="font-semibold text-emerald-600 hover:underline">
                   Login
                 </Link>
               </p>
-              <p className="border-t border-violet-100 pt-3 text-center text-xs text-[#2A4C6A]/65">
+              <p className="border-t border-emerald-100 pt-3 text-center text-xs text-[#2A4C6A]/65">
                 <Link href="/login" className="font-semibold text-[#6ea43f] hover:underline">
                   Distributor / team sign in
                 </Link>
@@ -314,13 +314,13 @@ export default function AccountRegisterPage() {
             </form>
           </article>
 
-          <aside className="relative overflow-hidden bg-gradient-to-br from-violet-100/80 via-pink-50/70 to-white/40 p-6 sm:p-8 lg:p-10">
+          <aside className="relative overflow-hidden bg-gradient-to-br from-emerald-100/80 via-pink-50/70 to-white/40 p-6 sm:p-8 lg:p-10">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.65),transparent_35%)]" />
             <div className="relative">
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157] sm:text-4xl">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-3xl font-normal text-[#1e3157] sm:text-4xl">
                 Good for Your Skin,
               </h2>
-              <p className="font-[family-name:var(--font-great-vibes)] text-4xl text-[#d965c9] sm:text-5xl">
+              <p className="font-[family-name:var(--font-great-vibes)] text-4xl text-[#859d6e] sm:text-5xl">
                 Good for You
               </p>
               <p className="mt-4 max-w-md text-sm leading-7 text-[#2A4C6A]/78">
@@ -329,7 +329,7 @@ export default function AccountRegisterPage() {
               <ul className="mt-6 space-y-4">
                 {BENEFITS.map((benefit) => (
                   <li key={benefit.title} className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                       <benefit.icon className="h-5 w-5" />
                     </span>
                     <span className="text-sm font-semibold text-[#1e3157]">{benefit.title}</span>
@@ -337,7 +337,7 @@ export default function AccountRegisterPage() {
                 ))}
               </ul>
               <div
-                className="mt-8 h-56 rounded-[10px] bg-cover bg-center shadow-[0_24px_65px_rgba(68,47,107,0.2)]"
+                className="mt-8 h-56 rounded-[10px] bg-cover bg-center shadow-[0_24px_65px_rgba(53,68,44,0.2)]"
                 style={{ backgroundImage: `url(${STOCK_PRODUCT_IMAGE})` }}
               />
             </div>

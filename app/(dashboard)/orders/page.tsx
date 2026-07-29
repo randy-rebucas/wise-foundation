@@ -147,7 +147,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 
 const TYPE_BADGE_CLASS: Record<string, string> = {
   POS: "bg-blue-100 text-blue-800",
-  DISTRIBUTOR: "bg-purple-100 text-purple-800",
+  DISTRIBUTOR: "bg-emerald-100 text-emerald-800",
   B2B: "bg-orange-100 text-orange-800",
   MARKETPLACE: "bg-emerald-100 text-emerald-800",
 };

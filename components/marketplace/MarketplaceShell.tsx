@@ -124,6 +124,22 @@ export function MarketplaceShell({
   const isHome = pathname === "/";
   const isShop =
     pathname === "/shop" || pathname.startsWith("/product/");
+  const isFullBleedPage =
+    isHome ||
+    pathname === "/shop" ||
+    pathname === "/categories" ||
+    pathname === "/about-us" ||
+    pathname === "/reviews" ||
+    pathname === "/contact" ||
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname === "/faqs" ||
+    pathname === "/privacy-policy" ||
+    pathname === "/returns-refunds" ||
+    pathname === "/shipping-delivery" ||
+    pathname === "/blog" ||
+    pathname.startsWith("/blog/") ||
+    pathname.startsWith("/reviews/");
   const hasCustomFooter =
     pathname === "/shop" ||
     pathname === "/categories" ||
@@ -156,7 +172,7 @@ export function MarketplaceShell({
   return (
     <TenantProvider value={tenant}>
       <div
-        className="flex min-h-screen flex-col bg-[#f6ecff] bg-cover bg-center bg-no-repeat text-[#2A4C6A] max-lg:bg-scroll lg:bg-fixed"
+        className="flex min-h-screen flex-col bg-[#ECF3E8] bg-cover bg-center bg-no-repeat text-[#2A4C6A] max-lg:bg-scroll lg:bg-fixed"
         style={{ backgroundImage: `url(${MARKETPLACE_BACKGROUND_IMAGE})` }}
       >
         <header
@@ -234,10 +250,10 @@ export function MarketplaceShell({
                 <DropdownMenuContent
                   align="end"
                   sideOffset={12}
-                  className="w-72 rounded-[10px] border-white/60 bg-white/80 p-0 text-[#2A4C6A] shadow-[0_24px_70px_rgba(68,47,107,0.24)] backdrop-blur-xl"
+                  className="w-72 rounded-[10px] border-white/60 bg-white/80 p-0 text-[#2A4C6A] shadow-[0_24px_70px_rgba(53,68,44,0.24)] backdrop-blur-xl"
                 >
                   <div className="flex items-center gap-3 px-4 py-4">
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-pink-100 to-violet-100 text-[#6ea43f] ring-1 ring-white/70">
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-pink-100 to-emerald-100 text-[#6ea43f] ring-1 ring-white/70">
                       <UserRound className="h-6 w-6" />
                     </div>
                     <div className="min-w-0">
@@ -257,7 +273,7 @@ export function MarketplaceShell({
                             className="rounded-[10px] px-3 py-3 focus:bg-[#f4e8ff]/80"
                           >
                             <Link href={staffHomeHref} className="flex items-center gap-3">
-                              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-violet-100 text-violet-700">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700">
                                 <LayoutDashboard className="h-4 w-4" />
                               </span>
                               <span className="min-w-0 flex-1">
@@ -279,7 +295,7 @@ export function MarketplaceShell({
                               className="rounded-[10px] px-3 py-3 focus:bg-[#f4e8ff]/80"
                             >
                               <Link href={item.href} className="flex items-center gap-3">
-                                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-violet-100 text-violet-700">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700">
                                   <item.icon className="h-4 w-4" />
                                 </span>
                                 <span className="min-w-0 flex-1">
@@ -302,7 +318,7 @@ export function MarketplaceShell({
                           className="rounded-[10px] px-3 py-3 text-[#3c2e60] focus:bg-[#f4e8ff]/80"
                           onClick={() => void signOut({ callbackUrl: "/" })}
                         >
-                          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-violet-100 text-violet-700">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700">
                             <LogOut className="h-4 w-4" />
                           </span>
                           <span className="ml-3 min-w-0 flex-1">
@@ -318,7 +334,7 @@ export function MarketplaceShell({
                     <div className="space-y-2 p-3">
                       <DropdownMenuItem asChild className="rounded-[10px] px-3 py-3 focus:bg-[#f4e8ff]/80">
                         <Link href="/account/login" className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-violet-100 text-violet-700">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-700">
                             <UserRound className="h-4 w-4" />
                           </span>
                           <span>
@@ -439,7 +455,7 @@ export function MarketplaceShell({
         <main
           className={cn(
             "w-full min-w-0 flex-1 py-8",
-            isHome ? "" : MARKETPLACE_MAIN_CLASS
+            isFullBleedPage ? "" : MARKETPLACE_MAIN_CLASS
           )}
         >
           {children}

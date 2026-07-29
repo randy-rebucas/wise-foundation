@@ -24,7 +24,7 @@ export function ProductReviewsSection({
   return (
     <section
       id="product-reviews"
-      className="scroll-mt-24 rounded-[10px] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:p-7"
+      className="scroll-mt-24 rounded-[10px] border border-white/60 bg-white/35 p-5 shadow-[0_18px_60px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:p-7"
       aria-labelledby="product-reviews-heading"
     >
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -68,7 +68,7 @@ export function ProductReviewsSection({
         </p>
       ) : !reviews.length ? (
         <div className="rounded-[10px] border border-dashed border-white/70 bg-white/35 px-6 py-12 text-center">
-          <MessageCircle className="mx-auto h-10 w-10 text-violet-400" aria-hidden />
+          <MessageCircle className="mx-auto h-10 w-10 text-emerald-400" aria-hidden />
           <p className="mt-4 text-sm text-[#2A4C6A]/75">
             No reviews for this product yet. Purchased {productName}? Share your experience after
             delivery.

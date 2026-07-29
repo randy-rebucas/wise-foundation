@@ -30,7 +30,7 @@ const NEXT_STEPS = [
     title: "Order Confirmed",
     description: "We've received your order and it's being processed.",
     icon: Package,
-    tone: "bg-violet-100 text-violet-600",
+    tone: "bg-emerald-100 text-emerald-600",
   },
   {
     title: "On Its Way",
@@ -70,8 +70,8 @@ function SuccessInner() {
 
   return (
     <MarketplacePageShell>
-        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(255,51,204,0.14),transparent_40%)]" />
+        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-12 text-center shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:px-10">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(247,153,33,0.14),transparent_40%)]" />
           <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-[0_20px_55px_rgba(110,164,63,0.35)]">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#6ea43f] text-white">
               <Check className="h-9 w-9" strokeWidth={3} />
@@ -79,7 +79,7 @@ function SuccessInner() {
           </div>
           <h1 className="mt-6 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#6ea43f] sm:text-5xl">
             Thank
-            <span className="font-[family-name:var(--font-great-vibes)] text-[#d965c9]"> You!</span>
+            <span className="font-[family-name:var(--font-great-vibes)] text-[#859d6e]"> You!</span>
           </h1>
           <p className="mx-auto mt-4 max-w-lg text-base leading-7 text-[#1e3157]/82">
             {isBankTransferPending
@@ -100,7 +100,7 @@ function SuccessInner() {
               className="h-full w-full object-contain"
             />
           </span>
-          <h2 className="mt-3 font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+          <h2 className="mt-3 font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
             Your order just did more than glow
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#2A4C6A]/78">
@@ -164,7 +164,7 @@ function SuccessInner() {
           </section>
         ) : null}
 
-        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-6">
           <div className="flex flex-col gap-2 border-b border-white/60 pb-4 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p>
               <span className="text-[#2A4C6A]/65">Order Number </span>
@@ -196,8 +196,8 @@ function SuccessInner() {
             </p>
           </div>
 
-          <div className="mt-4 flex items-start gap-3 rounded-[10px] bg-violet-50/70 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+          <div className="mt-4 flex items-start gap-3 rounded-[10px] bg-emerald-50/70 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <Mail className="h-5 w-5" />
             </span>
             <p className="text-sm leading-6 text-[#2A4C6A]/78">
@@ -207,8 +207,8 @@ function SuccessInner() {
           </div>
         </section>
 
-        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-7">
-          <h2 className="text-center font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+        <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-7">
+          <h2 className="text-center font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
             What&apos;s Next?
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">

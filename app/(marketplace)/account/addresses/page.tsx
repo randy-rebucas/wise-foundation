@@ -62,7 +62,7 @@ function AddressCard({
             <MapPin className="h-4 w-4 text-[#6ea43f]" />
             {title}
             {badge ? (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                 {badge}
               </span>
             ) : null}
@@ -231,7 +231,7 @@ export default function AccountAddressesPage() {
             </div>
           ))}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={saving} className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
+            <Button type="submit" disabled={saving} className="rounded-[10px] bg-emerald-600 text-white hover:bg-emerald-700">
               {saving ? "Saving…" : "Save address"}
             </Button>
             <Button type="button" variant="ghost" className="rounded-[10px]" onClick={() => setShowForm(false)}>

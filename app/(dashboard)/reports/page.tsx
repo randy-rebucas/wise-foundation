@@ -52,12 +52,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   homecare: "bg-blue-100 text-blue-800",
   cosmetics: "bg-pink-100 text-pink-800",
   wellness: "bg-green-100 text-green-800",
-  scent: "bg-purple-100 text-purple-800",
+  scent: "bg-emerald-100 text-emerald-800",
 };
 
 const ORG_TYPE_COLORS: Record<string, string> = {
   distributor: "bg-blue-100 text-blue-800",
-  franchise: "bg-purple-100 text-purple-800",
+  franchise: "bg-emerald-100 text-emerald-800",
   partner: "bg-green-100 text-green-800",
   headquarters: "bg-orange-100 text-orange-800",
 };
@@ -245,7 +245,7 @@ export default function ReportsPage() {
                   value={report?.memberStats?.total ?? 0}
                   icon={Users}
                   description={`${report?.memberStats?.newThisMonth ?? 0} new this month`}
-                  iconClassName="bg-purple-100"
+                  iconClassName="bg-emerald-100"
                 />
               )}
               {isAdmin && (

@@ -19,8 +19,13 @@ import {
 import { ProductRatingBadge } from "@/components/marketplace/reviews/ProductRatingBadge";
 import { useProductReviewSummaries } from "@/components/marketplace/reviews/useProductReviewSummaries";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 import { Input } from "@/components/ui/input";
 import { useFormatCurrency } from "@/components/providers/TenantProvider";
 import { useToast } from "@/hooks/use-toast";
@@ -140,10 +145,11 @@ export default function MarketplaceCartPage() {
   }
 
   return (
-    <MarketplacePageShell gap="space-y-5">
-        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[280px]">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
-          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className="-mx-4">
+        <section className="relative isolate overflow-hidden bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[320px]">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(247,153,33,0.16),transparent_36%)]" />
+          <div className={cn(MARKETPLACE_PAGE_INNER, "grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center")}>
             <div>
               <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#1e3157] sm:text-5xl">
                 Your Cart
@@ -157,18 +163,18 @@ export default function MarketplaceCartPage() {
               </div>
             </div>
 
-            <div className="relative min-h-[220px] lg:min-h-[260px]">
+            <div className="relative min-h-[260px] lg:min-h-[300px]">
               <div className="absolute inset-x-[8%] bottom-8 h-20 rounded-[50%] bg-white/45 blur-2xl" />
               {heroImages.map((image, index) => {
                 const positions = [
-                  "left-[16%] top-[24%] h-40 w-32 rotate-[-5deg]",
-                  "left-[42%] top-[5%] h-52 w-36",
-                  "right-[5%] top-[30%] h-44 w-40 rotate-[5deg]",
+                  "left-[16%] top-[18%] h-52 w-40 rotate-[-5deg]",
+                  "left-[42%] top-[18%] h-52 w-40",
+                  "right-[5%] top-[18%] h-52 w-40 rotate-[5deg]",
                 ];
                 return (
                   <div
                     key={image}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(53,68,44,0.22)] backdrop-blur`}
                   >
                     <div
                       className="h-full rounded-[10px] bg-cover bg-center"
@@ -180,11 +186,13 @@ export default function MarketplaceCartPage() {
             </div>
           </div>
         </section>
+      </div>
 
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-5 space-y-5")}>
         {items.length === 0 ? (
-          <section className="rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+          <section className="rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
             <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
-            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+            <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
               Your cart is empty
             </h2>
             <p className="mt-2 text-sm text-[#2A4C6A]/75">
@@ -200,7 +208,7 @@ export default function MarketplaceCartPage() {
         ) : (
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="space-y-5">
-              <section className="overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+              <section className="overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
                 <div className="border-b border-white/60 bg-emerald-50/80 px-5 py-3">
                   <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-emerald-100">
                     <div
@@ -329,7 +337,7 @@ export default function MarketplaceCartPage() {
                 <div className="flex flex-col gap-3 border-t border-white/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <Button
                     variant="outline"
-                    className="rounded-[10px] border-violet-200 bg-violet-100/70 text-violet-700 hover:bg-violet-200"
+                    className="rounded-[10px] border-emerald-200 bg-emerald-100/70 text-emerald-700 hover:bg-emerald-200"
                     asChild
                   >
                     <Link href="/shop">
@@ -357,11 +365,11 @@ export default function MarketplaceCartPage() {
                 </div>
               </section>
 
-              <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+              <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-6">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-violet-500" />
-                    <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+                    <Sparkles className="h-5 w-5 text-emerald-500" />
+                    <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                       You May Also Like
                     </h2>
                   </div>
@@ -444,8 +452,8 @@ export default function MarketplaceCartPage() {
               </section>
             </div>
 
-            <aside className="h-fit rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl xl:sticky xl:top-24">
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+            <aside className="h-fit rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl xl:sticky xl:top-24">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                 Order Summary
               </h2>
               <div className="mt-5 space-y-3 text-sm">
@@ -485,8 +493,15 @@ export default function MarketplaceCartPage() {
             </aside>
           </div>
         )}
+      </div>
 
-        <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

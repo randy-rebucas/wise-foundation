@@ -79,7 +79,7 @@ export function PaymongoReturnClient() {
   if (error) {
     return (
       <MarketplacePageShell gap="" innerClassName="flex justify-center py-8">
-        <div className="w-full max-w-lg rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        <div className="w-full max-w-lg rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
           <Package className="mx-auto mb-4 h-12 w-12 text-destructive/70" />
           <h1 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
             Payment issue

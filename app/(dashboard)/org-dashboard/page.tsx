@@ -126,7 +126,7 @@ const STATUS_BADGE: Record<string, "default" | "success" | "secondary" | "destru
 
 const ORG_TYPE_COLOR: Record<string, string> = {
   distributor: "bg-blue-100 text-blue-800",
-  franchise: "bg-purple-100 text-purple-800",
+  franchise: "bg-emerald-100 text-emerald-800",
   partner: "bg-green-100 text-green-800",
 };
 
@@ -157,7 +157,7 @@ export default async function OrgDashboardPage() {
     { label: "My Panel", href: "/org-panel", icon: LayoutGrid, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
     { label: "Reseller Sales", href: "/reseller-sales", icon: Store, color: "bg-orange-50 hover:bg-orange-100 text-orange-700" },
     { label: "Commissions", href: "/commissions", icon: Percent, color: "bg-green-50 hover:bg-green-100 text-green-700" },
-    { label: "Reports", href: "/reports", icon: BarChart3, color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
+    { label: "Reports", href: "/reports", icon: BarChart3, color: "bg-emerald-50 hover:bg-emerald-100 text-emerald-700" },
   ];
 
   return (
@@ -220,7 +220,7 @@ export default async function OrgDashboardPage() {
               value={stats.inventoryUnits}
               description={`${stats.inventoryProducts} products · ${stats.lowStockCount} low stock`}
               icon={Boxes}
-              iconClassName="bg-purple-100"
+              iconClassName="bg-emerald-100"
             />
           ) : (
             <StatCard
@@ -228,7 +228,7 @@ export default async function OrgDashboardPage() {
               value={stats.monthlyOrders}
               description="Orders this month"
               icon={Clock}
-              iconClassName="bg-purple-100"
+              iconClassName="bg-emerald-100"
             />
           )}
         </div>

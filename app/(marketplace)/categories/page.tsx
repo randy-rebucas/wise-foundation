@@ -10,10 +10,15 @@ import {
 import { pickCatalogImage, pickHeroFloatImages } from "@/lib/marketplace/categoryImages";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { MarketplaceFillImage } from "@/components/marketplace/MarketplaceFillImage";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Beaker, Heart, Leaf, ShieldCheck } from "lucide-react";
 import type { ProductCategory } from "@/types";
+import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
@@ -48,7 +53,7 @@ const INGREDIENT_PROMISES = [
     title: "Safe & effective",
     description: "Thoughtful concentrations—visible results, minimal fuss.",
     icon: ShieldCheck,
-    tone: "bg-violet-100 text-violet-600",
+    tone: "bg-emerald-100 text-emerald-600",
   },
 ] as const;
 
@@ -60,17 +65,17 @@ const HERO_FLOAT_META: {
   {
     category: "homecare",
     label: "Home Care",
-    position: "left-[6%] top-[14%] h-44 w-32 -rotate-6 sm:left-[10%] sm:h-52 sm:w-36",
+    position: "left-[6%] top-[16%] h-56 w-40 -rotate-6 sm:left-[10%] sm:h-64 sm:w-44",
   },
   {
     category: "cosmetics",
     label: "Cosmetics",
-    position: "left-[38%] top-[2%] h-52 w-36 sm:left-[40%] sm:h-60 sm:w-40",
+    position: "left-[38%] top-[16%] h-56 w-40 sm:left-[40%] sm:h-64 sm:w-44",
   },
   {
     category: "wellness",
     label: "Health & Wellness",
-    position: "right-[4%] top-[22%] h-40 w-36 rotate-6 sm:right-[8%] sm:h-48 sm:w-40",
+    position: "right-[4%] top-[16%] h-56 w-40 rotate-6 sm:right-[8%] sm:h-64 sm:w-44",
   },
 ];
 
@@ -91,17 +96,18 @@ export default async function CategoriesPage() {
   }));
 
   return (
-    <MarketplacePageShell>
-      <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.72),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.14),transparent_38%)]" />
-        <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className="-mx-4">
+        <section className="relative isolate overflow-hidden bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[460px]">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_42%,rgba(255,255,255,0.72),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(247,153,33,0.14),transparent_38%)]" />
+        <div className={cn(MARKETPLACE_PAGE_INNER, "grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center")}>
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
               Shop by category
             </p>
-            <h1 className="mt-4 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#1e3157] sm:text-5xl lg:text-6xl">
+            <h1 className="mt-4 font-[family-name:var(--font-yellowtail)] text-5xl font-normal leading-tight text-[#2B6B56] sm:text-6xl lg:text-7xl">
               Home Care,
-              <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl">
+              <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#F79921] sm:text-6xl lg:text-7xl">
                 Cosmetics &amp; More
               </span>
             </h1>
@@ -125,13 +131,13 @@ export default async function CategoriesPage() {
             </Button>
           </div>
 
-          <div className="relative min-h-[300px] sm:min-h-[340px] lg:min-h-[380px]">
+          <div className="relative min-h-[340px] sm:min-h-[380px] lg:min-h-[420px]">
             <div className="absolute inset-x-[6%] bottom-6 h-20 rounded-[50%] bg-white/45 blur-2xl" />
             <div className="absolute left-[28%] top-[8%] h-56 w-56 rounded-full border border-white/50 bg-white/15" />
             {heroFloats.map((card) => (
               <div
                 key={card.category}
-                className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(53,68,44,0.22)] backdrop-blur`}
               >
                 {card.product ? (
                   <Link
@@ -142,7 +148,7 @@ export default async function CategoriesPage() {
                       <MarketplaceFillImage
                         src={card.image}
                         alt={card.product.name}
-                        sizes="(max-width: 768px) 140px, 180px"
+                        sizes="(max-width: 768px) 170px, 220px"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/55 via-transparent to-transparent" />
                     </div>
@@ -156,7 +162,7 @@ export default async function CategoriesPage() {
                       <MarketplaceFillImage
                         src={card.image}
                         alt={card.label}
-                        sizes="(max-width: 768px) 140px, 180px"
+                        sizes="(max-width: 768px) 170px, 220px"
                       />
                     </div>
                     <p className="mt-1.5 text-center text-[10px] font-semibold text-[#1e3157]">
@@ -168,12 +174,14 @@ export default async function CategoriesPage() {
             ))}
           </div>
         </div>
-      </section>
+        </section>
+      </div>
 
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-6 space-y-6")}>
       <section>
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3 px-1">
           <div>
-            <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
+            <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157] sm:text-3xl">
               Browse categories
             </h2>
             <p className="mt-1 text-sm text-[#2A4C6A]/75">
@@ -190,7 +198,7 @@ export default async function CategoriesPage() {
             <Link
               key={category.value}
               href={category.href}
-              className="group flex flex-col overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_12px_40px_rgba(94,70,135,0.1)] backdrop-blur transition hover:-translate-y-1 hover:border-white hover:bg-white/75 hover:shadow-[0_22px_55px_rgba(94,70,135,0.18)]"
+              className="group flex flex-col overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_12px_40px_rgba(70,90,58,0.1)] backdrop-blur transition hover:-translate-y-1 hover:border-white hover:bg-white/75 hover:shadow-[0_22px_55px_rgba(70,90,58,0.18)]"
             >
               <div
                 className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${category.accent}`}
@@ -233,10 +241,10 @@ export default async function CategoriesPage() {
         </div>
       </section>
 
-      <section className="rounded-[10px] border border-white/60 bg-white/45 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <section className="rounded-[10px] border border-white/60 bg-white/45 p-6 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-8">
         <div className="mb-6 flex items-center justify-center gap-3 text-center">
           <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
-          <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157] sm:text-3xl">
+          <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157] sm:text-3xl">
             What we put in every bottle
           </h2>
           <Leaf className="h-5 w-5 text-[#6ea43f]" aria-hidden />
@@ -274,7 +282,7 @@ export default async function CategoriesPage() {
           <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
             Need guidance?
           </p>
-          <h2 className="mt-3 font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
+          <h2 className="mt-3 font-[family-name:var(--font-yellowtail)] text-3xl font-normal text-[#1e3157]">
             Not sure where to start?
           </h2>
           <p className="mt-4 text-sm leading-7 text-[#2A4C6A]/78">
@@ -291,8 +299,15 @@ export default async function CategoriesPage() {
           </div>
         </article>
       </section>
+      </div>
 
-      <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

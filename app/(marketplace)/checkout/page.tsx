@@ -899,7 +899,7 @@ export default function MarketplaceCheckoutPage() {
   if (items.length === 0) {
     return (
       <MarketplacePageShell gap="" innerClassName="flex justify-center">
-        <div className="w-full max-w-xl rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        <div className="w-full max-w-xl rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
           <Package className="mx-auto mb-4 h-12 w-12 text-[#6ea43f]/70" />
           <h1 className="font-[family-name:var(--font-playfair-display)] text-3xl font-semibold text-[#1e3157]">
             Checkout
@@ -916,12 +916,12 @@ export default function MarketplaceCheckoutPage() {
   return (
     <form
       onSubmit={submit}
-      className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT)}
+      className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}
     >
-      <div className={cn(MARKETPLACE_PAGE_INNER, "space-y-5")}>
-        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[260px]">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(255,51,204,0.16),transparent_36%)]" />
-          <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+      <div className="-mx-4">
+        <section className="relative isolate overflow-hidden bg-white/20 px-6 py-8 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[300px]">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_44%,rgba(255,255,255,0.75),transparent_24%),radial-gradient(circle_at_88%_36%,rgba(247,153,33,0.16),transparent_36%)]" />
+          <div className={cn(MARKETPLACE_PAGE_INNER, "grid gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center")}>
             <div>
               <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold text-[#1e3157] sm:text-5xl">
                 Checkout
@@ -939,18 +939,18 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </div>
 
-            <div className="relative min-h-[200px] lg:min-h-[240px]">
+            <div className="relative min-h-[240px] lg:min-h-[280px]">
               <div className="absolute inset-x-[8%] bottom-6 h-20 rounded-[50%] bg-white/45 blur-2xl" />
               {heroImages.map((image, index) => {
                 const positions = [
-                  "left-[16%] top-[24%] h-40 w-32 rotate-[-5deg]",
-                  "left-[42%] top-[5%] h-52 w-36",
-                  "right-[5%] top-[30%] h-44 w-40 rotate-[5deg]",
+                  "left-[16%] top-[18%] h-52 w-40 rotate-[-5deg]",
+                  "left-[42%] top-[18%] h-52 w-40",
+                  "right-[5%] top-[18%] h-52 w-40 rotate-[5deg]",
                 ];
                 return (
                   <div
                     key={image}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(68,47,107,0.22)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/75 bg-white/65 p-2 shadow-[0_24px_65px_rgba(53,68,44,0.22)] backdrop-blur`}
                   >
                     <div
                       className="h-full rounded-[10px] bg-cover bg-center"
@@ -962,7 +962,9 @@ export default function MarketplaceCheckoutPage() {
             </div>
           </div>
         </section>
+      </div>
 
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-5 space-y-5")}>
         <section className="rounded-[10px] border border-white/65 bg-white/55 px-4 py-5 shadow-sm backdrop-blur-xl sm:px-6">
           <ol className="flex flex-wrap items-center justify-between gap-4">
             {CHECKOUT_STEPS.map((step, index) => {
@@ -973,7 +975,7 @@ export default function MarketplaceCheckoutPage() {
                   <span
                     className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold",
-                      completed && "border-violet-300 bg-violet-100 text-violet-600",
+                      completed && "border-emerald-300 bg-emerald-100 text-emerald-600",
                       active && "border-[#6ea43f] bg-[#6ea43f] text-white",
                       !completed && !active && "border-white/70 bg-white/60 text-[#2A4C6A]/45"
                     )}
@@ -992,14 +994,14 @@ export default function MarketplaceCheckoutPage() {
               );
             })}
           </ol>
-          <div className="mt-4 h-1 overflow-hidden rounded-full bg-violet-100">
+          <div className="mt-4 h-1 overflow-hidden rounded-full bg-emerald-100">
             <div className="h-full w-[40%] rounded-full bg-[#6ea43f]" />
           </div>
         </section>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-5">
-            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-6">
               {savedAddresses.length > 0 ? (
                 <div className="mb-4 space-y-2">
                   <Label>Saved address</Label>
@@ -1026,7 +1028,7 @@ export default function MarketplaceCheckoutPage() {
                   </Select>
                 </div>
               ) : null}
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
                 Contact Information
               </h2>
               <div className="mt-4 space-y-4">
@@ -1052,8 +1054,8 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-6">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
                 Shipping Address
               </h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -1166,8 +1168,8 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-6">
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-6">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
                 Shipping Method
               </h2>
               <p className="mt-1 text-xs text-[#2A4C6A]/65">
@@ -1188,7 +1190,7 @@ export default function MarketplaceCheckoutPage() {
                         className={cn(
                           "flex cursor-pointer items-center justify-between gap-4 rounded-[10px] border px-4 py-3 transition",
                           selected
-                            ? "border-violet-300 bg-violet-50/80"
+                            ? "border-emerald-300 bg-emerald-50/80"
                             : "border-white/70 bg-white/50 hover:bg-white/70"
                         )}
                       >
@@ -1230,9 +1232,9 @@ export default function MarketplaceCheckoutPage() {
           </div>
 
           <div className="space-y-5 xl:sticky xl:top-24 xl:self-start">
-            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+                <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                   Order Summary
                 </h2>
                 <Link href="/cart" className="text-xs font-semibold text-[#6ea43f] hover:underline">
@@ -1355,8 +1357,8 @@ export default function MarketplaceCheckoutPage() {
               </div>
             </section>
 
-            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+            <section className="rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
                 Payment Method
               </h2>
               {!paymongoEnabled ? (
@@ -1376,7 +1378,7 @@ export default function MarketplaceCheckoutPage() {
                         "flex items-center justify-between gap-3 rounded-[10px] border px-4 py-3 transition",
                         enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50",
                         selected && enabled
-                          ? "border-violet-300 bg-violet-50/80"
+                          ? "border-emerald-300 bg-emerald-50/80"
                           : "border-white/70 bg-white/50",
                         enabled && !selected && "hover:bg-white/70"
                       )}

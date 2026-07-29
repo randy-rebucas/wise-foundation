@@ -206,15 +206,15 @@ export function HomePageClient({
 
   function ProductCardSkeleton() {
     return (
-      <div className="overflow-hidden rounded-[10px] border border-[#ece7f5] bg-white shadow-[0_2px_12px_rgba(94,70,135,0.06)]">
-        <Skeleton className="aspect-[4/3] w-full rounded-none bg-[#f1edf8]" />
+      <div className="overflow-hidden rounded-[10px] border border-[#dde8d4] bg-white shadow-[0_2px_12px_rgba(70,90,58,0.06)]">
+        <Skeleton className="aspect-[4/3] w-full rounded-none bg-[#e4eedc]" />
         <div className="space-y-3 p-4">
-          <Skeleton className="h-3 w-16 rounded-[10px] bg-[#f1edf8]" />
-          <Skeleton className="h-4 w-full rounded-[10px] bg-[#f1edf8]" />
-          <Skeleton className="h-4 w-3/4 rounded-[10px] bg-[#f1edf8]" />
+          <Skeleton className="h-3 w-16 rounded-[10px] bg-[#e4eedc]" />
+          <Skeleton className="h-4 w-full rounded-[10px] bg-[#e4eedc]" />
+          <Skeleton className="h-4 w-3/4 rounded-[10px] bg-[#e4eedc]" />
           <div className="flex items-center justify-between pt-1">
-            <Skeleton className="h-6 w-20 rounded-[10px] bg-[#f1edf8]" />
-            <Skeleton className="h-11 w-11 rounded-[10px] bg-[#f1edf8]" />
+            <Skeleton className="h-6 w-20 rounded-[10px] bg-[#e4eedc]" />
+            <Skeleton className="h-11 w-11 rounded-[10px] bg-[#e4eedc]" />
           </div>
         </div>
       </div>
@@ -261,7 +261,7 @@ export function HomePageClient({
             <div className="relative flex-1 sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
               <Input
-                className="h-11 rounded-[10px] border-[#e5e0f0] bg-white pl-9 text-[#2A4C6A] shadow-sm placeholder:text-[#94a3b8] focus-visible:ring-[#6ea43f]/40"
+                className="h-11 rounded-[10px] border-[#d9e6cd] bg-white pl-9 text-[#2A4C6A] shadow-sm placeholder:text-[#94a3b8] focus-visible:ring-[#6ea43f]/40"
                 placeholder="Search products or SKU..."
                 aria-label="Search products"
                 value={search}
@@ -276,7 +276,7 @@ export function HomePageClient({
               onValueChange={(v) => selectCategory(v === "all" ? "" : (v as ProductCategory))}
             >
               <SelectTrigger
-                className="h-11 w-full rounded-[10px] border-[#e5e0f0] bg-white text-[#2A4C6A] shadow-sm sm:w-[200px]"
+                className="h-11 w-full rounded-[10px] border-[#d9e6cd] bg-white text-[#2A4C6A] shadow-sm sm:w-[200px]"
                 aria-label="Filter by category"
               >
                 <SelectValue placeholder="Category" />
@@ -291,7 +291,7 @@ export function HomePageClient({
             </Select>
             <Button
               variant="outline"
-              className="h-11 shrink-0 rounded-[10px] border-[#e5e0f0] bg-white px-4 text-[#2A4C6A] shadow-sm hover:bg-[#faf7fd]"
+              className="h-11 shrink-0 rounded-[10px] border-[#d9e6cd] bg-white px-4 text-[#2A4C6A] shadow-sm hover:bg-[#f4f8f0]"
               asChild
             >
               <Link href={category ? `/shop?category=${category}` : "/shop"}>
@@ -350,13 +350,13 @@ export function HomePageClient({
                 ))}
               </div>
             ) : rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-[#ddd4ea] bg-[#fbfaff] py-20 text-center">
+              <div className="flex flex-col items-center justify-center rounded-[10px] border border-dashed border-[#c9dcbb] bg-[#f4f8f0] py-20 text-center">
                 <Package className="mb-3 h-10 w-10 text-[#94a3b8]" />
                 <p className="font-semibold text-[#1f2a44]">No products match your filters.</p>
                 <p className="mt-1 text-sm text-[#64748b]">Try another search or category.</p>
                 <Button
                   variant="outline"
-                  className="mt-4 rounded-[10px] border-[#e5e0f0] bg-white shadow-sm hover:bg-[#faf7fd]"
+                  className="mt-4 rounded-[10px] border-[#d9e6cd] bg-white shadow-sm hover:bg-[#f4f8f0]"
                   onClick={() => {
                     setSearch("");
                     setCategory("");
@@ -379,7 +379,7 @@ export function HomePageClient({
                     </span>
                   ) : null}
                   {debounced ? (
-                    <span className="rounded-[10px] border border-[#e5e0f0] bg-white px-2.5 py-0.5 text-xs text-[#2A4C6A]">
+                    <span className="rounded-[10px] border border-[#d9e6cd] bg-white px-2.5 py-0.5 text-xs text-[#2A4C6A]">
                       &ldquo;{debounced}&rdquo;
                     </span>
                   ) : null}
@@ -414,7 +414,7 @@ export function HomePageClient({
                       variant="outline"
                       disabled={loading}
                       onClick={() => void load(page + 1, true)}
-                      className="rounded-[10px] border-[#e5e0f0] bg-white text-[#2A4C6A] shadow-sm hover:bg-[#faf7fd]"
+                      className="rounded-[10px] border-[#d9e6cd] bg-white text-[#2A4C6A] shadow-sm hover:bg-[#f4f8f0]"
                     >
                       {loading ? "Loading..." : "Load more products"}
                     </Button>
@@ -445,7 +445,7 @@ export function HomePageClient({
           </div>
           <Button
             variant="outline"
-            className="rounded-[10px] border-[#e5e0f0] bg-white shadow-sm hover:bg-[#faf7fd]"
+            className="rounded-[10px] border-[#d9e6cd] bg-white shadow-sm hover:bg-[#f4f8f0]"
             asChild
           >
             <Link href="/reviews">

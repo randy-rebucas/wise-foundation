@@ -20,7 +20,7 @@ const BAR_COLORS = ["#f97316", "#3b82f6", "#8b5cf6", "#10b981", "#f59e0b"];
 
 const ORG_TYPE_COLORS: Record<string, string> = {
   distributor: "bg-blue-100 text-blue-800",
-  franchise: "bg-purple-100 text-purple-800",
+  franchise: "bg-emerald-100 text-emerald-800",
   partner: "bg-green-100 text-green-800",
   headquarters: "bg-orange-100 text-orange-800",
 };

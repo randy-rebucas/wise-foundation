@@ -25,7 +25,7 @@ type HomePromoRailProps = {
 export function HomePromoRail({ imageUrl }: HomePromoRailProps) {
   return (
     <aside className="hidden flex-col gap-4 xl:flex" aria-label="Offers and store guarantees">
-      <div className="relative overflow-hidden rounded-[10px] border border-[#e9ddf5] bg-gradient-to-b from-[#efe3f8] via-[#f9f3fc] to-[#fdf6fb] p-6 text-center shadow-[0_2px_12px_rgba(94,70,135,0.06)]">
+      <div className="relative overflow-hidden rounded-[10px] border border-[#d9e6cd] bg-gradient-to-b from-[#eef4e8] via-[#f6faf3] to-[#fbfdf9] p-6 text-center shadow-[0_2px_12px_rgba(70,90,58,0.06)]">
         <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-white/80 px-3 py-1 text-xs font-semibold text-[#a24b96]">
           <Sparkles className="h-3.5 w-3.5" aria-hidden />
           Special Offer
@@ -91,9 +91,9 @@ export function HomePromoRail({ imageUrl }: HomePromoRailProps) {
         </p>
       </div>
 
-      <div className="space-y-3 rounded-[10px] border border-[#ece7f5] bg-white p-4 shadow-[0_2px_12px_rgba(94,70,135,0.06)]">
+      <div className="space-y-3 rounded-[10px] border border-[#dde8d4] bg-white p-4 shadow-[0_2px_12px_rgba(70,90,58,0.06)]">
         {TRUST_CARDS.map((card) => (
-          <div key={card.title} className="flex items-start gap-3 rounded-[10px] border border-[#f0ecf8] bg-[#fbfaff] p-3">
+          <div key={card.title} className="flex items-start gap-3 rounded-[10px] border border-[#f0ecf8] bg-[#f4f8f0] p-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#eef6e4]">
               <card.icon className="h-5 w-5 text-[#477d34]" aria-hidden />
             </span>

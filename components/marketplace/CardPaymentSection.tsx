@@ -47,9 +47,9 @@ export function CardPaymentSection({
   }
 
   return (
-    <div className="mt-4 space-y-4 rounded-[10px] border border-violet-200/80 bg-violet-50/40 p-4">
+    <div className="mt-4 space-y-4 rounded-[10px] border border-emerald-200/80 bg-emerald-50/40 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
-        <CreditCard className="h-4 w-4 text-violet-600" />
+        <CreditCard className="h-4 w-4 text-emerald-600" />
         Card details
       </div>
 
@@ -64,7 +64,7 @@ export function CardPaymentSection({
                 className={cn(
                   "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
                   selected
-                    ? "border-violet-400 bg-white/90"
+                    ? "border-emerald-400 bg-white/90"
                     : "border-white/70 bg-white/60 hover:bg-white/80"
                 )}
               >
@@ -80,7 +80,7 @@ export function CardPaymentSection({
                 <span className="text-sm text-[#1e3157]">
                   {method.label}
                   {method.isDefault ? (
-                    <span className="ml-2 text-[10px] font-semibold text-violet-600">Default</span>
+                    <span className="ml-2 text-[10px] font-semibold text-emerald-600">Default</span>
                   ) : null}
                 </span>
               </label>
@@ -90,7 +90,7 @@ export function CardPaymentSection({
             className={cn(
               "flex cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
               value.mode === "new"
-                ? "border-violet-400 bg-white/90"
+                ? "border-emerald-400 bg-white/90"
                 : "border-white/70 bg-white/60 hover:bg-white/80"
             )}
           >

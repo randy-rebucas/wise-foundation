@@ -59,7 +59,7 @@ export default function AccountWishlistPage() {
               key={`${item.productId}-${item.variantId ?? "base"}`}
               className="flex flex-col gap-4 rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center"
             >
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[10px] bg-violet-50">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[10px] bg-emerald-50">
                 {item.image ? (
                   isRemote(item.image) ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -68,7 +68,7 @@ export default function AccountWishlistPage() {
                     <Image src={item.image} alt={item.name} fill className="object-cover" sizes="80px" />
                   )
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-violet-300">
+                  <div className="flex h-full w-full items-center justify-center text-emerald-300">
                     <Heart className="h-8 w-8" />
                   </div>
                 )}

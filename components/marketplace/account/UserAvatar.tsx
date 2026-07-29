@@ -26,7 +26,7 @@ export function UserAvatar({ name, avatar }: { name: string; avatar: string | nu
   }
 
   return (
-    <span className="flex h-full w-full items-center justify-center bg-violet-100 text-sm font-semibold text-violet-700">
+    <span className="flex h-full w-full items-center justify-center bg-emerald-100 text-sm font-semibold text-emerald-700">
       {initials || "?"}
     </span>
   );

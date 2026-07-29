@@ -59,11 +59,11 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
   if (isGuest) {
     return (
       <MarketplacePageShell gap="">
-        <div className="mx-auto w-full max-w-md rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+        <div className="mx-auto w-full max-w-md rounded-[10px] border border-white/65 bg-white/55 p-10 text-center shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <Lock className="h-6 w-6" />
           </div>
-          <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+          <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
             Sign in to your account
           </h2>
           <p className="mt-2 text-sm text-[#2A4C6A]/70">
@@ -102,7 +102,7 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
 
   return (
     <MarketplacePageShell gap="">
-      <section className="w-full overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl">
+      <section className="w-full overflow-hidden rounded-[10px] border border-white/65 bg-white/55 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl">
         <div className="grid lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside className="border-b border-white/60 bg-white/40 p-5 lg:border-b-0 lg:border-r">
             <div className="flex items-center gap-3 border-b border-white/60 pb-5">
@@ -125,14 +125,14 @@ export function AccountShell({ children }: { children: React.ReactNode }) {
                     className={cn(
                       "flex shrink-0 items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-medium transition lg:shrink",
                       active
-                        ? "bg-violet-100/80 text-violet-700"
+                        ? "bg-emerald-100/80 text-emerald-700"
                         : "text-[#2A4C6A]/75 hover:bg-white/60 hover:text-[#1e3157]"
                     )}
                   >
                     <span
                       className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-lg",
-                        active ? "bg-violet-200/80 text-violet-700" : "bg-white/60 text-[#6ea43f]"
+                        active ? "bg-emerald-200/80 text-emerald-700" : "bg-white/60 text-[#6ea43f]"
                       )}
                     >
                       <item.icon className="h-4 w-4" />

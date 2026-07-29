@@ -25,7 +25,11 @@ import {
 import { ProductRatingBadge } from "@/components/marketplace/reviews/ProductRatingBadge";
 import { useProductReviewSummaries } from "@/components/marketplace/reviews/useProductReviewSummaries";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -326,7 +330,7 @@ export function ShopPageClient() {
 
   function ShopProductGridCard({ product }: { product: Row }) {
     return (
-      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(94,70,135,0.2)]">
+      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(70,90,58,0.14)] backdrop-blur transition duration-200 hover:-translate-y-1 hover:bg-white/70 hover:shadow-[0_20px_55px_rgba(70,90,58,0.2)]">
         <Link href={`/product/${encodeURIComponent(product.slug)}`} className="block">
           <div className="relative aspect-square">
             <ProductImage product={product} className="aspect-square" />
@@ -369,7 +373,7 @@ export function ShopPageClient() {
 
   function ShopProductListRow({ product }: { product: Row }) {
     return (
-      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur transition duration-200 hover:bg-white/70 hover:shadow-[0_16px_44px_rgba(94,70,135,0.16)]">
+      <Card className="group overflow-hidden rounded-[10px] border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(70,90,58,0.12)] backdrop-blur transition duration-200 hover:bg-white/70 hover:shadow-[0_16px_44px_rgba(70,90,58,0.16)]">
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
           <Link
             href={`/product/${encodeURIComponent(product.slug)}`}
@@ -417,14 +421,15 @@ export function ShopPageClient() {
   }
 
   return (
-    <MarketplacePageShell>
-        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[340px]">
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className="-mx-4">
+        <section className="relative isolate overflow-hidden bg-white/25 px-6 py-8 shadow-[0_24px_80px_rgba(70,90,58,0.18)] backdrop-blur-xl sm:px-10 lg:min-h-[380px]">
           <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_70%_35%,rgba(255,255,255,0.68),transparent_24%),radial-gradient(circle_at_78%_48%,rgba(0,229,255,0.16),transparent_34%)]" />
-          <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+          <div className={cn(MARKETPLACE_PAGE_INNER, "grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center")}>
             <div className="max-w-md">
-              <h1 className="font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight text-[#1e3157] sm:text-5xl">
+              <h1 className="font-[family-name:var(--font-yellowtail)] text-5xl font-normal leading-tight text-[#2B6B56] sm:text-6xl lg:text-7xl">
                 Shop Our
-                <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl">
+                <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#F79921] sm:text-6xl lg:text-7xl">
                   Glow Essentials
                 </span>
               </h1>
@@ -442,20 +447,20 @@ export function ShopPageClient() {
               </Button>
             </div>
 
-            <div className="relative hidden min-h-[260px] sm:block">
+            <div className="relative hidden min-h-[300px] sm:block">
               <div className="absolute inset-x-[12%] top-[24%] h-32 rounded-full border border-white/50 bg-white/25 blur-[1px]" />
               <div className="absolute inset-x-[5%] bottom-2 h-16 rounded-[50%] bg-white/35 blur-2xl" />
               {heroProducts.map((product, index) => {
                 const imageUrl = img(product);
                 const positions = [
-                  "left-[15%] top-[14%] h-56 w-36 rotate-[-4deg]",
-                  "left-[42%] top-[2%] h-64 w-40",
-                  "right-[8%] top-[28%] h-44 w-40 rotate-[5deg]",
+                  "left-[15%] top-[16%] h-64 w-44 rotate-[-4deg]",
+                  "left-[42%] top-[16%] h-64 w-44",
+                  "right-[8%] top-[16%] h-64 w-44 rotate-[5deg]",
                 ];
                 return (
                   <div
                     key={product._id}
-                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/70 bg-white/55 p-3 shadow-[0_20px_55px_rgba(68,47,107,0.2)] backdrop-blur`}
+                    className={`absolute ${positions[index]} overflow-hidden rounded-[10px] border border-white/70 bg-white/55 p-3 shadow-[0_20px_55px_rgba(53,68,44,0.2)] backdrop-blur`}
                   >
                     <div className="relative h-full overflow-hidden rounded-[10px] bg-white/60">
                       {imageUrl ? (
@@ -463,7 +468,7 @@ export function ShopPageClient() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={imageUrl} alt={product.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Image src={imageUrl} alt={product.name} fill className="object-cover" sizes="180px" />
+                          <Image src={imageUrl} alt={product.name} fill className="object-cover" sizes="220px" />
                         )
                       ) : (
                         <div className="flex h-full items-center justify-center">
@@ -482,7 +487,9 @@ export function ShopPageClient() {
             </div>
           </div>
         </section>
+      </div>
 
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-6 space-y-6")}>
         <div className="flex flex-col gap-3 text-xs text-[#2A4C6A]/75 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Link href="/" className="hover:text-[#2B6B56]">Home</Link>
@@ -565,7 +572,7 @@ export function ShopPageClient() {
         <div id="shop-products" className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
           <aside
             className={cn(
-              "space-y-5 rounded-[10px] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(94,70,135,0.12)] backdrop-blur-xl",
+              "space-y-5 rounded-[10px] border border-white/60 bg-white/45 p-5 shadow-[0_14px_40px_rgba(70,90,58,0.12)] backdrop-blur-xl",
               filtersOpen ? "block" : "hidden lg:block"
             )}
           >
@@ -698,7 +705,7 @@ export function ShopPageClient() {
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-[10px] border-white/70 bg-white/55 text-violet-700"
+              className="w-full rounded-[10px] border-white/70 bg-white/55 text-emerald-700"
               onClick={clearAllFilters}
             >
               Clear all filters
@@ -717,7 +724,7 @@ export function ShopPageClient() {
               viewMode === "grid" ? (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(94,70,135,0.14)] backdrop-blur">
+                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_14px_40px_rgba(70,90,58,0.14)] backdrop-blur">
                       <div className="relative aspect-square w-full">
                         <Skeleton className="absolute inset-0 rounded-none bg-white/60" />
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -737,7 +744,7 @@ export function ShopPageClient() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(94,70,135,0.12)] backdrop-blur">
+                    <div key={i} className="overflow-hidden rounded-[10px] border border-white/65 bg-white/50 shadow-[0_10px_32px_rgba(70,90,58,0.12)] backdrop-blur">
                       <div className="flex gap-4 p-4">
                         <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
                           <Skeleton className="absolute inset-0 rounded-[10px] bg-white/60" />
@@ -823,8 +830,15 @@ export function ShopPageClient() {
             )}
           </main>
         </div>
+      </div>
 
-        <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

@@ -6,9 +6,14 @@ import { buildPageMetadata } from "@/lib/seo/site";
 import { getPublishedBlogPostBySlug } from "@/lib/services/marketplace.service";
 import { MarketplaceFillImage } from "@/components/marketplace/MarketplaceFillImage";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 
 export async function generateMetadata({
   params,
@@ -53,7 +58,8 @@ export default async function BlogPostPage({
   if (!post) notFound();
 
   return (
-    <MarketplacePageShell>
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className={cn(MARKETPLACE_PAGE_INNER, "py-8")}>
       <article className="mx-auto w-full max-w-3xl">
         <Link
           href="/blog"
@@ -92,12 +98,19 @@ export default async function BlogPostPage({
           </div>
         )}
 
-        <div className="mt-8 rounded-[10px] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+        <div className="mt-8 rounded-[10px] border border-white/65 bg-white/50 p-6 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-8">
           <MarkdownContent content={post.bodyMarkdown} />
         </div>
       </article>
+      </div>
 
-      <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

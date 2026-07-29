@@ -17,7 +17,7 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
   return (
     <Link
       href={`/reviews/${review.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-[10px] border border-[#d965c9]/30 bg-white/60 shadow-[0_24px_60px_rgba(94,70,135,0.18)] backdrop-blur transition hover:-translate-y-1 hover:shadow-[0_30px_72px_rgba(94,70,135,0.22)]"
+      className="group relative flex flex-col overflow-hidden rounded-[10px] border border-[#859d6e]/30 bg-white/60 shadow-[0_24px_60px_rgba(70,90,58,0.18)] backdrop-blur transition hover:-translate-y-1 hover:shadow-[0_30px_72px_rgba(70,90,58,0.22)]"
     >
       {/* Image */}
       {image ? (
@@ -29,7 +29,7 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-          <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-[#d965c9]/90 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow backdrop-blur-sm">
+          <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-[#859d6e]/90 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white shadow backdrop-blur-sm">
             <Sparkles className="h-3 w-3" />
             Featured
           </span>
@@ -40,7 +40,7 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
         </div>
       ) : (
         <div className="flex h-20 items-center px-6 pt-6">
-          <span className="flex items-center gap-1.5 rounded-full bg-[#d965c9]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#d965c9]">
+          <span className="flex items-center gap-1.5 rounded-full bg-[#859d6e]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#859d6e]">
             <Sparkles className="h-3 w-3" />
             Featured
           </span>
@@ -56,14 +56,14 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
         )}
 
         {/* Quote */}
-        <div className="flex-1 [&_p]:text-[#2A4C6A]/85 [&_p]:text-sm [&_p]:leading-7 [&_strong]:text-[#1e3157] [&_blockquote]:border-[#d965c9]/40">
+        <div className="flex-1 [&_p]:text-[#2A4C6A]/85 [&_p]:text-sm [&_p]:leading-7 [&_strong]:text-[#1e3157] [&_blockquote]:border-[#859d6e]/40">
           <MarkdownContent content={review.text} />
         </div>
 
         {/* Reviewer row */}
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/60 pt-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-100 text-sm font-bold text-violet-700">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
               {review.reviewerName.charAt(0).toUpperCase()}
             </span>
             <div>
@@ -79,7 +79,7 @@ function HeroReviewCard({ review }: { review: PublicReview }) {
           </div>
         </div>
 
-        <span className="mt-4 flex items-center gap-1 self-end text-xs font-semibold text-[#d965c9]">
+        <span className="mt-4 flex items-center gap-1 self-end text-xs font-semibold text-[#859d6e]">
           Read full review <ArrowRight className="h-3 w-3" />
         </span>
       </div>
@@ -93,7 +93,7 @@ function MiniReviewCard({ review }: { review: PublicReview }) {
   return (
     <Link
       href={`/reviews/${review.id}`}
-      className="group flex shrink-0 snap-start gap-3 rounded-[10px] border border-white/65 bg-white/55 p-4 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_12px_36px_rgba(94,70,135,0.14)]"
+      className="group flex shrink-0 snap-start gap-3 rounded-[10px] border border-white/65 bg-white/55 p-4 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_12px_36px_rgba(70,90,58,0.14)]"
     >
       {/* Thumbnail */}
       {image ? (
@@ -106,7 +106,7 @@ function MiniReviewCard({ review }: { review: PublicReview }) {
           />
         </div>
       ) : (
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[10px] bg-violet-100 text-xl font-bold text-violet-700">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[10px] bg-emerald-100 text-xl font-bold text-emerald-700">
           {review.reviewerName.charAt(0).toUpperCase()}
         </span>
       )}
@@ -118,7 +118,7 @@ function MiniReviewCard({ review }: { review: PublicReview }) {
             <p className="truncate text-sm font-semibold text-[#1e3157]">{review.reviewerName}</p>
             <StarRating rating={review.rating} size="sm" className="mt-0.5" />
           </div>
-          <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2A4C6A]/30 transition group-hover:text-[#d965c9]" />
+          <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2A4C6A]/30 transition group-hover:text-[#859d6e]" />
         </div>
         <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-[#2A4C6A]/75">
           {review.text.replace(/[#*_>`[\]]/g, "")}
@@ -143,7 +143,7 @@ export function FeaturedReviewsShowcase() {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-3 rounded-[10px] border border-dashed border-white/70 bg-white/30 py-16">
-        <Loader2 className="h-7 w-7 animate-spin text-[#d965c9]" />
+        <Loader2 className="h-7 w-7 animate-spin text-[#859d6e]" />
         <p className="text-sm text-[#2A4C6A]/70">Loading featured reviews…</p>
       </div>
     );
@@ -159,7 +159,7 @@ export function FeaturedReviewsShowcase() {
 
   if (!reviews.length) {
     return (
-      <div className="rounded-[10px] border border-dashed border-[#d965c9]/30 bg-white/35 px-6 py-12 text-center">
+      <div className="rounded-[10px] border border-dashed border-[#859d6e]/30 bg-white/35 px-6 py-12 text-center">
         <Star className="mx-auto h-10 w-10 text-[#FBC02D]/80" aria-hidden />
         <p className="mt-4 font-[family-name:var(--font-playfair-display)] text-lg font-semibold text-[#3c2e60]">
           No featured reviews yet

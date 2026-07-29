@@ -101,7 +101,7 @@ export default function ShopAccountPage() {
       title: "Reward Points",
       value: dashboard ? rewardPoints.toLocaleString() : "—",
       icon: Star,
-      tone: "bg-violet-100 text-violet-600",
+      tone: "bg-emerald-100 text-emerald-600",
       href: "/account/rewards",
       linkLabel: "View rewards",
     },
@@ -186,7 +186,7 @@ export default function ShopAccountPage() {
                   [
                     "Account Status",
                     accountStatus,
-                    isPremium ? "text-violet-700" : undefined,
+                    isPremium ? "text-emerald-700" : undefined,
                   ],
                 ].map(([label, value, valueClass]) => (
                   <div
@@ -204,13 +204,13 @@ export default function ShopAccountPage() {
           </section>
 
           {dashboard && isPremium ? (
-            <section className="overflow-hidden rounded-[10px] border border-violet-200/70 bg-gradient-to-br from-violet-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
+            <section className="overflow-hidden rounded-[10px] border border-emerald-200/70 bg-gradient-to-br from-emerald-100/90 via-pink-50/80 to-white/70 p-5 shadow-sm">
               <p className="font-semibold text-[#1e3157]">You&apos;re a Premium Member! ✨</p>
               <p className="mt-2 text-sm leading-6 text-[#2A4C6A]/75">
                 Enjoy exclusive deals, early access to new products, and bonus reward points on
                 every purchase. You have {rewardPoints.toLocaleString()} reward points.
               </p>
-              <Button asChild className="mt-4 rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
+              <Button asChild className="mt-4 rounded-[10px] bg-emerald-600 text-white hover:bg-emerald-700">
                 <Link href="/account/rewards">View Benefits</Link>
               </Button>
             </section>

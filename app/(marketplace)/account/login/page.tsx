@@ -73,7 +73,7 @@ function AccountLoginForm() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-6 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+    <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-6 shadow-[0_18px_60px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-8">
       <AppBrand theme="account" className="mb-3" priority />
       <h1 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
         Sign in
@@ -143,11 +143,11 @@ function AccountLoginForm() {
       <div className="mt-6 flex flex-col gap-3 text-sm text-[#2A4C6A]/75">
         <p className="text-center">
           New here?{" "}
-          <Link href="/account/register" className="font-semibold text-violet-600 hover:underline">
+          <Link href="/account/register" className="font-semibold text-emerald-600 hover:underline">
             Create an account
           </Link>
         </p>
-        <p className="border-t border-violet-100 pt-3 text-center text-xs text-[#2A4C6A]/65">
+        <p className="border-t border-emerald-100 pt-3 text-center text-xs text-[#2A4C6A]/65">
           <span className="mb-1 block uppercase tracking-wide">Distributor or staff?</span>
           <Link href="/login" className="font-semibold text-[#6ea43f] hover:underline">
             Team & distributor sign in

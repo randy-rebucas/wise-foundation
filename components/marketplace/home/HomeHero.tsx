@@ -22,9 +22,9 @@ const TRUST_PILLS = [
 ];
 
 const HERO_PRODUCT_POSITIONS = [
-  "left-[8%] top-[18%] h-52 w-36 rotate-[-7deg] sm:h-64 sm:w-44",
-  "left-[36%] top-[8%] h-60 w-40 sm:h-72 sm:w-48",
-  "right-[7%] top-[22%] h-56 w-[9.5rem] rotate-[6deg] sm:h-[17rem] sm:w-44",
+  "left-[4%] top-[16%] h-64 w-44 rotate-[-7deg] sm:h-72 sm:w-48",
+  "left-[36%] top-[16%] h-64 w-44 sm:h-72 sm:w-48",
+  "right-[3%] top-[16%] h-64 w-44 rotate-[6deg] sm:h-72 sm:w-48",
 ];
 
 type HomeHeroProps = {
@@ -36,33 +36,33 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
   const first = slots[0];
 
   return (
-    <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#f0e6fa] via-[#f9f4fc] to-[#f3eafa] px-6 py-8 sm:px-10 lg:py-12">
+    <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#FBE9BF] via-[#f6faf3] to-[#ECF3E8] px-6 py-8 sm:px-10 lg:py-12">
       {/* Photographic backdrop — falls back to the gradient above if the asset is missing */}
       <div
         className="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center"
-        style={{ backgroundImage: "url('/hero-lavender-bg.png')" }}
+        style={{ backgroundImage: "url('/963e981a-0e13-4177-8ff2-bd0a0ad4a030.png')" }}
         aria-hidden
       />
       <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-white/55 via-white/20 to-transparent" />
       <Sparkles
-        className="pointer-events-none absolute left-[46%] top-8 -z-10 h-5 w-5 text-[#c9a5e8]/70"
+        className="pointer-events-none absolute left-[46%] top-8 -z-10 h-5 w-5 text-[#F79921]/70"
         aria-hidden
       />
       <Sparkles
-        className="pointer-events-none absolute bottom-16 left-10 -z-10 h-4 w-4 text-[#c9a5e8]/60"
+        className="pointer-events-none absolute bottom-16 left-10 -z-10 h-4 w-4 text-[#F79921]/60"
         aria-hidden
       />
-      <div className="mx-auto w-full lg:max-w-[70%]">
-      <div className="grid items-center gap-8 lg:min-h-[440px] lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
+      <div className="mx-auto w-full lg:max-w-[88%]">
+      <div className="grid items-center gap-8 lg:min-h-[480px] lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
         <div className="space-y-6">
-          <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#ead9f5]/80 px-3.5 py-1.5 text-xs font-semibold text-[#8a4fae]">
+          <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#FBE9BF]/80 px-3.5 py-1.5 text-xs font-semibold text-[#a5691a]">
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             Premium Skincare
           </span>
           <div className="max-w-xl space-y-4">
             <h1 className="font-[family-name:var(--font-yellowtail)] text-5xl font-normal leading-tight text-[#2B6B56] sm:text-6xl lg:text-7xl">
               Glowish
-              <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#a04ecb] sm:text-6xl lg:text-7xl">
+              <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#F79921] sm:text-6xl lg:text-7xl">
                 Get the Glow you wish
               </span>
             </h1>
@@ -83,7 +83,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
             </Button>
             <Button
               variant="outline"
-              className="h-12 rounded-[10px] border-[#ddd4ea] bg-white px-7 text-[#2A4C6A] shadow-sm hover:bg-[#faf7fd]"
+              className="h-12 rounded-[10px] border-[#c9dcbb] bg-white px-7 text-[#2A4C6A] shadow-sm hover:bg-[#f4f8f0]"
               onClick={() => scrollToSection("why-glowish")}
             >
               Learn more
@@ -118,17 +118,17 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
           )}
         </div>
 
-        <div className="relative hidden min-h-[420px] md:block lg:min-h-[440px]">
+        <div className="relative hidden min-h-[460px] md:block lg:min-h-[480px]">
           {HERO_PRODUCT_POSITIONS.map((position, index) => {
             const slot = slots[index];
             if (!slot) return null;
-            const shellClass = `absolute ${position} overflow-hidden rounded-[10px] border border-white bg-white p-3 shadow-[0_22px_50px_rgba(94,70,135,0.2)] transition hover:shadow-[0_26px_58px_rgba(94,70,135,0.28)]`;
+            const shellClass = `absolute ${position} overflow-hidden rounded-[10px] border border-white bg-white p-3 shadow-[0_22px_50px_rgba(70,90,58,0.2)] transition hover:shadow-[0_26px_58px_rgba(70,90,58,0.28)]`;
             const inner = (
-              <div className="relative h-full overflow-hidden rounded-[10px] bg-gradient-to-br from-white to-[#f7ecf5]">
+              <div className="relative h-full overflow-hidden rounded-[10px] bg-gradient-to-br from-white to-[#f4f8f0]">
                 {isRemoteUrl(slot.imageUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={cloudinaryTransformedUrl(slot.imageUrl, { width: 400, crop: "limit" })}
+                    src={cloudinaryTransformedUrl(slot.imageUrl, { width: 480, crop: "limit" })}
                     alt={slot.product?.name ?? "Featured product"}
                     className="h-full w-full object-cover"
                   />
@@ -138,7 +138,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
                     alt={slot.product?.name ?? "Featured product"}
                     fill
                     className="object-cover"
-                    sizes="180px"
+                    sizes="220px"
                     priority={index === 0}
                   />
                 )}
@@ -159,7 +159,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
               </div>
             );
           })}
-          <div className="absolute bottom-6 right-2 rounded-[10px] border border-white bg-white/90 p-4 shadow-[0_14px_40px_rgba(94,70,135,0.16)] sm:right-6">
+          <div className="absolute bottom-6 right-2 rounded-[10px] border border-white bg-white/90 p-4 shadow-[0_14px_40px_rgba(70,90,58,0.16)] sm:right-6">
             <p className="text-sm font-semibold text-[#2B6B56]">Curated for you</p>
             <p className="mt-1 max-w-56 text-xs leading-5 text-[#4a5568]/85">
               {totalProducts

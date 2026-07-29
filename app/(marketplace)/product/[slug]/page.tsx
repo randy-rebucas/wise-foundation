@@ -74,7 +74,7 @@ function ProductPageSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-9 w-28 rounded-[10px] bg-white/50" />
-      <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-5 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8">
+      <div className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 p-5 shadow-[0_18px_60px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-8">
         <div className="grid gap-8 lg:grid-cols-2">
           <Skeleton className="aspect-square w-full rounded-[10px] bg-white/50" />
           <div className="space-y-4">
@@ -218,7 +218,7 @@ export default function MarketplaceProductPage() {
   if (err || !data) {
     return (
       <MarketplacePageShell gap="">
-        <div className="flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+        <div className="flex flex-col items-center gap-4 rounded-[10px] border border-white/60 bg-white/45 px-6 py-16 text-center shadow-[0_18px_60px_rgba(70,90,58,0.14)] backdrop-blur-xl">
           <AlertCircle className="h-10 w-10 text-destructive" />
           <p className="text-sm font-medium text-[#3c2e60]">{err || "Product not found"}</p>
           <p className="max-w-sm text-sm text-[#2A4C6A]/70">
@@ -266,7 +266,7 @@ export default function MarketplaceProductPage() {
         </Link>
       </Button>
 
-      <article className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(94,70,135,0.14)] backdrop-blur-xl">
+      <article className="overflow-hidden rounded-[10px] border border-white/60 bg-white/40 shadow-[0_18px_60px_rgba(70,90,58,0.14)] backdrop-blur-xl">
         <div className="grid gap-8 p-5 sm:p-8 lg:grid-cols-2 lg:gap-10">
           <div className="space-y-4">
             <ProductImageGallery
@@ -276,7 +276,7 @@ export default function MarketplaceProductPage() {
               productName={data.name}
             />
             {data.video ? (
-              <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-[10px] border border-white/60 bg-black shadow-[0_10px_30px_rgba(94,70,135,0.18)]">
+              <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-[10px] border border-white/60 bg-black shadow-[0_10px_30px_rgba(70,90,58,0.18)]">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                   src={data.video}

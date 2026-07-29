@@ -170,7 +170,7 @@ export default function AccountReviewsPage() {
             </ul>
           ) : (
             <div className="mt-8 rounded-[10px] border border-white/65 bg-white/60 p-8 text-center shadow-sm">
-              <MessageCircle className="mx-auto h-10 w-10 text-violet-400" />
+              <MessageCircle className="mx-auto h-10 w-10 text-emerald-400" />
               <p className="mt-4 text-sm text-[#2A4C6A]/75">You haven&apos;t written any reviews yet.</p>
             </div>
           )}
@@ -178,7 +178,7 @@ export default function AccountReviewsPage() {
           {draft ? (
             <form
               onSubmit={submitReview}
-              className="mt-8 rounded-[10px] border border-violet-200/70 bg-white/60 p-5 shadow-sm"
+              className="mt-8 rounded-[10px] border border-emerald-200/70 bg-white/60 p-5 shadow-sm"
             >
               <h2 className="font-semibold text-[#1e3157]">Review {draft.productName}</h2>
               <div className="mt-4">
@@ -241,7 +241,7 @@ export default function AccountReviewsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700"
+                      className="rounded-[10px] bg-emerald-600 text-white hover:bg-emerald-700"
                       onClick={() =>
                         setDraft({
                           productId: p.productId,

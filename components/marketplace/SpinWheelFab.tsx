@@ -17,7 +17,7 @@ export function SpinWheelFab() {
       title={hasSpun ? "View your prize" : "Spin & Win"}
       className={cn(
         "fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full",
-        "bg-gradient-to-br from-[#6ea43f] to-[#d965c9] text-white shadow-[0_10px_30px_rgba(94,70,135,0.35)]",
+        "bg-gradient-to-br from-[#6ea43f] to-[#859d6e] text-white shadow-[0_10px_30px_rgba(70,90,58,0.35)]",
         "transition-transform hover:scale-105 active:scale-95",
         "animate-[spin-fab-bounce_2.4s_ease-in-out_infinite]",
         isOpen && "pointer-events-none opacity-0"
@@ -25,7 +25,7 @@ export function SpinWheelFab() {
     >
       <Gift className="h-6 w-6" aria-hidden />
       {!hasSpun && (
-        <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#d965c9]" />
+        <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#859d6e]" />
       )}
       <style jsx>{`
         @keyframes spin-fab-bounce {

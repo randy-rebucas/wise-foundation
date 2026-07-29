@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ImageIcon } from "lucide-react";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
+import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShopPageClient } from "./ShopPageClient";
 import { buildPageMetadata } from "@/lib/seo/site";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
@@ -19,12 +24,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 function ShopPageFallback() {
   return (
-    <MarketplacePageShell>
-      <section className="rounded-[10px] border border-white/60 bg-white/25 p-8 shadow-[0_24px_80px_rgba(94,70,135,0.18)] backdrop-blur-xl">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="mt-4 h-5 w-96 max-w-full" />
-      </section>
-      <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div className={`${MARKETPLACE_PAGE_OUTER} ${MARKETPLACE_PAGE_FONT} pt-0 pb-0`}>
+      <div className="-mx-4">
+        <section className="bg-white/25 p-8 shadow-[0_24px_80px_rgba(70,90,58,0.18)] backdrop-blur-xl">
+          <div className={MARKETPLACE_PAGE_INNER}>
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="mt-4 h-5 w-96 max-w-full" />
+          </div>
+        </section>
+      </div>
+
+      <div className={`${MARKETPLACE_PAGE_INNER} mt-6 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]`}>
         <aside className="hidden space-y-4 lg:block">
           <Skeleton className="h-64 w-full rounded-[10px]" />
         </aside>
@@ -48,7 +58,15 @@ function ShopPageFallback() {
           ))}
         </main>
       </div>
-    </MarketplacePageShell>
+
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }
 

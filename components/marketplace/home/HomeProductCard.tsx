@@ -13,7 +13,7 @@ import { isRemoteUrl, type HomeProductRow } from "./shared";
 import type { MarketplaceAd } from "@/lib/services/marketplace.service";
 
 const CARD_CLASS =
-  "h-full overflow-hidden rounded-[10px] border-[#ece7f5] bg-white shadow-[0_2px_12px_rgba(94,70,135,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_14px_36px_rgba(94,70,135,0.14)]";
+  "h-full overflow-hidden rounded-[10px] border-[#dde8d4] bg-white shadow-[0_2px_12px_rgba(70,90,58,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_14px_36px_rgba(70,90,58,0.14)]";
 
 type HomeProductCardProps = {
   product: HomeProductRow;

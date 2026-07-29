@@ -380,10 +380,10 @@ function FranchisePanel({ org }: { org: OrgData }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Link href="/reseller-sales">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-purple-200 hover:border-purple-400">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-2 border-emerald-200 hover:border-emerald-400">
             <CardContent className="flex items-center gap-4 pt-5">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-purple-700" />
+              <div className="p-3 bg-emerald-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-emerald-700" />
               </div>
               <div>
                 <p className="font-semibold">Reseller Sales</p>

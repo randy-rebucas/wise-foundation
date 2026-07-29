@@ -10,7 +10,6 @@ import {
 } from "@/lib/marketplace/categoryImages";
 import { MarketplaceFillImage } from "@/components/marketplace/MarketplaceFillImage";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { ContactForm } from "@/components/marketplace/ContactForm";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +24,12 @@ import {
   ShieldCheck,
   Store,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getPublicAppSettings();
@@ -37,9 +42,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const HERO_FLOAT_META = [
-  { label: "Skincare support", position: "left-[6%] top-[22%] h-44 w-32 -rotate-6 sm:left-[12%] sm:h-48 sm:w-36" },
-  { label: "Product advice", position: "left-[38%] top-[6%] h-52 w-36 sm:left-[40%] sm:h-56 sm:w-40" },
-  { label: "Order help", position: "right-[6%] top-[28%] h-40 w-36 rotate-6 sm:right-[10%] sm:h-44 sm:w-40" },
+  { label: "Skincare support", position: "left-[6%] top-[18%] h-56 w-40 -rotate-6 sm:left-[12%] sm:h-64 sm:w-44" },
+  { label: "Product advice", position: "left-[38%] top-[18%] h-56 w-40 sm:left-[40%] sm:h-64 sm:w-44" },
+  { label: "Order help", position: "right-[6%] top-[18%] h-56 w-40 rotate-6 sm:right-[10%] sm:h-64 sm:w-44" },
 ] as const;
 
 const heroHighlights = [
@@ -47,7 +52,7 @@ const heroHighlights = [
     label: "Response time",
     value: "Within 24 hours",
     icon: MessageCircle,
-    tone: "bg-violet-100 text-violet-600",
+    tone: "bg-emerald-100 text-emerald-600",
   },
   {
     label: "Our promise",
@@ -87,7 +92,7 @@ export default async function ContactPage() {
       title: headOffice?.name ? `${headOffice.name}` : "Our location",
       detail: addressLine ?? "Visit us at our head office—address available at checkout and order confirmations.",
       icon: MapPin,
-      tone: "bg-violet-100 text-violet-600",
+      tone: "bg-emerald-100 text-emerald-600",
       href: addressLine ? mapsSearchUrl(addressLine) : undefined,
     },
     {
@@ -118,18 +123,19 @@ export default async function ContactPage() {
   ] as const;
 
   return (
-    <MarketplacePageShell>
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className="-mx-4">
         {/* Hero */}
-        <section className="relative isolate overflow-hidden rounded-[10px] border border-white/60 bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(94,70,135,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[420px]">
-          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_42%,rgba(255,255,255,0.75),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(255,51,204,0.16),transparent_38%)]" />
-          <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
+        <section className="relative isolate overflow-hidden bg-white/20 px-6 py-10 shadow-[0_24px_80px_rgba(70,90,58,0.16)] backdrop-blur-xl sm:px-10 lg:min-h-[460px]">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_76%_42%,rgba(255,255,255,0.75),transparent_26%),radial-gradient(circle_at_88%_38%,rgba(247,153,33,0.16),transparent_38%)]" />
+          <div className={cn(MARKETPLACE_PAGE_INNER, "grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center")}>
             <div>
               <p className="text-sm font-bold uppercase tracking-[0.12em] text-[#6ea43f]">
                 Contact us
               </p>
-              <h1 className="mt-4 font-[family-name:var(--font-playfair-display)] text-4xl font-semibold leading-tight tracking-tight text-[#1e3157] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-4 font-[family-name:var(--font-yellowtail)] text-5xl font-normal leading-tight text-[#2B6B56] sm:text-6xl lg:text-7xl">
                 We&apos;d love to
-                <span className="block font-[family-name:var(--font-great-vibes)] text-5xl font-normal text-[#d965c9] sm:text-6xl">
+                <span className="block font-[family-name:var(--font-yellowtail)] text-5xl font-normal text-[#F79921] sm:text-6xl lg:text-7xl">
                   hear from you!
                 </span>
               </h1>
@@ -174,20 +180,20 @@ export default async function ContactPage() {
               </Button>
             </div>
 
-            <div className="relative min-h-[300px] sm:min-h-[340px] lg:min-h-[370px]">
+            <div className="relative min-h-[340px] sm:min-h-[380px] lg:min-h-[410px]">
               <div className="absolute inset-x-[6%] bottom-8 h-20 rounded-[50%] bg-white/45 blur-2xl" />
               <div className="absolute left-[26%] top-[8%] h-60 w-60 rounded-full border border-white/55 bg-white/15" />
 
               {heroFloats.map((card) => (
                 <div
                   key={card.label}
-                  className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(68,47,107,0.22)] backdrop-blur`}
+                  className={`absolute ${card.position} overflow-hidden rounded-[10px] border border-white/75 bg-white/60 p-2 shadow-[0_22px_60px_rgba(53,68,44,0.22)] backdrop-blur`}
                 >
                   <div className="relative h-[calc(100%-1.5rem)] min-h-[7rem] overflow-hidden rounded-[10px]">
                     <MarketplaceFillImage
                       src={card.image}
                       alt={card.label}
-                      sizes="(max-width: 768px) 140px, 180px"
+                      sizes="(max-width: 768px) 170px, 220px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/55 via-transparent to-transparent" />
                   </div>
@@ -199,13 +205,15 @@ export default async function ContactPage() {
             </div>
           </div>
         </section>
+      </div>
 
+      <div className={cn(MARKETPLACE_PAGE_INNER, "mt-6 space-y-6")}>
         {/* Form + info + map */}
-        <section className="grid gap-6 rounded-[10px] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-8 lg:grid-cols-3 lg:gap-8">
+        <section className="grid gap-6 rounded-[10px] border border-white/65 bg-white/50 p-5 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-8 lg:grid-cols-3 lg:gap-8">
           <div className="lg:col-span-1">
             <div className="mb-4 flex items-center gap-2">
               <Leaf className="h-4 w-4 text-[#6ea43f]" aria-hidden />
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                 Send a message
               </h2>
             </div>
@@ -218,7 +226,7 @@ export default async function ContactPage() {
           <div className="lg:col-span-1">
             <div className="mb-4 flex items-center gap-2">
               <Leaf className="h-4 w-4 text-[#6ea43f]" aria-hidden />
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                 Contact information
               </h2>
             </div>
@@ -260,7 +268,7 @@ export default async function ContactPage() {
           <div className="lg:col-span-1">
             <div className="mb-4 flex items-center gap-2">
               <Leaf className="h-4 w-4 text-[#6ea43f]" aria-hidden />
-              <h2 className="font-[family-name:var(--font-playfair-display)] text-2xl font-semibold text-[#1e3157]">
+              <h2 className="font-[family-name:var(--font-yellowtail)] text-2xl font-normal text-[#1e3157]">
                 Find us
               </h2>
             </div>
@@ -271,13 +279,13 @@ export default async function ContactPage() {
                 sizes="(max-width: 1024px) 100vw, 400px"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#1e3157]/50 via-white/10 to-white/20" />
-              <span className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-violet-500 text-white shadow-[0_16px_35px_rgba(124,58,237,0.32)]">
+              <span className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_16px_35px_rgba(16,185,129,0.32)]">
                 <MapPin className="h-7 w-7" aria-hidden />
               </span>
             </div>
             <div className="mt-4 flex flex-col gap-3 rounded-[10px] border border-white/65 bg-white/45 p-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <Store className="h-5 w-5" aria-hidden />
                 </span>
                 <div>
@@ -317,12 +325,12 @@ export default async function ContactPage() {
         </section>
 
         {/* Quick help */}
-        <section className="flex flex-col gap-4 rounded-[10px] border border-white/60 bg-[#f6def8]/55 p-6 shadow-[0_14px_45px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:flex-row sm:items-center">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+        <section className="flex flex-col gap-4 rounded-[10px] border border-white/60 bg-[#fbe9bf]/55 p-6 shadow-[0_14px_45px_rgba(70,90,58,0.12)] backdrop-blur-xl sm:flex-row sm:items-center">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <HelpCircle className="h-7 w-7" aria-hidden />
           </span>
           <div className="flex-1">
-            <h2 className="font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+            <h2 className="font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
               Before you write
             </h2>
             <p className="mt-1 text-sm leading-6 text-[#2A4C6A]/72">
@@ -348,8 +356,15 @@ export default async function ContactPage() {
             </Button>
           </div>
         </section>
+      </div>
 
-        <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

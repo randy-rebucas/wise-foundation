@@ -247,7 +247,7 @@ export default function AccountDetailsPage() {
             <Button
               type="submit"
               disabled={savingPassword}
-              className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700"
+              className="rounded-[10px] bg-emerald-600 text-white hover:bg-emerald-700"
             >
               {savingPassword ? "Updating…" : "Change password"}
             </Button>

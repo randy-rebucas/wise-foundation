@@ -11,11 +11,16 @@ import { buildPageMetadata } from "@/lib/seo/site";
 import { formatReviewDate } from "@/lib/marketplace/reviews";
 import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 import { MarketplaceFooter } from "@/components/marketplace/MarketplaceFooter";
-import { MarketplacePageShell } from "@/components/marketplace/MarketplacePageShell";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { StarRating } from "@/components/marketplace/reviews/StarRating";
 import { Button } from "@/components/ui/button";
 import { ShareButtons } from "@/components/shared/ShareButtons";
+import { cn } from "@/lib/utils";
+import {
+  MARKETPLACE_PAGE_FONT,
+  MARKETPLACE_PAGE_INNER,
+  MARKETPLACE_PAGE_OUTER,
+} from "@/lib/marketplace/pageLayout";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -46,7 +51,8 @@ export default async function ReviewDetailPage({ params }: Props) {
   const featuredImage = review.images?.[0];
 
   return (
-    <MarketplacePageShell>
+    <div className={cn(MARKETPLACE_PAGE_OUTER, MARKETPLACE_PAGE_FONT, "pt-0 pb-0")}>
+      <div className={cn(MARKETPLACE_PAGE_INNER, "space-y-6 py-8")}>
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-[#2A4C6A]/60">
         <Link href="/" className="hover:text-[#2A4C6A]">Home</Link>
@@ -57,7 +63,7 @@ export default async function ReviewDetailPage({ params }: Props) {
       </nav>
 
       {/* Main card */}
-      <section className="overflow-hidden rounded-[10px] border border-white/60 bg-white/50 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.14)] backdrop-blur-xl sm:p-10">
+      <section className="overflow-hidden rounded-[10px] border border-white/60 bg-white/50 p-6 shadow-[0_18px_55px_rgba(70,90,58,0.14)] backdrop-blur-xl sm:p-10">
         {/* Back link */}
         <Button variant="ghost" size="sm" className="mb-6 -ml-2 gap-1.5 text-[#2A4C6A]/70 hover:text-[#2A4C6A]" asChild>
           <Link href="/reviews">
@@ -72,7 +78,7 @@ export default async function ReviewDetailPage({ params }: Props) {
           <div>
             {/* Reviewer header */}
             <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xl font-semibold text-violet-700">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xl font-semibold text-emerald-700">
                 {review.reviewerName.charAt(0).toUpperCase()}
               </span>
               <div>
@@ -83,7 +89,7 @@ export default async function ReviewDetailPage({ params }: Props) {
                 </p>
               </div>
               {review.featured && (
-                <span className="ml-auto flex items-center gap-1.5 rounded-full bg-[#d965c9]/12 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#d965c9]">
+                <span className="ml-auto flex items-center gap-1.5 rounded-full bg-[#859d6e]/12 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#859d6e]">
                   <Sparkles className="h-3 w-3" />
                   Featured
                 </span>
@@ -100,7 +106,7 @@ export default async function ReviewDetailPage({ params }: Props) {
             </div>
 
             {/* Review text (markdown) */}
-            <div className="mt-6 [&_blockquote]:border-[#d965c9]/40 [&_blockquote]:italic [&_blockquote]:text-[#2A4C6A]/70 [&_p]:leading-7 [&_p]:text-[#2A4C6A]/85 [&_strong]:text-[#1e3157]">
+            <div className="mt-6 [&_blockquote]:border-[#859d6e]/40 [&_blockquote]:italic [&_blockquote]:text-[#2A4C6A]/70 [&_p]:leading-7 [&_p]:text-[#2A4C6A]/85 [&_strong]:text-[#1e3157]">
               <MarkdownContent content={review.text} />
             </div>
           </div>
@@ -110,7 +116,7 @@ export default async function ReviewDetailPage({ params }: Props) {
 
             {/* Featured image — full display */}
             {featuredImage && (
-              <div className="overflow-hidden rounded-[10px] border border-white/60 shadow-[0_12px_40px_rgba(94,70,135,0.16)]">
+              <div className="overflow-hidden rounded-[10px] border border-white/60 shadow-[0_12px_40px_rgba(70,90,58,0.16)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={cloudinaryTransformedUrl(featuredImage, { width: 800, crop: "limit" })}
@@ -169,8 +175,8 @@ export default async function ReviewDetailPage({ params }: Props) {
 
       {/* Related reviews */}
       {relatedOthers.length > 0 && (
-        <section className="rounded-[10px] border border-white/60 bg-white/35 p-6 shadow-[0_18px_55px_rgba(94,70,135,0.12)] backdrop-blur-xl sm:p-8">
-          <h2 className="mb-5 font-[family-name:var(--font-playfair-display)] text-xl font-semibold text-[#1e3157]">
+        <section className="rounded-[10px] border border-white/60 bg-white/35 p-6 shadow-[0_18px_55px_rgba(70,90,58,0.12)] backdrop-blur-xl sm:p-8">
+          <h2 className="mb-5 font-[family-name:var(--font-yellowtail)] text-xl font-normal text-[#1e3157]">
             More customer reviews
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -178,7 +184,7 @@ export default async function ReviewDetailPage({ params }: Props) {
               <Link
                 key={r.id}
                 href={`/reviews/${r.id}`}
-                className="group flex flex-col rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(94,70,135,0.12)]"
+                className="group flex flex-col rounded-[10px] border border-white/65 bg-white/55 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_14px_40px_rgba(70,90,58,0.12)]"
               >
                 {r.images?.[0] && (
                   <div className="mb-3 h-32 overflow-hidden rounded-[10px]">
@@ -191,7 +197,7 @@ export default async function ReviewDetailPage({ params }: Props) {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700">
                     {r.reviewerName.charAt(0).toUpperCase()}
                   </span>
                   <span className="text-sm font-semibold text-[#3c2e60]">{r.reviewerName}</span>
@@ -211,8 +217,15 @@ export default async function ReviewDetailPage({ params }: Props) {
           </div>
         </section>
       )}
+      </div>
 
-      <MarketplaceFooter />
-    </MarketplacePageShell>
+      <div className="-mx-4 mt-10">
+        <MarketplaceFooter
+          showSocial
+          className="rounded-none border-0 shadow-none backdrop-blur-none"
+          innerClassName={MARKETPLACE_PAGE_INNER}
+        />
+      </div>
+    </div>
   );
 }

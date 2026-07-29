@@ -34,7 +34,7 @@ export function ReviewsPageHeroStats({ appName }: ReviewsPageHeroStatsProps) {
             label: "Five-star reviews",
             value: String(stats.fiveStarCount ?? 0),
             icon: MessageCircle,
-            tone: "bg-violet-100 text-violet-600",
+            tone: "bg-emerald-100 text-emerald-600",
           },
         ]
       : [
@@ -48,7 +48,7 @@ export function ReviewsPageHeroStats({ appName }: ReviewsPageHeroStatsProps) {
             label: "After delivery",
             value: "Leave a review",
             icon: MessageCircle,
-            tone: "bg-violet-100 text-violet-600",
+            tone: "bg-emerald-100 text-emerald-600",
           },
           {
             label: "Shop",

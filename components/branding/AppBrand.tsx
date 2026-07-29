@@ -20,18 +20,18 @@ const THEME_STYLES: Record<
 > = {
   sidebar: {
     logoSize: "xl",
-    name: "font-bold text-sm tracking-wide truncate text-[hsl(var(--glowish-gold))]",
+    name: "font-bold text-sm tracking-wide truncate text-[hsl(var(--glowish-orange))]",
     tagline:
       "text-[10px] text-sidebar-foreground opacity-60 tracking-widest uppercase truncate",
   },
   "dashboard-mobile": {
     logoSize: "lg",
-    name: "font-bold text-sm tracking-wide truncate text-[hsl(var(--glowish-gold))]",
+    name: "font-bold text-sm tracking-wide truncate text-[hsl(var(--glowish-orange))]",
     tagline: "text-[10px] text-muted-foreground truncate uppercase tracking-wider",
   },
   auth: {
     logoSize: "xl",
-    name: "font-bold text-lg tracking-wide leading-none text-[hsl(var(--glowish-blue))]",
+    name: "font-bold text-lg tracking-wide leading-none text-[hsl(var(--glowish-orange))]",
     tagline: "text-[10px] text-muted-foreground tracking-widest uppercase",
   },
   account: {

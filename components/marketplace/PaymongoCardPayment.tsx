@@ -198,9 +198,9 @@ export const PaymongoCardPaymentForm = forwardRef<PaymongoCardPaymentHandle, Pay
     }
 
     return (
-      <div className="mt-4 space-y-4 rounded-[10px] border border-violet-200/80 bg-violet-50/40 p-4">
+      <div className="mt-4 space-y-4 rounded-[10px] border border-emerald-200/80 bg-emerald-50/40 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-[#1e3157]">
-          <CreditCard className="h-4 w-4 text-violet-600" />
+          <CreditCard className="h-4 w-4 text-emerald-600" />
           Card payment (secured by PayMongo)
         </div>
         <p className="text-xs leading-5 text-[#2A4C6A]/70">

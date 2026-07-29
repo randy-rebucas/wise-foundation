@@ -225,7 +225,7 @@ export default function AccountPaymentMethodsPage() {
                   variant={type === t ? "default" : "outline"}
                   className={cn(
                     "rounded-[10px]",
-                    type === t ? "bg-violet-600 text-white" : "border-white/70 bg-white/65"
+                    type === t ? "bg-emerald-600 text-white" : "border-white/70 bg-white/65"
                   )}
                   onClick={() => setType(t)}
                 >
@@ -365,7 +365,7 @@ export default function AccountPaymentMethodsPage() {
             </div>
           ) : null}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={saving} className="rounded-[10px] bg-violet-600 text-white hover:bg-violet-700">
+            <Button type="submit" disabled={saving} className="rounded-[10px] bg-emerald-600 text-white hover:bg-emerald-700">
               {saving ? "Saving…" : "Save method"}
             </Button>
             <Button type="button" variant="ghost" className="rounded-[10px]" onClick={() => setShowForm(false)}>
@@ -389,14 +389,14 @@ export default function AccountPaymentMethodsPage() {
               className="flex flex-col gap-4 rounded-[10px] border border-white/65 bg-white/60 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                   <MethodIcon type={method.type} />
                 </span>
                 <div>
                   <p className="font-semibold text-[#1e3157]">
                     {method.label}
                     {method.isDefault ? (
-                      <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                      <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                         Default
                       </span>
                     ) : null}

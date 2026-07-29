@@ -152,7 +152,7 @@ export default async function DashboardPage() {
             value={stats.totalMembers.toLocaleString()}
             description="Registered members"
             icon={Users}
-            iconClassName="bg-purple-100"
+            iconClassName="bg-emerald-100"
           />
           <StatCard
             title="Low Stock Alerts"
@@ -221,7 +221,7 @@ export default async function DashboardPage() {
               {[
                 { label: "New Sale", href: "/pos", icon: ShoppingCart, color: "bg-blue-50 hover:bg-blue-100 text-blue-700" },
                 { label: "Add Product", href: "/products?action=new", icon: Package, color: "bg-green-50 hover:bg-green-100 text-green-700" },
-                { label: "Add Member", href: "/members?action=new", icon: Users, color: "bg-purple-50 hover:bg-purple-100 text-purple-700" },
+                { label: "Add Member", href: "/members?action=new", icon: Users, color: "bg-emerald-50 hover:bg-emerald-100 text-emerald-700" },
                 { label: "View Reports", href: "/reports", icon: TrendingUp, color: "bg-orange-50 hover:bg-orange-100 text-orange-700" },
               ].map((action) => (
                 <a

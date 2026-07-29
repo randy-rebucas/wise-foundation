@@ -24,7 +24,7 @@ export function MarketplaceFooter({ className, innerClassName, showSocial = fals
   return (
     <footer
       className={cn(
-        "overflow-hidden rounded-[10px] border border-white/60 bg-[#f6def8]/55 shadow-[0_18px_60px_rgba(94,70,135,0.16)] backdrop-blur-xl",
+        "overflow-hidden rounded-[10px] border border-white/60 bg-[#fbe9bf]/55 shadow-[0_18px_60px_rgba(70,90,58,0.16)] backdrop-blur-xl",
         className
       )}
     >
@@ -70,7 +70,7 @@ export function MarketplaceFooter({ className, innerClassName, showSocial = fals
           © {year} {appName}. All rights reserved.
         </span>
         <span>
-          Made with <span className="text-[#FF33CC]">♥</span> for your glow.
+          Made with <span className="text-[#F79921]">♥</span> for your glow.
         </span>
       </div>
       </div>

@@ -77,7 +77,7 @@ export default function AccountNotificationsPage() {
       </div>
 
       {unreadCount > 0 ? (
-        <p className="mt-2 text-xs font-semibold text-violet-600">{unreadCount} unread</p>
+        <p className="mt-2 text-xs font-semibold text-emerald-600">{unreadCount} unread</p>
       ) : null}
 
       <div className="mt-6">
@@ -104,7 +104,7 @@ export default function AccountNotificationsPage() {
                       read ? "bg-white/45 opacity-80" : "bg-white/65"
                     )}
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                       <Package className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
