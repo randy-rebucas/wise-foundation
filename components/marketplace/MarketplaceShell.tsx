@@ -139,7 +139,8 @@ export function MarketplaceShell({
     pathname === "/shipping-delivery" ||
     pathname === "/blog" ||
     pathname.startsWith("/blog/") ||
-    pathname.startsWith("/reviews/");
+    pathname.startsWith("/reviews/") ||
+    pathname === "/resellers";
   const hasCustomFooter =
     pathname === "/shop" ||
     pathname === "/categories" ||
@@ -151,13 +152,15 @@ export function MarketplaceShell({
     pathname.startsWith("/checkout/") ||
     pathname === "/account/register" ||
     pathname === "/account/login" ||
-    pathname.startsWith("/account");
+    pathname.startsWith("/account") ||
+    pathname === "/resellers";
   const primaryNav = [
     { href: "/", label: "Home", active: isHome },
     { href: "/shop", label: "Shop", active: isShop },
     { href: "/categories", label: "Categories", active: pathname.startsWith("/categories") },
     { href: "/about-us", label: "About Us", active: pathname.startsWith("/about-us") },
     { href: "/reviews", label: "Reviews", active: pathname.startsWith("/reviews") },
+    { href: "/resellers", label: "Resellers", active: pathname.startsWith("/resellers") },
     { href: "/contact", label: "Contact", active: pathname.startsWith("/contact") },
   ];
   const role = session?.user?.role as UserRole | undefined;
