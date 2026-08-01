@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cloudinaryTransformedUrl } from "@/lib/utils/cloudinaryTransform";
 import { isRemoteUrl, scrollToSection, type HomeHeroSlot } from "./shared";
+import { MARKETPLACE_PAGE_INNER } from "@/lib/marketplace/pageLayout";
 
 const TRUST_PILLS = [
   { label: "Natural ingredients", icon: Leaf },
@@ -36,7 +37,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
   const first = slots[0];
 
   return (
-    <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#FBE9BF] via-[#f6faf3] to-[#ECF3E8] px-6 py-8 sm:px-10 lg:py-12">
+    <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#FBE9BF] via-[#f6faf3] to-[#ECF3E8] px-4 py-8 sm:px-6 lg:py-12">
       {/* Photographic backdrop — falls back to the gradient above if the asset is missing */}
       <div
         className="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center"
@@ -52,7 +53,7 @@ export function HomeHero({ slots, totalProducts }: HomeHeroProps) {
         className="pointer-events-none absolute bottom-16 left-10 -z-10 h-4 w-4 text-[#F79921]/60"
         aria-hidden
       />
-      <div className="mx-auto w-full lg:max-w-[88%]">
+      <div className={MARKETPLACE_PAGE_INNER}>
       <div className="grid items-center gap-8 lg:min-h-[480px] lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)]">
         <div className="space-y-6">
           <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#FBE9BF]/80 px-3.5 py-1.5 text-xs font-semibold text-[#a5691a]">

@@ -6,6 +6,11 @@ import type { SpinPrizeDef } from "@/lib/constants/spinWheel";
 import { SPIN_COUPON_VALID_DAYS } from "@/lib/constants/spinWheel";
 import type { CreateCouponInput, UpdateCouponInput } from "@/lib/validations/coupon.schema";
 import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
+import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
+
+function categoryLabel(category: string): string {
+  return PRODUCT_CATEGORIES.find((c) => c.value === category)?.label ?? category;
+}
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const generateCode = customAlphabet(CODE_ALPHABET, 8);
@@ -66,6 +71,8 @@ export type ValidateCouponOptions = {
   email?: string | null;
   /** Returns the cart line's unit price for a product, or undefined when it isn't in the cart. Required for free_item coupons. */
   cartUnitPriceForProduct?: (productId: string) => number | undefined;
+  /** Returns the sum of cart line totals for a product category. Required for category-scoped coupons. */
+  cartSubtotalForCategory?: (category: string) => number;
   /** Pass the active transaction session when calling inside a `withTransaction`/`startTransaction` block. */
   session?: ClientSession;
 };
@@ -116,6 +123,18 @@ export async function validateCoupon(
     return { ok: false, message: "This coupon has already been fully redeemed" };
   }
 
+  // Category-scoped coupons apply only against the subtotal of matching cart items.
+  let scopedSubtotal = subtotal;
+  if (coupon.category && coupon.type !== "free_item") {
+    scopedSubtotal = opts?.cartSubtotalForCategory?.(coupon.category) ?? 0;
+    if (scopedSubtotal <= 0) {
+      return {
+        ok: false,
+        message: `Add a ${categoryLabel(coupon.category)} product to your cart to use this coupon`,
+      };
+    }
+  }
+
   if (coupon.type === "free_shipping") {
     return {
       ok: true,
@@ -145,11 +164,12 @@ export async function validateCoupon(
 
   const discountAmount =
     coupon.type === "percent"
-      ? Math.round((subtotal * Math.min(100, coupon.value)) / 100 * 100) / 100
-      : Math.min(coupon.value, subtotal);
+      ? Math.round((scopedSubtotal * Math.min(100, coupon.value)) / 100 * 100) / 100
+      : Math.min(coupon.value, scopedSubtotal);
 
   const description =
-    coupon.type === "percent" ? `${coupon.value}% off` : `₱${coupon.value} off`;
+    (coupon.type === "percent" ? `${coupon.value}% off` : `₱${coupon.value} off`) +
+    (coupon.category ? ` ${categoryLabel(coupon.category)}` : "");
 
   return { ok: true, couponId: coupon._id as Types.ObjectId, discountAmount, description };
 }
@@ -182,6 +202,7 @@ export interface CouponFilter {
   source?: CouponSource;
   isActive?: boolean;
   search?: string;
+  category?: string;
 }
 
 /** Paginated list for the admin promos page. */
@@ -192,6 +213,7 @@ export async function getCoupons(filter: CouponFilter = {}, page = 1, limit = 20
   if (filter.source) query.source = filter.source;
   if (filter.isActive !== undefined) query.isActive = filter.isActive;
   if (filter.search) query.code = { $regex: filter.search.trim(), $options: "i" };
+  if (filter.category) query.category = filter.category;
 
   const skip = (page - 1) * limit;
   const [coupons, total] = await Promise.all([
@@ -221,6 +243,7 @@ export async function createManualCoupon(data: CreateCouponInput, actor?: AuditA
     value: data.type === "free_shipping" ? 0 : data.value,
     source: "manual",
     freeItemProductId: data.type === "free_item" ? data.freeItemProductId : null,
+    category: data.type === "free_item" ? null : data.category ?? null,
     spinPrizeLabel: data.spinPrizeLabel,
     maxRedemptions: data.maxRedemptions,
     isActive: data.isActive,
@@ -271,6 +294,7 @@ export interface FeaturedPromo {
   code: string;
   type: CouponType;
   value: number;
+  category: string | null;
   expiresAt: string | null;
 }
 
@@ -286,7 +310,7 @@ export async function getFeaturedPromo(): Promise<FeaturedPromo | null> {
     $expr: { $lt: [{ $size: "$redemptions" }, "$maxRedemptions"] },
   })
     .sort({ createdAt: -1 })
-    .select("code type value expiresAt")
+    .select("code type value category expiresAt")
     .lean();
 
   if (!coupon) return null;
@@ -295,6 +319,7 @@ export async function getFeaturedPromo(): Promise<FeaturedPromo | null> {
     code: coupon.code,
     type: coupon.type,
     value: coupon.value,
+    category: coupon.category ?? null,
     expiresAt: coupon.expiresAt ? coupon.expiresAt.toISOString() : null,
   };
 }

@@ -28,6 +28,8 @@ import {
 import { Plus, Pencil, Trash2, Loader2, TicketPercent } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/components/providers/confirm-provider";
+import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
+import type { ProductCategory } from "@/types";
 
 const PAGE_SIZE = 10;
 
@@ -41,6 +43,7 @@ interface Promo {
   source: "welcome" | "birthday" | "manual" | "spin";
   spinPrizeLabel?: string;
   freeItemProductId?: string | null;
+  category?: ProductCategory | null;
   maxRedemptions: number;
   redemptions: { redeemedAt: string }[];
   isActive: boolean;
@@ -53,6 +56,7 @@ interface FormState {
   type: CouponType;
   value: string;
   freeItemProductId: string;
+  category: ProductCategory | "all";
   maxRedemptions: string;
   isActive: boolean;
   expiresAt: string;
@@ -63,14 +67,20 @@ const EMPTY_FORM: FormState = {
   type: "percent",
   value: "",
   freeItemProductId: "",
+  category: "all",
   maxRedemptions: "1",
   isActive: true,
   expiresAt: "",
 };
 
+function categoryLabel(category?: string | null): string {
+  return PRODUCT_CATEGORIES.find((c) => c.value === category)?.label ?? category ?? "";
+}
+
 function formatValue(p: Promo): string {
-  if (p.type === "percent") return `${p.value}% off`;
-  if (p.type === "fixed") return `₱${p.value} off`;
+  const scope = p.category ? ` — ${categoryLabel(p.category)}` : "";
+  if (p.type === "percent") return `${p.value}% off${scope}`;
+  if (p.type === "fixed") return `₱${p.value} off${scope}`;
   if (p.type === "free_shipping") return "Free shipping";
   return p.spinPrizeLabel ?? "Free item";
 }
@@ -119,7 +129,11 @@ export default function PromosAdminPage() {
         maxRedemptions: Number(form.maxRedemptions) || 1,
         isActive: form.isActive,
       };
-      if (form.type === "free_item") payload.freeItemProductId = form.freeItemProductId;
+      if (form.type === "free_item") {
+        payload.freeItemProductId = form.freeItemProductId;
+      } else {
+        payload.category = form.category === "all" ? null : form.category;
+      }
       if (form.expiresAt) payload.expiresAt = new Date(form.expiresAt).toISOString();
 
       const url = editing ? `/api/promos/${editing._id}` : "/api/promos";
@@ -168,6 +182,7 @@ export default function PromosAdminPage() {
       type: p.type,
       value: String(p.value ?? ""),
       freeItemProductId: p.freeItemProductId ?? "",
+      category: p.category ?? "all",
       maxRedemptions: String(p.maxRedemptions ?? 1),
       isActive: p.isActive,
       expiresAt: p.expiresAt ? p.expiresAt.slice(0, 10) : "",
@@ -341,7 +356,7 @@ export default function PromosAdminPage() {
               </div>
             )}
 
-            {form.type === "free_item" && (
+            {form.type === "free_item" ? (
               <div className="space-y-2">
                 <Label htmlFor="freeItemProductId">Product ID</Label>
                 <Input
@@ -351,6 +366,31 @@ export default function PromosAdminPage() {
                   placeholder="Product _id"
                   required
                 />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={form.category}
+                  onValueChange={(v: ProductCategory | "all") =>
+                    setForm((f) => ({ ...f, category: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {PRODUCT_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Limit this discount to a single product category, or leave as "All categories" to apply cart-wide.
+                </p>
               </div>
             )}
 

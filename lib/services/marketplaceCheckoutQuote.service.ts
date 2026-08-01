@@ -175,6 +175,21 @@ export async function quoteMarketplaceCheckout(
     return product?.retailPrice;
   };
 
+  const cartSubtotalForCategory = (category: string): number => {
+    let total = 0;
+    for (const raw of input.items) {
+      const product = productMap.get(raw.productId);
+      if (!product || product.category !== category) continue;
+      let unitPrice = product.retailPrice;
+      if (raw.variantId) {
+        const v = variantMap.get(raw.variantId);
+        if (v) unitPrice = v.retailPrice;
+      }
+      total += unitPrice * raw.quantity;
+    }
+    return Math.round(total * 100) / 100;
+  };
+
   let couponResult: Awaited<ReturnType<typeof validateCoupon>> | undefined;
   let couponDiscountAmount = 0;
   const couponCode = input.couponCode?.trim();
@@ -182,6 +197,7 @@ export async function quoteMarketplaceCheckout(
     couponResult = await validateCoupon(couponCode, customerUserId, subtotal, {
       email: input.shipping?.email,
       cartUnitPriceForProduct,
+      cartSubtotalForCategory,
       session: opts?.session,
     });
     if (couponResult.ok) couponDiscountAmount = couponResult.discountAmount;

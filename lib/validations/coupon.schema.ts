@@ -1,11 +1,15 @@
 import { z } from "zod";
 
+export const COUPON_CATEGORIES = ["homecare", "cosmetics", "wellness", "scent"] as const;
+
 export const createCouponSchema = z
   .object({
     code: z.string().trim().min(3, "Code must be at least 3 characters").max(30),
     type: z.enum(["percent", "fixed", "free_shipping", "free_item"]),
     value: z.number().min(0).default(0),
     freeItemProductId: z.string().optional(),
+    /** Restricts the discount to one product category. Omit/null = applies cart-wide. */
+    category: z.enum(COUPON_CATEGORIES).optional().nullable(),
     spinPrizeLabel: z.string().max(200).optional(),
     maxRedemptions: z.number().int().min(1).default(1),
     isActive: z.boolean().default(true),
@@ -29,6 +33,7 @@ export const updateCouponSchema = z.object({
   type: z.enum(["percent", "fixed", "free_shipping", "free_item"]).optional(),
   value: z.number().min(0).optional(),
   freeItemProductId: z.string().optional(),
+  category: z.enum(COUPON_CATEGORIES).optional().nullable(),
   spinPrizeLabel: z.string().max(200).optional(),
   maxRedemptions: z.number().int().min(1).optional(),
   isActive: z.boolean().optional(),

@@ -1,4 +1,5 @@
 import { Schema, model, models, Types, type Document } from "mongoose";
+import type { ProductCategory } from "@/types";
 
 export type CouponSource = "welcome" | "birthday" | "manual" | "spin";
 export type CouponType = "percent" | "fixed" | "free_shipping" | "free_item";
@@ -21,6 +22,8 @@ export interface ICoupon extends Document {
   customerEmail?: string | null;
   /** Required when type === "free_item": the specific product that must be in the cart. */
   freeItemProductId?: Types.ObjectId | null;
+  /** Restricts the discount to items from a single product category. Null = applies cart-wide. */
+  category?: ProductCategory | null;
   /** Denormalized display label for admin lists (e.g. "Free Perfume"). */
   spinPrizeLabel?: string;
   maxRedemptions: number;
@@ -50,6 +53,11 @@ const CouponSchema = new Schema<ICoupon>(
     customerId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     customerEmail: { type: String, lowercase: true, trim: true, default: null },
     freeItemProductId: { type: Schema.Types.ObjectId, ref: "Product", default: null },
+    category: {
+      type: String,
+      enum: ["homecare", "cosmetics", "wellness", "scent"],
+      default: null,
+    },
     spinPrizeLabel: { type: String },
     maxRedemptions: { type: Number, default: 1, min: 1 },
     redemptions: { type: [CouponRedemptionSchema], default: [] },

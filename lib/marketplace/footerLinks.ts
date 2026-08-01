@@ -35,6 +35,7 @@ export const MARKETPLACE_FOOTER_COLUMNS: MarketplaceFooterColumn[] = [
       { label: "Our Ingredients", href: "/categories" },
       { label: "Reviews", href: "/reviews" },
       { label: "Become a Reseller", href: "/resellers" },
+      { label: "Store Locator", href: "/locations" },
       { label: "Privacy Policy", href: "/privacy-policy" },
     ],
   },

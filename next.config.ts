@@ -4,7 +4,12 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 const isDev = process.env.NODE_ENV === "development";
 
 /** React / Turbopack use eval() in dev only; omit unsafe-eval in production CSP. */
-const scriptSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])].join(" ");
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  "https://maps.googleapis.com",
+  ...(isDev ? ["'unsafe-eval'"] : []),
+].join(" ");
 
 function buildSecurityHeaders() {
   return [
@@ -25,7 +30,7 @@ function buildSecurityHeaders() {
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        "connect-src 'self' https://images.unsplash.com",
+        "connect-src 'self' https://images.unsplash.com https://maps.googleapis.com https://maps.gstatic.com",
         "frame-ancestors 'none'",
       ].join("; "),
     },

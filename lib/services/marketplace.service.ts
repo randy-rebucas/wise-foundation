@@ -808,6 +808,15 @@ export async function placeMarketplaceOrder(
     const cartUnitPriceForProduct = (productId: string): number | undefined =>
       lines.find((l) => String(l.productId) === productId)?.unitPrice;
 
+    const cartSubtotalForCategory = (category: string): number => {
+      let total = 0;
+      for (const l of lines) {
+        const product = productMap.get(String(l.productId));
+        if (product?.category === category) total += l.unitPrice * l.quantity;
+      }
+      return Math.round(total * 100) / 100;
+    };
+
     let couponId: Types.ObjectId | null = null;
     let couponDiscountAmount = 0;
     let couponFreeShipping = false;
@@ -816,6 +825,7 @@ export async function placeMarketplaceOrder(
       const couponResult = await validateCoupon(couponCode, customerUserId, subtotal, {
         email: input.shipping.email,
         cartUnitPriceForProduct,
+        cartSubtotalForCategory,
         session,
       });
       if (!couponResult.ok) throw new Error(couponResult.message);
