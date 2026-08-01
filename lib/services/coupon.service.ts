@@ -1,9 +1,11 @@
 import { customAlphabet } from "nanoid";
 import type { ClientSession, Types } from "mongoose";
 import { connectDB } from "@/lib/db/connect";
-import { Coupon, type ICoupon } from "@/lib/db/models/Coupon";
+import { Coupon, type ICoupon, type CouponSource, type CouponType } from "@/lib/db/models/Coupon";
 import type { SpinPrizeDef } from "@/lib/constants/spinWheel";
 import { SPIN_COUPON_VALID_DAYS } from "@/lib/constants/spinWheel";
+import type { CreateCouponInput, UpdateCouponInput } from "@/lib/validations/coupon.schema";
+import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const generateCode = customAlphabet(CODE_ALPHABET, 8);
@@ -174,4 +176,143 @@ export async function redeemCoupon(
     },
     { session }
   );
+}
+
+export interface CouponFilter {
+  source?: CouponSource;
+  isActive?: boolean;
+  search?: string;
+}
+
+/** Paginated list for the admin promos page. */
+export async function getCoupons(filter: CouponFilter = {}, page = 1, limit = 20) {
+  await connectDB();
+
+  const query: Record<string, unknown> = {};
+  if (filter.source) query.source = filter.source;
+  if (filter.isActive !== undefined) query.isActive = filter.isActive;
+  if (filter.search) query.code = { $regex: filter.search.trim(), $options: "i" };
+
+  const skip = (page - 1) * limit;
+  const [coupons, total] = await Promise.all([
+    Coupon.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Coupon.countDocuments(query),
+  ]);
+
+  return { coupons, total, pages: Math.ceil(total / limit) };
+}
+
+export async function getCouponById(id: string) {
+  await connectDB();
+  return Coupon.findById(id).lean();
+}
+
+/** Creates a staff-issued ("manual") promo code. */
+export async function createManualCoupon(data: CreateCouponInput, actor?: AuditActor) {
+  await connectDB();
+
+  const code = data.code.trim().toUpperCase();
+  const existing = await Coupon.findOne({ code });
+  if (existing) throw new Error(`Code "${code}" already exists`);
+
+  const coupon = await Coupon.create({
+    code,
+    type: data.type,
+    value: data.type === "free_shipping" ? 0 : data.value,
+    source: "manual",
+    freeItemProductId: data.type === "free_item" ? data.freeItemProductId : null,
+    spinPrizeLabel: data.spinPrizeLabel,
+    maxRedemptions: data.maxRedemptions,
+    isActive: data.isActive,
+    expiresAt: data.expiresAt ?? null,
+  });
+
+  if (actor) {
+    void writeAuditLog({
+      action: "coupon.created",
+      actor,
+      targetId: String(coupon._id),
+      targetType: "Coupon",
+      metadata: { code, type: data.type },
+    });
+  }
+
+  return coupon;
+}
+
+/** Updates an existing coupon. `source` and `redemptions` are never editable here. */
+export async function updateCoupon(id: string, data: UpdateCouponInput, actor?: AuditActor) {
+  await connectDB();
+
+  const update: Record<string, unknown> = { ...data };
+  if (update.code) update.code = (update.code as string).trim().toUpperCase();
+
+  if (update.code) {
+    const existing = await Coupon.findOne({ code: update.code, _id: { $ne: id } });
+    if (existing) throw new Error(`Code "${update.code}" already exists`);
+  }
+
+  const result = await Coupon.findByIdAndUpdate(id, { $set: update }, { new: true, runValidators: true }).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "coupon.updated",
+      actor,
+      targetId: id,
+      targetType: "Coupon",
+      metadata: { fields: Object.keys(data) },
+    });
+  }
+
+  return result;
+}
+
+export interface FeaturedPromo {
+  code: string;
+  type: CouponType;
+  value: number;
+  expiresAt: string | null;
+}
+
+/** Most recently created, currently redeemable manual promo — used for marketplace home page promo rail. */
+export async function getFeaturedPromo(): Promise<FeaturedPromo | null> {
+  await connectDB();
+
+  const now = new Date();
+  const coupon = await Coupon.findOne({
+    source: "manual",
+    isActive: true,
+    $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
+    $expr: { $lt: [{ $size: "$redemptions" }, "$maxRedemptions"] },
+  })
+    .sort({ createdAt: -1 })
+    .select("code type value expiresAt")
+    .lean();
+
+  if (!coupon) return null;
+
+  return {
+    code: coupon.code,
+    type: coupon.type,
+    value: coupon.value,
+    expiresAt: coupon.expiresAt ? coupon.expiresAt.toISOString() : null,
+  };
+}
+
+export async function deleteCoupon(id: string, actor?: AuditActor) {
+  await connectDB();
+
+  const result = await Coupon.findByIdAndDelete(id).lean();
+
+  if (result && actor) {
+    void writeAuditLog({
+      action: "coupon.deleted",
+      actor,
+      targetId: id,
+      targetType: "Coupon",
+      metadata: { code: result.code },
+    });
+  }
+
+  return result;
 }

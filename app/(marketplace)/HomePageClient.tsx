@@ -44,6 +44,7 @@ import {
 } from "@/lib/marketplace/categoryImages";
 import type { ProductCategory } from "@/types";
 import type { MarketplaceAd, MarketplaceCategoryShowcase } from "@/lib/services/marketplace.service";
+import type { FeaturedPromo } from "@/lib/services/coupon.service";
 
 const PublicReviewsCarousel = dynamic(
   () =>
@@ -72,6 +73,7 @@ type HomePageClientProps = {
   initialCategorySamples: MarketplaceCategoryShowcase | null;
   initialAds: MarketplaceAd[];
   initialCategoryProducts: Partial<Record<ProductCategory, Row[]>>;
+  initialPromo: FeaturedPromo | null;
 };
 
 export function HomePageClient({
@@ -80,6 +82,7 @@ export function HomePageClient({
   initialCategorySamples,
   initialAds,
   initialCategoryProducts,
+  initialPromo,
 }: HomePageClientProps) {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -427,6 +430,7 @@ export function HomePageClient({
             imageUrl={
               categorySamples ? pickCategoryProductImage(categorySamples, "cosmetics") : null
             }
+            promo={initialPromo}
           />
         </div>
       </section>

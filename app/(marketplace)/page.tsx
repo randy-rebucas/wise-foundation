@@ -5,6 +5,7 @@ import {
   getMarketplaceCategoryShowcase,
   listMarketplaceAds,
 } from "@/lib/services/marketplace.service";
+import { getFeaturedPromo } from "@/lib/services/coupon.service";
 import { PRODUCT_CATEGORIES } from "@/lib/products/catalog";
 
 export const metadata: Metadata = {
@@ -20,14 +21,16 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketplaceHomePage() {
-  const [productsResult, samplesResult, adsResult, ...categoryResults] = await Promise.allSettled([
-    listMarketplaceProducts({ page: 1, limit: 12 }),
-    getMarketplaceCategoryShowcase(),
-    listMarketplaceAds(),
-    ...PRODUCT_CATEGORIES.map((c) =>
-      listMarketplaceProducts({ page: 1, limit: 3, category: c.value })
-    ),
-  ]);
+  const [productsResult, samplesResult, adsResult, promoResult, ...categoryResults] =
+    await Promise.allSettled([
+      listMarketplaceProducts({ page: 1, limit: 12 }),
+      getMarketplaceCategoryShowcase(),
+      listMarketplaceAds(),
+      getFeaturedPromo(),
+      ...PRODUCT_CATEGORIES.map((c) =>
+        listMarketplaceProducts({ page: 1, limit: 3, category: c.value })
+      ),
+    ]);
 
   const products =
     productsResult.status === "fulfilled" ? (productsResult.value.data ?? []) : [];
@@ -41,6 +44,7 @@ export default async function MarketplaceHomePage() {
   const categorySamples =
     samplesResult.status === "fulfilled" ? samplesResult.value : null;
   const ads = adsResult.status === "fulfilled" ? adsResult.value : [];
+  const promo = promoResult.status === "fulfilled" ? promoResult.value : null;
 
   const categoryProducts = Object.fromEntries(
     PRODUCT_CATEGORIES.map((c, i) => [
@@ -56,6 +60,7 @@ export default async function MarketplaceHomePage() {
       initialCategorySamples={categorySamples}
       initialAds={ads}
       initialCategoryProducts={categoryProducts}
+      initialPromo={promo}
     />
   );
 }
