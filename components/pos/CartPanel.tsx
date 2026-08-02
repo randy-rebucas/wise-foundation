@@ -117,13 +117,13 @@ export function CartPanel({ onCheckout, onMemberSearch, branchId }: CartPanelPro
                 className="flex gap-3 p-3 rounded-lg border bg-card"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.name}</p>
+                  <p className="text-sm font-medium break-words">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.sku}</p>
                   <p className="text-sm font-semibold text-primary mt-1">
                     {formatMoney(item.price)}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-2 shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
