@@ -37,8 +37,12 @@ import {
   Truck,
   Loader2,
   Wrench,
+  Printer,
 } from "lucide-react";
-import { useFormatCurrency, useFormatDateTime } from "@/components/providers/TenantProvider";
+import { useFormatCurrency, useFormatDateTime, useTenant } from "@/components/providers/TenantProvider";
+import { resolveAppLogoSrc } from "@/lib/constants/branding";
+import { formatCurrencyForPdf } from "@/lib/utils";
+import { printReceipt } from "@/lib/utils/printReceipt";
 import { ORDER_PAID_STATUSES } from "@/types";
 import { RoleGuard } from "@/components/layout/RoleGuard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -171,6 +175,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export default function OrdersPage() {
   const money = useFormatCurrency();
   const dateTime = useFormatDateTime();
+  const { appName, appLogoUrl, receiptFooter, currency } = useTenant();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -373,6 +378,33 @@ export default function OrdersPage() {
     }
   }
 
+  async function printOrderReceipt(orderId: string) {
+    try {
+      const res = await fetch(`/api/orders/${orderId}`);
+      const data = await res.json();
+      if (!data.success) {
+        toast({ title: data.error ?? "Could not load order", variant: "destructive" });
+        return;
+      }
+      const order: OrderDetail = data.data;
+      printReceipt(
+        order,
+        order.items.map((i) => ({ name: i.productName, sku: i.sku, quantity: i.quantity, price: i.unitPrice })),
+        order.memberName ?? null,
+        0,
+        {
+          storeTitle: appName,
+          formatMoney: (n) => formatCurrencyForPdf(n, currency),
+          whenLabel: dateTime(order.createdAt),
+          receiptFooter,
+          logoSrc: resolveAppLogoSrc(appLogoUrl),
+        }
+      );
+    } catch {
+      toast({ title: "Network error — could not load order", variant: "destructive" });
+    }
+  }
+
   function updateB2BItem(idx: number, field: keyof B2BItem, value: string | number) {
     setB2bForm((prev) => {
       const items = [...prev.items];
@@ -570,6 +602,11 @@ export default function OrdersPage() {
           <Button variant="ghost" size="icon" onClick={() => openDetail(o._id)}>
             <Eye className="h-4 w-4" />
           </Button>
+          {o.type === "POS" && (
+            <Button variant="ghost" size="icon" title="Print receipt" onClick={() => printOrderReceipt(o._id)}>
+              <Printer className="h-4 w-4" />
+            </Button>
+          )}
           {userRole === "ADMIN" && (
             <Button
               variant="ghost"
@@ -681,9 +718,22 @@ export default function OrdersPage() {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex flex-wrap items-center gap-2 break-all">
-              <ClipboardList className="h-5 w-5 shrink-0" />
-              Order {selectedOrder?.orderNumber}
+            <DialogTitle className="flex flex-wrap items-center justify-between gap-2 break-all">
+              <span className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 shrink-0" />
+                Order {selectedOrder?.orderNumber}
+              </span>
+              {selectedOrder?.type === "POS" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mr-6"
+                  onClick={() => printOrderReceipt(selectedOrder._id)}
+                >
+                  <Printer className="h-4 w-4 mr-1" />
+                  Print Receipt
+                </Button>
+              )}
             </DialogTitle>
           </DialogHeader>
           {selectedOrder && (
