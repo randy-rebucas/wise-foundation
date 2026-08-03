@@ -1,12 +1,7 @@
-import type { ClientSession, Types } from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Inventory } from "@/lib/db/models/Inventory";
-import { Product } from "@/lib/db/models/Product";
-import { ProductVariant } from "@/lib/db/models/ProductVariant";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { getCustomerDashboard } from "@/lib/services/customerDashboard.service";
 import { validateCoupon } from "@/lib/services/coupon.service";
-import { AppSettings } from "@/lib/db/models/AppSettings";
-import { Branch } from "@/lib/db/models/Branch";
 import type { MarketplaceCheckoutInput } from "@/lib/validations/marketplace.schema";
 import { phpAmountToCentavos } from "@/lib/paymongo/config";
 import {
@@ -17,11 +12,11 @@ import {
   MARKETPLACE_SHIPPING_METHODS,
 } from "@/lib/utils/marketplaceShipping";
 
-const listedFilter: Record<string, unknown> = {
+const listedFilter = {
   deletedAt: null,
   isActive: true,
-  $or: [{ marketplaceListed: true }, { marketplaceListed: { $exists: false } }],
-};
+  marketplaceListed: true,
+} as const;
 
 export type MarketplaceCheckoutQuote = {
   subtotal: number;
@@ -70,21 +65,21 @@ export type MarketplaceCheckoutQuoteInput = Pick<
 export async function quoteMarketplaceCheckout(
   input: MarketplaceCheckoutQuoteInput,
   customerUserId: string | null,
-  opts?: { session?: ClientSession }
+  opts?: { tx?: Prisma.TransactionClient }
 ): Promise<MarketplaceCheckoutQuoteExtended> {
-  await connectDB();
-  const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
+  const db = opts?.tx ?? prisma;
+
+  const settings = await db.appSettings.findFirst({ orderBy: { id: "asc" } });
   let branchId = settings?.marketplaceFulfillmentBranchId;
   if (!branchId) {
-    const hq = await Branch.findOne({ isHeadOffice: true, deletedAt: null, isActive: true }).lean();
-    const fallback =
-      hq ?? (await Branch.findOne({ deletedAt: null, isActive: true }).sort({ _id: 1 }).lean());
+    const hq = await db.branch.findFirst({ where: { isHeadOffice: true, deletedAt: null, isActive: true } });
+    const fallback = hq ?? (await db.branch.findFirst({ where: { deletedAt: null, isActive: true }, orderBy: { id: "asc" } }));
     if (!fallback) {
       throw new Error(
         "No branch is available to fulfill online orders. Create a branch in Admin first."
       );
     }
-    branchId = fallback._id as Types.ObjectId;
+    branchId = fallback.id;
   }
 
   // Batch-fetch all products, variants, variant counts, and inventory in one round
@@ -92,23 +87,22 @@ export async function quoteMarketplaceCheckout(
   const allVariantIds = input.items.filter((i) => i.variantId).map((i) => i.variantId!);
 
   const [productDocs, variantDocs, variantCountRows, inventoryDocs] = await Promise.all([
-    Product.find({ _id: { $in: allProductIds }, ...listedFilter }).lean(),
+    db.product.findMany({ where: { id: { in: allProductIds }, ...listedFilter } }),
     allVariantIds.length > 0
-      ? ProductVariant.find({ _id: { $in: allVariantIds }, deletedAt: null, isActive: true }).lean()
+      ? db.productVariant.findMany({ where: { id: { in: allVariantIds }, deletedAt: null, isActive: true } })
       : Promise.resolve([]),
-    ProductVariant.aggregate<{ _id: Types.ObjectId; count: number }>([
-      { $match: { productId: { $in: allProductIds }, deletedAt: null, isActive: true } },
-      { $group: { _id: "$productId", count: { $sum: 1 } } },
-    ]),
-    Inventory.find({ branchId, productId: { $in: allProductIds } }).lean(),
+    db.productVariant.groupBy({
+      by: ["productId"],
+      where: { productId: { in: allProductIds }, deletedAt: null, isActive: true },
+      _count: { _all: true },
+    }),
+    db.inventory.findMany({ where: { branchId, productId: { in: allProductIds } } }),
   ]);
 
-  const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
-  const variantMap = new Map(variantDocs.map((v) => [String(v._id), v]));
-  const variantCountMap = new Map(variantCountRows.map((r) => [String(r._id), r.count]));
-  const invMap = new Map(
-    inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv])
-  );
+  const productMap = new Map(productDocs.map((p) => [p.id, p]));
+  const variantMap = new Map(variantDocs.map((v) => [v.id, v]));
+  const variantCountMap = new Map(variantCountRows.map((r) => [r.productId, r._count._all]));
+  const invMap = new Map(inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv]));
 
   // Validate each item using the pre-fetched maps
   for (const raw of input.items) {
@@ -120,16 +114,16 @@ export async function quoteMarketplaceCheckout(
 
     if (raw.variantId) {
       const v = variantMap.get(raw.variantId);
-      if (!v || String(v.productId) !== String(product._id)) {
+      if (!v || v.productId !== product.id) {
         throw new Error(`Invalid variant for product ${product.name}`);
       }
       variantName = v.name;
-      invKey = `${product._id}:${v._id}`;
+      invKey = `${product.id}:${v.id}`;
     } else {
-      if ((variantCountMap.get(String(product._id)) ?? 0) > 0) {
+      if ((variantCountMap.get(product.id) ?? 0) > 0) {
         throw new Error(`Please choose a variant for ${product.name}`);
       }
-      invKey = `${product._id}:`;
+      invKey = `${product.id}:`;
     }
 
     const inv = invMap.get(invKey);
@@ -161,7 +155,7 @@ export async function quoteMarketplaceCheckout(
   }
   const memberDiscountAmount =
     discountPercent > 0
-      ? Math.round((subtotal * Math.min(100, discountPercent)) / 100 * 100) / 100
+      ? Math.round(((subtotal * Math.min(100, discountPercent)) / 100) * 100) / 100
       : 0;
 
   const cartUnitPriceForProduct = (productId: string): number | undefined => {
@@ -198,7 +192,7 @@ export async function quoteMarketplaceCheckout(
       email: input.shipping?.email,
       cartUnitPriceForProduct,
       cartSubtotalForCategory,
-      session: opts?.session,
+      tx: opts?.tx,
     });
     if (couponResult.ok) couponDiscountAmount = couponResult.discountAmount;
   }

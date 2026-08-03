@@ -2,8 +2,7 @@
  * Maintenance mode utilities
  */
 import { unstable_cache, revalidateTag } from "next/cache";
-import { connectDB } from "@/lib/db/connect";
-import { AppSettings } from "@/lib/db/models/AppSettings";
+import { prisma } from "@/lib/db/prisma";
 
 /** Fast env-var check used as a fallback (no DB required). */
 export function isMaintenanceMode(): boolean {
@@ -25,8 +24,7 @@ export const getMaintenanceMode = unstable_cache(
   async (): Promise<boolean> => {
     if (isMaintenanceMode()) return true;
     try {
-      await connectDB();
-      const doc = await AppSettings.findOne({}, { maintenanceMode: 1 }).lean();
+      const doc = await prisma.appSettings.findFirst({ select: { maintenanceMode: true } });
       return doc?.maintenanceMode === true;
     } catch {
       return false;
@@ -37,7 +35,9 @@ export const getMaintenanceMode = unstable_cache(
 );
 
 export async function setMaintenanceMode(enabled: boolean): Promise<void> {
-  await connectDB();
-  await AppSettings.updateOne({}, { $set: { maintenanceMode: enabled } });
+  const existing = await prisma.appSettings.findFirst();
+  if (existing) {
+    await prisma.appSettings.update({ where: { id: existing.id }, data: { maintenanceMode: enabled } });
+  }
   revalidateTag("maintenance-mode", "page");
 }

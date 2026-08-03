@@ -1,5 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { anonymizeCustomerAccount } from "@/lib/services/user.service";
 import { withCustomerRoute, errorResponse, successResponse } from "@/lib/utils/withCustomerRoute";
 import { writeAuditLog } from "@/lib/services/audit.service";
 
@@ -9,31 +8,8 @@ export const DELETE = withCustomerRoute(async (userId, req) => {
     return errorResponse('Body must include "confirm": true to proceed with account deletion');
   }
 
-  await connectDB();
-
-  const user = await User.findOne({ _id: userId, deletedAt: null });
+  const user = await anonymizeCustomerAccount(userId);
   if (!user) return errorResponse("Account not found", 404);
-
-  // Anonymise PII rather than hard-delete so order records remain coherent.
-  await User.updateOne(
-    { _id: userId },
-    {
-      $set: {
-        name: "Deleted Account",
-        email: `deleted+${userId}@deleted.invalid`,
-        phone: null,
-        avatar: null,
-        isActive: false,
-        deletedAt: new Date(),
-        emailVerified: false,
-        emailVerificationToken: null,
-        emailVerificationExpiry: null,
-        "marketplace.savedAddresses": [],
-        "marketplace.paymentMethods": [],
-        "marketplace.wishlist": [],
-      },
-    }
-  );
 
   void writeAuditLog({
     action: "user.account_deleted",

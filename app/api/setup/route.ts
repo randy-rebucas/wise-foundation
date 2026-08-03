@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
 import logger from "@/lib/logger";
-import { AppSettings } from "@/lib/db/models/AppSettings";
-import { User } from "@/lib/db/models/User";
+import { runInitialSetup } from "@/lib/services/appSettings.service";
 import { computeSetupRequired } from "@/lib/utils/setupRequired";
 import {
   invalidateSetupRequiredCache,
@@ -58,15 +55,8 @@ const setupSchema = z.object({
   adminPassword: z.string().min(8),
 });
 
-const DEFAULT_APP_TAGLINE = "POS & online store";
-const DEFAULT_MEMBER_DISCOUNT = 10;
-const DEFAULT_LOW_STOCK = 10;
-
 export async function POST(req: Request) {
-  let mongoSession: mongoose.ClientSession | null = null;
   try {
-    await connectDB();
-
     const body = await req.json();
     const parsed = setupSchema.safeParse(body);
     if (!parsed.success) {
@@ -74,79 +64,12 @@ export async function POST(req: Request) {
     }
 
     const { appName, currency, timezone, adminName, adminEmail, adminPassword } = parsed.data;
-    const hashed = await bcrypt.hash(adminPassword, 12);
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
 
-    mongoSession = await mongoose.startSession();
-    mongoSession.startTransaction();
-
-    const existingAdmin = await User.findOne({ role: "ADMIN", deletedAt: null })
-      .session(mongoSession)
-      .lean();
-    if (existingAdmin) {
-      await mongoSession.abortTransaction();
-      return NextResponse.json({ success: false, error: "An admin user already exists" }, { status: 400 });
-    }
-
-    const emailTaken = await User.findOne({ email: adminEmail.toLowerCase() })
-      .session(mongoSession)
-      .lean();
-    if (emailTaken) {
-      await mongoSession.abortTransaction();
-      return NextResponse.json({ success: false, error: "Email already in use" }, { status: 400 });
-    }
-
-    const appSettingsPayload = {
-      appName,
-      currency,
-      timezone,
-      setupCompleted: true,
-      appTagline: DEFAULT_APP_TAGLINE,
-      memberDefaultDiscountPercent: DEFAULT_MEMBER_DISCOUNT,
-      defaultLowStockThreshold: DEFAULT_LOW_STOCK,
-      receiptFooter: "",
-    };
-
-    // Persist settings without rawResult / lastErrorObject (Mongoose 9 can return null there).
-    // Avoid upsert on `{ setupCompleted: { $ne: true } }` alone — if a completed row exists, that upsert can insert a second document.
-    const settingsRow = await AppSettings.findOne({}).session(mongoSession).sort({ _id: 1 });
-
-    if (settingsRow?.setupCompleted === true) {
-      await mongoSession.abortTransaction();
-      return NextResponse.json({ success: false, error: "Setup already completed" }, { status: 400 });
-    }
-
-    if (settingsRow) {
-      const updated = await AppSettings.findOneAndUpdate(
-        { _id: settingsRow._id, setupCompleted: { $ne: true } },
-        { $set: appSettingsPayload },
-        { new: true, session: mongoSession }
-      );
-      if (!updated) {
-        await mongoSession.abortTransaction();
-        return NextResponse.json({ success: false, error: "Setup already completed" }, { status: 400 });
-      }
-    } else {
-      await AppSettings.create([appSettingsPayload], { session: mongoSession });
-    }
-
-    await User.create(
-      [
-        {
-          name: adminName,
-          email: adminEmail.toLowerCase(),
-          password: hashed,
-          role: "ADMIN",
-          permissions: [],
-          branchIds: [],
-          isActive: true,
-        },
-      ],
-      { session: mongoSession }
-    );
-
-    await mongoSession.commitTransaction();
+    await runInitialSetup({ appName, currency, timezone, adminName, adminEmail, adminPasswordHash });
 
     setCachedSetupRequired(false);
+    invalidateSetupRequiredCache();
 
     const response = NextResponse.json({ success: true });
     response.cookies.set(APP_SETUP_COOKIE, "done", {
@@ -158,19 +81,11 @@ export async function POST(req: Request) {
     return response;
   } catch (err) {
     logger.error({ err }, "[setup POST]");
-    if (mongoSession?.inTransaction()) {
-      await mongoSession.abortTransaction();
-    }
+    const knownErrors = ["An admin user already exists", "Email already in use", "Setup already completed"];
+    const message = err instanceof Error ? err.message : "Setup failed unexpectedly";
     return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : "Setup failed unexpectedly",
-      },
-      { status: 500 }
+      { success: false, error: message },
+      { status: err instanceof Error && knownErrors.includes(err.message) ? 400 : 500 }
     );
-  } finally {
-    if (mongoSession) {
-      mongoSession.endSession();
-    }
   }
 }

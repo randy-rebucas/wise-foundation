@@ -1,0 +1,1097 @@
+// Prisma schema for the Wise app — migrated from MongoDB/Mongoose.
+// See C:\Users\corew\.claude\plans\lets-migrate-the-database-binary-castle.md (section 1)
+// for the structural decisions this file implements.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------
+
+enum OrgPermissionKey {
+  sell_retail      @map("sell:retail")
+  distribute_stock @map("distribute:stock")
+  has_inventory    @map("has:inventory")
+  earn_commission  @map("earn:commission")
+  submit_orders    @map("submit:orders")
+}
+
+enum CommissionStatus {
+  pending
+  paid
+  cancelled
+}
+
+enum TransactionType {
+  SALE
+  REFUND
+  ADJUSTMENT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum OrganizationType {
+  distributor
+  franchise
+  partner
+  headquarters
+}
+
+enum PurchaseOrderAuditAction {
+  created
+  updated
+  deleted
+  submitted
+  approved
+  declined
+  cancelled
+  received
+  status_changed
+}
+
+enum PurchaseOrderStatus {
+  draft
+  submitted
+  approved
+  declined
+  received
+  cancelled
+}
+
+enum PurchaseOrderSignatureKind {
+  SUBMITTED
+  APPROVED
+  RECEIVED
+}
+
+enum MemberStatus {
+  active
+  inactive
+  suspended
+}
+
+enum UserRole {
+  ADMIN
+  ORG_ADMIN
+  BRANCH_MANAGER
+  STAFF
+  INVENTORY_MANAGER
+  MEMBER
+  CUSTOMER
+}
+
+enum MarketplacePaymentMethodType {
+  card
+  gcash
+  bank_transfer
+}
+
+enum OrderType {
+  POS
+  DISTRIBUTOR
+  B2B
+  MARKETPLACE
+}
+
+enum OrderStatus {
+  pending
+  approved
+  paid
+  delivered
+  completed
+  cancelled
+  refunded
+}
+
+enum OrderPaymentMethod {
+  cash
+  gcash
+  card
+  bank_transfer
+  credit
+}
+
+enum ProductCategory {
+  homecare
+  cosmetics
+  wellness
+  scent
+}
+
+enum AdCreativeType {
+  image
+  video
+}
+
+enum AbandonedCheckoutStatus {
+  open
+  recovered
+}
+
+enum CouponSource {
+  welcome
+  birthday
+  manual
+  spin
+}
+
+enum CouponType {
+  percent
+  fixed
+  free_shipping
+  free_item
+}
+
+// -----------------------------------------------------------------------
+// AppSettings
+// -----------------------------------------------------------------------
+
+model AppSettings {
+  id                             String   @id @default(uuid()) @db.Uuid
+  marketplaceFulfillmentBranchId String?  @db.Uuid
+  marketplaceFulfillmentBranch   Branch?  @relation(fields: [marketplaceFulfillmentBranchId], references: [id])
+  maintenanceMode                Boolean  @default(false)
+  appName                        String   @default("Glowish")
+  appTagline                     String   @default("POS & online store")
+  appLogoUrl                     String   @default("")
+  seoDefaultDescription          String   @default("")
+  seoOgImageUrl                  String   @default("")
+  currency                       String   @default("PHP")
+  timezone                       String   @default("Asia/Manila")
+  setupCompleted                 Boolean  @default(false)
+  memberDefaultDiscountPercent   Int      @default(10)
+  defaultLowStockThreshold       Int      @default(10)
+  receiptFooter                  String   @default("")
+  // flattened from purchaseOrderDiscountByOrgType sub-doc
+  discountDistributor            Int      @default(0)
+  discountFranchise              Int      @default(0)
+  discountPartner                Int      @default(0)
+  discountHeadquarters           Int      @default(0)
+  spinWheelFreeGiftProductId     String?  @db.Uuid
+  spinWheelFreeGiftProduct       Product? @relation(fields: [spinWheelFreeGiftProductId], references: [id])
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------
+// Role / OrgPermission
+// -----------------------------------------------------------------------
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        UserRole  @unique
+  displayName String
+  permissions String[]
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
+}
+
+model OrgPermission {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  permission     OrgPermissionKey
+  isGranted      Boolean          @default(true)
+  grantedBy      String           @db.Uuid
+  grantedByUser  User             @relation(fields: [grantedBy], references: [id])
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, permission])
+  @@index([organizationId, isGranted])
+}
+
+// -----------------------------------------------------------------------
+// Organization / Branch
+// -----------------------------------------------------------------------
+
+model Organization {
+  id                   String           @id @default(uuid()) @db.Uuid
+  name                 String
+  type                 OrganizationType
+  parentOrganizationId String?          @db.Uuid
+  parent               Organization?    @relation("OrgHierarchy", fields: [parentOrganizationId], references: [id])
+  children             Organization[]   @relation("OrgHierarchy")
+  // flattened from `settings` sub-doc
+  canSellRetail        Boolean          @default(false)
+  canDistribute        Boolean          @default(false)
+  hasInventory         Boolean          @default(true)
+  commissionEnabled    Boolean          @default(false)
+  canSubmitOrders      Boolean          @default(false)
+  contactPerson        String?
+  email                String?
+  phone                String?
+  address              String?
+  notes                String?
+  commissionRate       Float            @default(10)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  deletedAt            DateTime?
+
+  branches              Branch[]
+  users                 User[]
+  members               Member[]
+  orgPermissions        OrgPermission[]
+  purchaseOrders        PurchaseOrder[]
+  organizationInventory OrganizationInventory[]
+  inventory             Inventory[]
+  commissions           Commission[]
+  transactions          Transaction[]
+  ordersAsOrg           Order[]                 @relation("OrderOrganization")
+  ordersAsBuyer         Order[]                 @relation("OrderBuyerOrganization")
+  ordersAsSeller        Order[]                 @relation("OrderSellerOrganization")
+  orderItems            OrderItem[]
+  stockMovementsAt      StockMovement[]         @relation("StockMovementOrganization")
+  stockMovementsFrom    StockMovement[]         @relation("StockMovementFromOrganization")
+  stockMovementsTo      StockMovement[]         @relation("StockMovementToOrganization")
+
+  @@index([name])
+  @@index([type, deletedAt])
+  @@index([parentOrganizationId, deletedAt])
+  @@index([deletedAt])
+}
+
+model Branch {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  name           String
+  code           String        @unique
+  address        String
+  phone          String?
+  email          String?
+  managerId      String?       @db.Uuid
+  manager        User?         @relation("BranchManager", fields: [managerId], references: [id])
+  isHeadOffice   Boolean       @default(false)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  members              Member[]
+  purchaseOrders       PurchaseOrder[]
+  inventory            Inventory[]
+  orderItems           OrderItem[]
+  orders               Order[]         @relation("OrderBranch")
+  transactions         Transaction[]
+  stockMovementsAt     StockMovement[] @relation("StockMovementBranch")
+  stockMovementsFrom   StockMovement[] @relation("StockMovementFromBranch")
+  stockMovementsTo     StockMovement[] @relation("StockMovementToBranch")
+  userBranches         UserBranch[]
+  appSettingsFulfilled AppSettings[]
+
+  @@index([organizationId, deletedAt])
+  @@index([isActive, deletedAt])
+}
+
+// -----------------------------------------------------------------------
+// User + marketplace child tables
+// -----------------------------------------------------------------------
+
+model User {
+  id                      String        @id @default(uuid()) @db.Uuid
+  organizationId          String?       @db.Uuid
+  organization            Organization? @relation(fields: [organizationId], references: [id])
+  name                    String
+  email                   String        @unique
+  password                String
+  role                    UserRole
+  permissions             String[]
+  avatar                  String?
+  phone                   String?
+  isActive                Boolean       @default(true)
+  emailVerified           Boolean       @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  lastLoginAt             DateTime?
+  failedLoginAttempts     Int           @default(0)
+  lockedUntil             DateTime?
+  totpSecret              String?
+  totpEnabled             Boolean       @default(false)
+  totpBackupCodes         String[]
+  passwordResetToken      String?
+  passwordResetExpiry     DateTime?
+  marketingOptIn          Boolean       @default(true)
+  marketingOptInUpdatedAt DateTime?
+  welcomeCouponIssuedAt   DateTime?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  deletedAt               DateTime?
+
+  branches                UserBranch[]
+  branchesManaged         Branch[]                 @relation("BranchManager")
+  members                 Member[]
+  purchaseOrdersCreated   PurchaseOrder[]          @relation("PurchaseOrderCreatedBy")
+  purchaseOrdersApproved  PurchaseOrder[]          @relation("PurchaseOrderApprovedBy")
+  purchaseOrdersDeclined  PurchaseOrder[]          @relation("PurchaseOrderDeclinedBy")
+  purchaseOrdersReceived  PurchaseOrder[]          @relation("PurchaseOrderReceivedBy")
+  purchaseOrderSignatures PurchaseOrderSignature[]
+  purchaseOrderAuditLogs  PurchaseOrderAuditLog[]
+  orgPermissionsGranted   OrgPermission[]
+  stockMovements          StockMovement[]
+  transactions            Transaction[]
+  commissionsPaidBy       Commission[]             @relation("CommissionPaidBy")
+  ordersAsCashier         Order[]                  @relation("OrderCashier")
+  ordersAsDeliveredBy     Order[]                  @relation("OrderDeliveredBy")
+  ordersAsCustomer        Order[]                  @relation("OrderMarketplaceCustomer")
+  abandonedCheckouts      AbandonedCheckout[]
+  couponsRestrictedTo     Coupon[]
+  couponRedemptions       CouponRedemption[]
+  mediaAssetsUploaded     MediaAsset[]
+  auditLogs               AuditLog[]
+
+  wishlistItems  UserWishlistItem[]
+  savedAddresses UserSavedAddress[]
+  paymentMethods UserPaymentMethod[]
+  reviews        UserReview[]
+
+  @@index([role, deletedAt])
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
+}
+
+// join table for User.branchIds[]
+model UserBranch {
+  userId   String @db.Uuid
+  user     User   @relation(fields: [userId], references: [id])
+  branchId String @db.Uuid
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  @@id([userId, branchId])
+  @@index([branchId])
+}
+
+// User.marketplace.wishlist[] — keeps existing app-generated string IDs (not UUID-shaped)
+model UserWishlistItem {
+  id          String  @id
+  userId      String  @db.Uuid
+  user        User    @relation(fields: [userId], references: [id])
+  productId   String
+  variantId   String?
+  slug        String
+  name        String
+  variantName String?
+  sku         String
+  price       Float
+  image       String?
+  addedAt     String
+
+  @@index([userId])
+}
+
+// User.marketplace.savedAddresses[] — keeps existing app-generated string IDs
+model UserSavedAddress {
+  id         String  @id
+  userId     String  @db.Uuid
+  user       User    @relation(fields: [userId], references: [id])
+  label      String
+  fullName   String
+  phone      String
+  line1      String
+  line2      String?
+  city       String
+  region     String
+  postalCode String
+  isDefault  Boolean @default(false)
+
+  @@index([userId])
+}
+
+// User.marketplace.paymentMethods[] — keeps existing app-generated string IDs
+model UserPaymentMethod {
+  id        String                       @id
+  userId    String                       @db.Uuid
+  user      User                         @relation(fields: [userId], references: [id])
+  type      MarketplacePaymentMethodType
+  label     String
+  last4     String?
+  isDefault Boolean                      @default(false)
+
+  @@index([userId])
+}
+
+// User.marketplace.reviews[] — keeps existing app-generated string IDs.
+// productId intentionally stays a plain String, not an FK: in Mongoose this was a loose
+// string that did not reliably reference Product._id.
+model UserReview {
+  id          String   @id
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id])
+  productId   String
+  productName String
+  productSlug String?
+  rating      Int
+  text        String
+  createdAt   String
+  images      String[]
+  featured    Boolean  @default(false)
+
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------
+// Member
+// -----------------------------------------------------------------------
+
+model Member {
+  id              String        @id @default(uuid()) @db.Uuid
+  branchId        String        @db.Uuid
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  organizationId  String?       @db.Uuid
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  userId          String?       @db.Uuid
+  user            User?         @relation(fields: [userId], references: [id])
+  memberId        String        @unique
+  name            String
+  email           String?
+  phone           String
+  address         String?
+  discountPercent Float         @default(10)
+  status          MemberStatus  @default(active)
+  totalPurchases  Int           @default(0)
+  totalSpent      Float         @default(0)
+  joinedAt        DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  orders       Order[]
+  transactions Transaction[]
+
+  @@index([organizationId, deletedAt])
+  @@index([branchId, deletedAt])
+  @@index([phone, deletedAt])
+  @@index([status, deletedAt])
+}
+
+// -----------------------------------------------------------------------
+// Supplier
+// -----------------------------------------------------------------------
+
+model Supplier {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([name])
+  @@index([deletedAt])
+}
+
+// -----------------------------------------------------------------------
+// Product / ProductVariant
+// -----------------------------------------------------------------------
+
+model Product {
+  id                String          @id @default(uuid()) @db.Uuid
+  name              String
+  // slug: partial-unique (unique where deletedAt IS NULL) added by
+  // migrations/20260803120000_raw_sql_followups — not expressible declaratively.
+  slug              String
+  shortDescription  String?
+  description       String?
+  seoTitle          String?
+  seoDescription    String?
+  category          ProductCategory
+  sku               String          @unique
+  barcode           String?
+  images            String[]
+  video             String?
+  videoPosterUrl    String?
+  retailPrice       Float
+  isActive          Boolean         @default(true)
+  tags              String[]
+  marketplaceListed Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  // Trigger-maintained full-text search column, see raw_sql_followups migration.
+  searchVector      Unsupported("tsvector")?
+
+  variants               ProductVariant[]
+  purchaseOrderItems     PurchaseOrderItem[]
+  orderItems             OrderItem[]
+  inventory              Inventory[]
+  organizationInventory  OrganizationInventory[]
+  stockMovements         StockMovement[]
+  abandonedCheckoutItems AbandonedCheckoutItem[]
+  ads                    Ad[]
+  couponsFreeItem        Coupon[]
+  appSettingsSpinGift    AppSettings[]
+
+  @@index([category, deletedAt])
+  @@index([isActive, deletedAt])
+  @@index([marketplaceListed, isActive, deletedAt])
+  @@index([slug])
+}
+
+model ProductVariant {
+  id          String    @id @default(uuid()) @db.Uuid
+  productId   String    @db.Uuid
+  product     Product   @relation(fields: [productId], references: [id])
+  name        String
+  sku         String    @unique
+  attributes  Json      @db.JsonB
+  retailPrice Float
+  images      String[]
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  purchaseOrderItems     PurchaseOrderItem[]
+  orderItems             OrderItem[]
+  inventory              Inventory[]
+  organizationInventory  OrganizationInventory[]
+  stockMovements         StockMovement[]
+  abandonedCheckoutItems AbandonedCheckoutItem[]
+
+  @@index([productId, deletedAt])
+}
+
+// -----------------------------------------------------------------------
+// Inventory / OrganizationInventory / StockMovement
+// -----------------------------------------------------------------------
+
+model Inventory {
+  id                String          @id @default(uuid()) @db.Uuid
+  branchId          String          @db.Uuid
+  branch            Branch          @relation(fields: [branchId], references: [id])
+  organizationId    String?         @db.Uuid
+  organization      Organization?   @relation(fields: [organizationId], references: [id])
+  productId         String          @db.Uuid
+  product           Product         @relation(fields: [productId], references: [id])
+  variantId         String?         @db.Uuid
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity          Int             @default(0)
+  reservedQuantity  Int             @default(0)
+  lowStockThreshold Int             @default(10)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Plain @@unique([branchId, productId, variantId]) would NOT match Mongo's
+  // uniqueness semantics: Postgres treats NULL variantId as distinct per row,
+  // so multiple base-product (no-variant) rows could exist per branch+product.
+  // Enforced instead by an expression unique index on (branchId, productId,
+  // COALESCE(variantId, nil-uuid)) — see raw_sql_followups migration.
+  @@index([branchId, productId, variantId])
+  @@index([branchId, quantity])
+  @@index([quantity, lowStockThreshold])
+}
+
+model OrganizationInventory {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @db.Uuid
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  productId      String          @db.Uuid
+  product        Product         @relation(fields: [productId], references: [id])
+  variantId      String?         @db.Uuid
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity       Int             @default(0)
+  totalReceived  Int             @default(0)
+  totalSold      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // See Inventory's comment above — expression unique index added via raw SQL.
+  @@index([organizationId, productId, variantId])
+  @@index([organizationId, quantity])
+}
+
+model StockMovement {
+  id                 String            @id @default(uuid()) @db.Uuid
+  branchId           String?           @db.Uuid
+  branch             Branch?           @relation("StockMovementBranch", fields: [branchId], references: [id])
+  organizationId     String?           @db.Uuid
+  organization       Organization?     @relation("StockMovementOrganization", fields: [organizationId], references: [id])
+  productId          String            @db.Uuid
+  product            Product           @relation(fields: [productId], references: [id])
+  variantId          String?           @db.Uuid
+  variant            ProductVariant?   @relation(fields: [variantId], references: [id])
+  type               StockMovementType
+  quantity           Int
+  previousQuantity   Int
+  newQuantity        Int
+  unitCost           Float?
+  reference          String?
+  orderId            String?           @db.Uuid
+  order              Order?            @relation(fields: [orderId], references: [id])
+  // nullable FKs supporting $or queries at the query-builder level, not the schema level
+  fromBranchId       String?           @db.Uuid
+  fromBranch         Branch?           @relation("StockMovementFromBranch", fields: [fromBranchId], references: [id])
+  toBranchId         String?           @db.Uuid
+  toBranch           Branch?           @relation("StockMovementToBranch", fields: [toBranchId], references: [id])
+  fromOrganizationId String?           @db.Uuid
+  fromOrganization   Organization?     @relation("StockMovementFromOrganization", fields: [fromOrganizationId], references: [id])
+  toOrganizationId   String?           @db.Uuid
+  toOrganization     Organization?     @relation("StockMovementToOrganization", fields: [toOrganizationId], references: [id])
+  notes              String?
+  performedBy        String            @db.Uuid
+  performedByUser    User              @relation(fields: [performedBy], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([branchId, productId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([type, createdAt])
+  @@index([orderId])
+}
+
+// -----------------------------------------------------------------------
+// Order / OrderItem / Transaction / Commission / Coupon / AbandonedCheckout
+// -----------------------------------------------------------------------
+
+model Order {
+  id                        String             @id @default(uuid()) @db.Uuid
+  branchId                  String?            @db.Uuid
+  branch                    Branch?            @relation("OrderBranch", fields: [branchId], references: [id])
+  organizationId            String?            @db.Uuid
+  organization              Organization?      @relation("OrderOrganization", fields: [organizationId], references: [id])
+  buyerOrganizationId       String?            @db.Uuid
+  buyerOrganization         Organization?      @relation("OrderBuyerOrganization", fields: [buyerOrganizationId], references: [id])
+  sellerOrganizationId      String?            @db.Uuid
+  sellerOrganization        Organization?      @relation("OrderSellerOrganization", fields: [sellerOrganizationId], references: [id])
+  orderNumber               String             @unique
+  type                      OrderType          @default(POS)
+  status                    OrderStatus        @default(pending)
+  memberId                  String?            @db.Uuid
+  member                    Member?            @relation(fields: [memberId], references: [id])
+  memberName                String?
+  cashierId                 String             @db.Uuid
+  cashier                   User               @relation("OrderCashier", fields: [cashierId], references: [id])
+  subtotal                  Float
+  discountAmount            Float              @default(0)
+  discountPercent           Float              @default(0)
+  couponCode                String?
+  couponId                  String?            @db.Uuid
+  coupon                    Coupon?            @relation(fields: [couponId], references: [id])
+  total                     Float
+  amountPaid                Float              @default(0)
+  change                    Float              @default(0)
+  paymentMethod             OrderPaymentMethod @default(cash)
+  notes                     String?
+  approvedAt                DateTime?
+  paidAt                    DateTime?
+  completedAt               DateTime?
+  /// Recorded when status becomes `delivered` (delivery receipt).
+  // partial-unique (unique where NOT NULL) added by migrations/20260803120000_raw_sql_followups.
+  deliveryReceiptNumber     String?
+  receivedByName            String?
+  deliveredAt               DateTime?
+  deliveredBy               String?            @db.Uuid
+  deliveredByUser           User?              @relation("OrderDeliveredBy", fields: [deliveredBy], references: [id])
+  shippingAmount            Float              @default(0)
+  // collapsed marketplaceShipping/CardPayment/GcashPayment/BankTransferPayment/CodPayment/Paymongo
+  // sub-docs — write-once/read-back fields, never filtered by subfield
+  paymentDetails            Json?              @db.JsonB
+  marketplaceCustomerUserId String?            @db.Uuid
+  marketplaceCustomerUser   User?              @relation("OrderMarketplaceCustomer", fields: [marketplaceCustomerUserId], references: [id])
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  deletedAt                 DateTime?
+
+  orderItems                  OrderItem[]
+  transactions                Transaction[]
+  commissions                 Commission[]
+  couponRedemptions           CouponRedemption[]
+  stockMovements              StockMovement[]
+  recoveredAbandonedCheckouts AbandonedCheckout[]
+
+  @@index([branchId, status, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([buyerOrganizationId, status, createdAt])
+  @@index([sellerOrganizationId, status, createdAt])
+  @@index([memberId, createdAt])
+  @@index([createdAt])
+  @@index([type, marketplaceCustomerUserId, createdAt])
+  @@index([cashierId, createdAt])
+  @@index([deliveryReceiptNumber])
+}
+
+model OrderItem {
+  id             String          @id @default(uuid()) @db.Uuid
+  orderId        String          @db.Uuid
+  order          Order           @relation(fields: [orderId], references: [id])
+  // Nullable: POS/DISTRIBUTOR orders are branch-scoped, but B2B (org-to-org) orders have no branch.
+  branchId       String?         @db.Uuid
+  branch         Branch?         @relation(fields: [branchId], references: [id])
+  organizationId String?         @db.Uuid
+  organization   Organization?   @relation(fields: [organizationId], references: [id])
+  productId      String          @db.Uuid
+  product        Product         @relation(fields: [productId], references: [id])
+  variantId      String?         @db.Uuid
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+  productName    String
+  variantName    String?
+  sku            String
+  quantity       Int
+  unitPrice      Float
+  cost           Float           @default(0)
+  total          Float
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([orderId])
+  @@index([productId, createdAt])
+}
+
+model Transaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  branchId        String?         @db.Uuid
+  branch          Branch?         @relation(fields: [branchId], references: [id])
+  organizationId  String?         @db.Uuid
+  organization    Organization?   @relation(fields: [organizationId], references: [id])
+  orderId         String?         @db.Uuid
+  order           Order?          @relation(fields: [orderId], references: [id])
+  memberId        String?         @db.Uuid
+  member          Member?         @relation(fields: [memberId], references: [id])
+  type            TransactionType
+  amount          Float
+  paymentMethod   String
+  reference       String?
+  notes           String?
+  performedBy     String          @db.Uuid
+  performedByUser User            @relation(fields: [performedBy], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([branchId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([orderId])
+  @@index([type, createdAt])
+}
+
+model Commission {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  orderId        String           @db.Uuid
+  order          Order            @relation(fields: [orderId], references: [id])
+  saleAmount     Float
+  rate           Float
+  amount         Float
+  status         CommissionStatus @default(pending)
+  paidAt         DateTime?
+  paidBy         String?          @db.Uuid
+  paidByUser     User?            @relation("CommissionPaidBy", fields: [paidBy], references: [id])
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([orderId])
+  @@index([organizationId, status, createdAt])
+  @@index([status, createdAt])
+}
+
+model Coupon {
+  id                String           @id @default(uuid()) @db.Uuid
+  code              String           @unique
+  type              CouponType
+  value             Float
+  source            CouponSource
+  customerId        String?          @db.Uuid
+  customer          User?            @relation(fields: [customerId], references: [id])
+  customerEmail     String?
+  freeItemProductId String?          @db.Uuid
+  freeItemProduct   Product?         @relation(fields: [freeItemProductId], references: [id])
+  category          ProductCategory?
+  spinPrizeLabel    String?
+  maxRedemptions    Int              @default(1)
+  // denormalized counter kept in sync inside the order transaction (replaces redemptions[] length)
+  redeemedCount     Int              @default(0)
+  isActive          Boolean          @default(true)
+  expiresAt         DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  redemptions CouponRedemption[]
+  orders      Order[]
+
+  @@index([customerId, source])
+  @@index([customerEmail, source])
+}
+
+// Coupon.redemptions[] -> child table
+model CouponRedemption {
+  id            String   @id @default(uuid()) @db.Uuid
+  couponId      String   @db.Uuid
+  coupon        Coupon   @relation(fields: [couponId], references: [id])
+  customerId    String?  @db.Uuid
+  customer      User?    @relation(fields: [customerId], references: [id])
+  customerEmail String?
+  orderId       String   @db.Uuid
+  order         Order    @relation(fields: [orderId], references: [id])
+  redeemedAt    DateTime @default(now())
+
+  @@unique([couponId, orderId])
+}
+
+model AbandonedCheckout {
+  id               String                  @id @default(uuid()) @db.Uuid
+  email            String
+  fullName         String?
+  phone            String?
+  customerId       String?                 @db.Uuid
+  customer         User?                   @relation(fields: [customerId], references: [id])
+  subtotal         Float                   @default(0)
+  discountAmount   Float                   @default(0)
+  shippingCost     Float                   @default(0)
+  total            Float                   @default(0)
+  paymentMethod    String?
+  status           AbandonedCheckoutStatus @default(open)
+  recoveredOrderId String?                 @db.Uuid
+  recoveredOrder   Order?                  @relation(fields: [recoveredOrderId], references: [id])
+  recoveredAt      DateTime?
+  lastSeenAt       DateTime                @default(now())
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  items AbandonedCheckoutItem[]
+
+  @@unique([email, status])
+  @@index([status, lastSeenAt])
+}
+
+// AbandonedCheckout.items[] -> child table
+model AbandonedCheckoutItem {
+  id                  String            @id @default(uuid()) @db.Uuid
+  abandonedCheckoutId String            @db.Uuid
+  abandonedCheckout   AbandonedCheckout @relation(fields: [abandonedCheckoutId], references: [id])
+  productId           String            @db.Uuid
+  product             Product           @relation(fields: [productId], references: [id])
+  variantId           String?           @db.Uuid
+  variant             ProductVariant?   @relation(fields: [variantId], references: [id])
+  name                String
+  variantName         String?
+  sku                 String
+  image               String?
+  price               Float
+  quantity            Int
+
+  @@index([abandonedCheckoutId])
+}
+
+// -----------------------------------------------------------------------
+// PurchaseOrder / PurchaseOrderItem / PurchaseOrderSignature / PurchaseOrderAuditLog
+// -----------------------------------------------------------------------
+
+model PurchaseOrder {
+  id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @db.Uuid
+  organization         Organization        @relation(fields: [organizationId], references: [id])
+  branchId             String?             @db.Uuid
+  branch               Branch?             @relation(fields: [branchId], references: [id])
+  poNumber             String              @unique
+  title                String?
+  status               PurchaseOrderStatus @default(draft)
+  subtotal             Float
+  discountPercent      Float               @default(0)
+  discountAmount       Float               @default(0)
+  total                Float
+  // paymentTermsMonths (3|6|"weekly"|null) split into two scalar columns.
+  // NOTE: a CHECK constraint preventing both paymentTermsMonths and paymentTermsWeekly
+  // being set will be added via a raw-SQL migration after `prisma migrate dev` — do not
+  // attempt to express it here.
+  paymentTermsMonths   Int?
+  paymentTermsWeekly   Boolean             @default(false)
+  expectedDeliveryDate DateTime?
+  notes                String?
+  createdBy            String              @db.Uuid
+  createdByUser        User                @relation("PurchaseOrderCreatedBy", fields: [createdBy], references: [id])
+  approvedBy           String?             @db.Uuid
+  approvedByUser       User?               @relation("PurchaseOrderApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt           DateTime?
+  declinedBy           String?             @db.Uuid
+  declinedByUser       User?               @relation("PurchaseOrderDeclinedBy", fields: [declinedBy], references: [id])
+  declinedAt           DateTime?
+  declineReason        String?
+  receivedBy           String?             @db.Uuid
+  receivedByUser       User?               @relation("PurchaseOrderReceivedBy", fields: [receivedBy], references: [id])
+  receivedAt           DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
+
+  items      PurchaseOrderItem[]
+  signatures PurchaseOrderSignature[]
+  auditLogs  PurchaseOrderAuditLog[]
+
+  @@index([organizationId, status, createdAt])
+  @@index([status, deletedAt])
+  @@index([createdBy, status, createdAt])
+  @@index([branchId, status, createdAt])
+}
+
+model PurchaseOrderItem {
+  id               String          @id @default(uuid()) @db.Uuid
+  purchaseOrderId  String          @db.Uuid
+  purchaseOrder    PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id])
+  productId        String          @db.Uuid
+  product          Product         @relation(fields: [productId], references: [id])
+  variantId        String?         @db.Uuid
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+  productName      String
+  sku              String
+  quantity         Int
+  receivedQuantity Int             @default(0)
+  unitCost         Float
+  total            Float
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+// PurchaseOrder.{submittedSignature,approvedSignature,receivedSignature} -> one child table,
+// discriminated by `kind`.
+model PurchaseOrderSignature {
+  id              String                     @id @default(uuid()) @db.Uuid
+  purchaseOrderId String                     @db.Uuid
+  purchaseOrder   PurchaseOrder              @relation(fields: [purchaseOrderId], references: [id])
+  kind            PurchaseOrderSignatureKind
+  name            String
+  userId          String                     @db.Uuid
+  user            User                       @relation(fields: [userId], references: [id])
+  imageDataUrl    String                     @db.Text
+  signedAt        DateTime
+
+  @@unique([purchaseOrderId, kind])
+}
+
+model PurchaseOrderAuditLog {
+  id              String                   @id @default(uuid()) @db.Uuid
+  purchaseOrderId String                   @db.Uuid
+  purchaseOrder   PurchaseOrder            @relation(fields: [purchaseOrderId], references: [id])
+  action          PurchaseOrderAuditAction
+  fromStatus      String?
+  toStatus        String?
+  performedBy     String                   @db.Uuid
+  performedByUser User                     @relation(fields: [performedBy], references: [id])
+  performedByName String?
+  metadata        Json?                    @db.JsonB
+  createdAt       DateTime                 @default(now())
+
+  @@index([purchaseOrderId, createdAt])
+}
+
+// -----------------------------------------------------------------------
+// Ad / BlogPost / MediaAsset / MarketplaceContactMessage / AuditLog
+// -----------------------------------------------------------------------
+
+model Ad {
+  id           String         @id @default(uuid()) @db.Uuid
+  productId    String         @db.Uuid
+  product      Product        @relation(fields: [productId], references: [id])
+  creativeType AdCreativeType
+  creativeUrl  String
+  posterUrl    String?
+  headline     String?
+  caption      String?
+  isActive     Boolean        @default(true)
+  sortOrder    Int            @default(0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  impressions  Int            @default(0)
+  clicks       Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  @@index([isActive, deletedAt, sortOrder])
+  @@index([productId])
+  @@index([startsAt, endsAt])
+}
+
+model BlogPost {
+  id           String    @id @default(uuid()) @db.Uuid
+  title        String
+  // slug: partial-unique (unique where deletedAt IS NULL) added by
+  // migrations/20260803120000_raw_sql_followups — not expressible declaratively.
+  slug         String
+  summary      String
+  coverImage   String?
+  author       String    @default("Team")
+  tags         String[]
+  bodyMarkdown String
+  isPublished  Boolean   @default(false)
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  // Trigger-maintained full-text search column, see raw_sql_followups migration.
+  searchVector Unsupported("tsvector")?
+
+  @@index([slug])
+  @@index([isPublished, publishedAt, deletedAt])
+}
+
+model MediaAsset {
+  id         String    @id @default(uuid()) @db.Uuid
+  url        String
+  publicId   String    @unique
+  filename   String?
+  mimeType   String
+  bytes      Int
+  folder     String
+  uploadedBy String?   @db.Uuid
+  uploader   User?     @relation(fields: [uploadedBy], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([deletedAt, createdAt])
+  @@index([filename])
+}
+
+model MarketplaceContactMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  action          String
+  performedBy     String   @db.Uuid
+  performedByUser User     @relation(fields: [performedBy], references: [id])
+  performedByName String?
+  targetId        String?
+  targetType      String?
+  metadata        Json?    @db.JsonB
+  createdAt       DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([performedBy, createdAt])
+  @@index([targetId, createdAt])
+}

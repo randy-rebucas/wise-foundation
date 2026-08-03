@@ -1,5 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { Branch } from "@/lib/db/models/Branch";
+import { prisma } from "@/lib/db/prisma";
 import { isPlatformAdmin } from "@/lib/permissions";
 import type { SessionUser } from "@/types";
 
@@ -12,15 +11,6 @@ export class BranchAccessDeniedError extends Error {
 
 export type BranchScopeUser = Pick<SessionUser, "role" | "branchIds" | "organizationId">;
 
-function branchOrganizationId(branch: { organizationId?: unknown }): string | null {
-  const o = branch.organizationId;
-  if (o == null) return null;
-  if (typeof o === "object" && "toString" in o) {
-    return (o as { toString(): string }).toString();
-  }
-  return String(o);
-}
-
 /** Throws {@link BranchAccessDeniedError} when the user may not use this branch. */
 export async function assertBranchAccess(user: BranchScopeUser, branchId: string): Promise<void> {
   const id = branchId.trim();
@@ -28,13 +18,15 @@ export async function assertBranchAccess(user: BranchScopeUser, branchId: string
 
   if (isPlatformAdmin(user.role)) return;
 
-  await connectDB();
-  const branch = await Branch.findOne({ _id: id, deletedAt: null }).select("organizationId").lean();
+  const branch = await prisma.branch.findFirst({
+    where: { id, deletedAt: null },
+    select: { organizationId: true },
+  });
   if (!branch) throw new BranchAccessDeniedError("Branch not found");
 
   if (user.role === "ORG_ADMIN") {
     const org = user.organizationId;
-    if (!org || branchOrganizationId(branch) !== org) {
+    if (!org || branch.organizationId !== org) {
       throw new BranchAccessDeniedError("Branch is not in your organization");
     }
     return;

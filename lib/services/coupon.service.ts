@@ -1,7 +1,6 @@
 import { customAlphabet } from "nanoid";
-import type { ClientSession, Types } from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Coupon, type ICoupon, type CouponSource, type CouponType } from "@/lib/db/models/Coupon";
+import type { Prisma, Coupon, CouponSource, CouponType } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import type { SpinPrizeDef } from "@/lib/constants/spinWheel";
 import { SPIN_COUPON_VALID_DAYS } from "@/lib/constants/spinWheel";
 import type { CreateCouponInput, UpdateCouponInput } from "@/lib/validations/coupon.schema";
@@ -19,18 +18,19 @@ export const WELCOME_COUPON_PERCENT = 10;
 export const WELCOME_COUPON_VALID_DAYS = 30;
 
 /** Issues a single-use, customer-locked welcome coupon. Idempotent guard lives in the caller. */
-export async function issueWelcomeCoupon(customerId: Types.ObjectId | string): Promise<ICoupon> {
-  await connectDB();
+export async function issueWelcomeCoupon(customerId: string): Promise<Coupon> {
   const expiresAt = new Date(Date.now() + WELCOME_COUPON_VALID_DAYS * 24 * 60 * 60 * 1000);
-  return Coupon.create({
-    code: `WELCOME${generateCode()}`,
-    type: "percent",
-    value: WELCOME_COUPON_PERCENT,
-    source: "welcome",
-    customerId,
-    maxRedemptions: 1,
-    isActive: true,
-    expiresAt,
+  return prisma.coupon.create({
+    data: {
+      code: `WELCOME${generateCode()}`,
+      type: "percent",
+      value: WELCOME_COUPON_PERCENT,
+      source: "welcome",
+      customerId,
+      maxRedemptions: 1,
+      isActive: true,
+      expiresAt,
+    },
   });
 }
 
@@ -38,28 +38,29 @@ export async function issueWelcomeCoupon(customerId: Types.ObjectId | string): P
 export async function issueSpinCoupon(
   email: string,
   prize: SpinPrizeDef,
-  freeItemProductId?: Types.ObjectId | null
-): Promise<ICoupon> {
-  await connectDB();
+  freeItemProductId?: string | null
+): Promise<Coupon> {
   const expiresAt = new Date(Date.now() + SPIN_COUPON_VALID_DAYS * 24 * 60 * 60 * 1000);
-  return Coupon.create({
-    code: `SPIN${generateCode()}`,
-    type: prize.couponType,
-    value: prize.value,
-    source: "spin",
-    customerEmail: email.trim().toLowerCase(),
-    freeItemProductId: prize.requiresFreeGiftProduct ? freeItemProductId : null,
-    spinPrizeLabel: prize.label,
-    maxRedemptions: 1,
-    isActive: true,
-    expiresAt,
+  return prisma.coupon.create({
+    data: {
+      code: `SPIN${generateCode()}`,
+      type: prize.couponType,
+      value: prize.value,
+      source: "spin",
+      customerEmail: email.trim().toLowerCase(),
+      freeItemProductId: prize.requiresFreeGiftProduct ? freeItemProductId : null,
+      spinPrizeLabel: prize.label,
+      maxRedemptions: 1,
+      isActive: true,
+      expiresAt,
+    },
   });
 }
 
 export type CouponValidationResult =
   | {
       ok: true;
-      couponId: Types.ObjectId;
+      couponId: string;
       discountAmount: number;
       description: string;
       freeShipping?: boolean;
@@ -73,8 +74,8 @@ export type ValidateCouponOptions = {
   cartUnitPriceForProduct?: (productId: string) => number | undefined;
   /** Returns the sum of cart line totals for a product category. Required for category-scoped coupons. */
   cartSubtotalForCategory?: (category: string) => number;
-  /** Pass the active transaction session when calling inside a `withTransaction`/`startTransaction` block. */
-  session?: ClientSession;
+  /** Pass the active transaction client when calling inside a `prisma.$transaction` block. */
+  tx?: Prisma.TransactionClient;
 };
 
 /** Non-throwing validation — safe to call while the customer is still editing the checkout form. */
@@ -84,11 +85,11 @@ export async function validateCoupon(
   subtotal: number,
   opts?: ValidateCouponOptions
 ): Promise<CouponValidationResult> {
-  await connectDB();
+  const db = opts?.tx ?? prisma;
   const normalized = code.trim().toUpperCase();
   if (!normalized) return { ok: false, message: "Enter a coupon code" };
 
-  const coupon = await Coupon.findOne({ code: normalized }).session(opts?.session ?? null).lean();
+  const coupon = await db.coupon.findUnique({ where: { code: normalized } });
   if (!coupon || !coupon.isActive) {
     return { ok: false, message: "Coupon not found" };
   }
@@ -96,7 +97,7 @@ export async function validateCoupon(
     return { ok: false, message: "This coupon has expired" };
   }
   if (coupon.customerId) {
-    if (!customerUserId || String(coupon.customerId) !== String(customerUserId)) {
+    if (!customerUserId || coupon.customerId !== customerUserId) {
       return { ok: false, message: "This coupon isn't available on your account" };
     }
   } else if (coupon.customerEmail) {
@@ -105,21 +106,23 @@ export async function validateCoupon(
       return { ok: false, message: "This coupon isn't available for this email" };
     }
   }
+
+  const email = opts?.email?.trim().toLowerCase();
   const alreadyRedeemedByCustomer =
-    (customerUserId &&
-      coupon.redemptions.some(
-        (r: { customerId?: Types.ObjectId | null }) =>
-          r.customerId && String(r.customerId) === String(customerUserId)
-      )) ||
-    (opts?.email &&
-      coupon.redemptions.some(
-        (r: { customerEmail?: string }) =>
-          r.customerEmail && r.customerEmail === opts.email!.trim().toLowerCase()
-      ));
+    (customerUserId || email) &&
+    (await db.couponRedemption.findFirst({
+      where: {
+        couponId: coupon.id,
+        OR: [
+          ...(customerUserId ? [{ customerId: customerUserId }] : []),
+          ...(email ? [{ customerEmail: email }] : []),
+        ],
+      },
+    })) !== null;
   if (alreadyRedeemedByCustomer) {
     return { ok: false, message: "You've already used this coupon" };
   }
-  if (coupon.redemptions.length >= coupon.maxRedemptions) {
+  if (coupon.redeemedCount >= coupon.maxRedemptions) {
     return { ok: false, message: "This coupon has already been fully redeemed" };
   }
 
@@ -138,7 +141,7 @@ export async function validateCoupon(
   if (coupon.type === "free_shipping") {
     return {
       ok: true,
-      couponId: coupon._id as Types.ObjectId,
+      couponId: coupon.id,
       discountAmount: 0,
       description: "Free shipping",
       freeShipping: true,
@@ -146,7 +149,7 @@ export async function validateCoupon(
   }
 
   if (coupon.type === "free_item") {
-    const productId = coupon.freeItemProductId ? String(coupon.freeItemProductId) : null;
+    const productId = coupon.freeItemProductId;
     const unitPrice = productId ? opts?.cartUnitPriceForProduct?.(productId) : undefined;
     if (!productId || unitPrice === undefined) {
       return {
@@ -156,7 +159,7 @@ export async function validateCoupon(
     }
     return {
       ok: true,
-      couponId: coupon._id as Types.ObjectId,
+      couponId: coupon.id,
       discountAmount: Math.min(unitPrice, subtotal),
       description: coupon.spinPrizeLabel ?? "Free item",
     };
@@ -164,38 +167,35 @@ export async function validateCoupon(
 
   const discountAmount =
     coupon.type === "percent"
-      ? Math.round((scopedSubtotal * Math.min(100, coupon.value)) / 100 * 100) / 100
+      ? Math.round(((scopedSubtotal * Math.min(100, coupon.value)) / 100) * 100) / 100
       : Math.min(coupon.value, scopedSubtotal);
 
   const description =
     (coupon.type === "percent" ? `${coupon.value}% off` : `₱${coupon.value} off`) +
     (coupon.category ? ` ${categoryLabel(coupon.category)}` : "");
 
-  return { ok: true, couponId: coupon._id as Types.ObjectId, discountAmount, description };
+  return { ok: true, couponId: coupon.id, discountAmount, description };
 }
 
-/** Records a redemption. Call inside the same transaction/session used to create the order. */
+/** Records a redemption. Call inside the same transaction used to create the order. */
 export async function redeemCoupon(
-  couponId: Types.ObjectId,
-  customerId: Types.ObjectId | null,
-  orderId: Types.ObjectId,
-  session?: ClientSession,
+  couponId: string,
+  customerId: string | null,
+  orderId: string,
+  tx?: Prisma.TransactionClient,
   customerEmail?: string
 ): Promise<void> {
-  await Coupon.updateOne(
-    { _id: couponId },
-    {
-      $push: {
-        redemptions: {
-          customerId: customerId ?? null,
-          customerEmail: customerEmail?.trim().toLowerCase(),
-          orderId,
-          redeemedAt: new Date(),
-        },
-      },
+  const db = tx ?? prisma;
+  await db.couponRedemption.create({
+    data: {
+      couponId,
+      customerId: customerId ?? null,
+      customerEmail: customerEmail?.trim().toLowerCase(),
+      orderId,
+      redeemedAt: new Date(),
     },
-    { session }
-  );
+  });
+  await db.coupon.update({ where: { id: couponId }, data: { redeemedCount: { increment: 1 } } });
 }
 
 export interface CouponFilter {
@@ -207,54 +207,51 @@ export interface CouponFilter {
 
 /** Paginated list for the admin promos page. */
 export async function getCoupons(filter: CouponFilter = {}, page = 1, limit = 20) {
-  await connectDB();
-
-  const query: Record<string, unknown> = {};
-  if (filter.source) query.source = filter.source;
-  if (filter.isActive !== undefined) query.isActive = filter.isActive;
-  if (filter.search) query.code = { $regex: filter.search.trim(), $options: "i" };
-  if (filter.category) query.category = filter.category;
+  const where: Prisma.CouponWhereInput = {};
+  if (filter.source) where.source = filter.source;
+  if (filter.isActive !== undefined) where.isActive = filter.isActive;
+  if (filter.search) where.code = { contains: filter.search.trim(), mode: "insensitive" };
+  if (filter.category) where.category = filter.category as Prisma.CouponWhereInput["category"];
 
   const skip = (page - 1) * limit;
   const [coupons, total] = await Promise.all([
-    Coupon.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Coupon.countDocuments(query),
+    prisma.coupon.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit }),
+    prisma.coupon.count({ where }),
   ]);
 
   return { coupons, total, pages: Math.ceil(total / limit) };
 }
 
 export async function getCouponById(id: string) {
-  await connectDB();
-  return Coupon.findById(id).lean();
+  return prisma.coupon.findUnique({ where: { id } });
 }
 
 /** Creates a staff-issued ("manual") promo code. */
 export async function createManualCoupon(data: CreateCouponInput, actor?: AuditActor) {
-  await connectDB();
-
   const code = data.code.trim().toUpperCase();
-  const existing = await Coupon.findOne({ code });
+  const existing = await prisma.coupon.findUnique({ where: { code } });
   if (existing) throw new Error(`Code "${code}" already exists`);
 
-  const coupon = await Coupon.create({
-    code,
-    type: data.type,
-    value: data.type === "free_shipping" ? 0 : data.value,
-    source: "manual",
-    freeItemProductId: data.type === "free_item" ? data.freeItemProductId : null,
-    category: data.type === "free_item" ? null : data.category ?? null,
-    spinPrizeLabel: data.spinPrizeLabel,
-    maxRedemptions: data.maxRedemptions,
-    isActive: data.isActive,
-    expiresAt: data.expiresAt ?? null,
+  const coupon = await prisma.coupon.create({
+    data: {
+      code,
+      type: data.type,
+      value: data.type === "free_shipping" ? 0 : data.value,
+      source: "manual",
+      freeItemProductId: data.type === "free_item" ? data.freeItemProductId : null,
+      category: data.type === "free_item" ? null : data.category ?? null,
+      spinPrizeLabel: data.spinPrizeLabel,
+      maxRedemptions: data.maxRedemptions,
+      isActive: data.isActive,
+      expiresAt: data.expiresAt ?? null,
+    },
   });
 
   if (actor) {
     void writeAuditLog({
       action: "coupon.created",
       actor,
-      targetId: String(coupon._id),
+      targetId: coupon.id,
       targetType: "Coupon",
       metadata: { code, type: data.type },
     });
@@ -263,21 +260,24 @@ export async function createManualCoupon(data: CreateCouponInput, actor?: AuditA
   return coupon;
 }
 
-/** Updates an existing coupon. `source` and `redemptions` are never editable here. */
+/** Updates an existing coupon. `source` and redemptions are never editable here. */
 export async function updateCoupon(id: string, data: UpdateCouponInput, actor?: AuditActor) {
-  await connectDB();
-
   const update: Record<string, unknown> = { ...data };
   if (update.code) update.code = (update.code as string).trim().toUpperCase();
 
   if (update.code) {
-    const existing = await Coupon.findOne({ code: update.code, _id: { $ne: id } });
+    const existing = await prisma.coupon.findFirst({
+      where: { code: update.code as string, id: { not: id } },
+    });
     if (existing) throw new Error(`Code "${update.code}" already exists`);
   }
 
-  const result = await Coupon.findByIdAndUpdate(id, { $set: update }, { new: true, runValidators: true }).lean();
+  const existingCoupon = await prisma.coupon.findUnique({ where: { id } });
+  if (!existingCoupon) return null;
 
-  if (result && actor) {
+  const result = await prisma.coupon.update({ where: { id }, data: update });
+
+  if (actor) {
     void writeAuditLog({
       action: "coupon.updated",
       actor,
@@ -300,19 +300,27 @@ export interface FeaturedPromo {
 
 /** Most recently created, currently redeemable manual promo — used for marketplace home page promo rail. */
 export async function getFeaturedPromo(): Promise<FeaturedPromo | null> {
-  await connectDB();
-
   const now = new Date();
-  const coupon = await Coupon.findOne({
-    source: "manual",
-    isActive: true,
-    $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-    $expr: { $lt: [{ $size: "$redemptions" }, "$maxRedemptions"] },
-  })
-    .sort({ createdAt: -1 })
-    .select("code type value category expiresAt")
-    .lean();
+  const candidates = await prisma.coupon.findMany({
+    where: {
+      source: "manual",
+      isActive: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: {
+      code: true,
+      type: true,
+      value: true,
+      category: true,
+      expiresAt: true,
+      maxRedemptions: true,
+      redeemedCount: true,
+    },
+  });
 
+  const coupon = candidates.find((c) => c.redeemedCount < c.maxRedemptions);
   if (!coupon) return null;
 
   return {
@@ -324,12 +332,48 @@ export async function getFeaturedPromo(): Promise<FeaturedPromo | null> {
   };
 }
 
+export async function hasSpunWheel(email: string): Promise<boolean> {
+  const existing = await prisma.coupon.findFirst({ where: { source: "spin", customerEmail: email } });
+  return !!existing;
+}
+
+/** Paginated list of spin-wheel-issued coupons, for the admin spin-wheel management page. */
+export async function getSpinWheelCoupons(page: number, limit: number) {
+  const where: Prisma.CouponWhereInput = { source: "spin" };
+  const skip = (page - 1) * limit;
+  const [entries, total] = await Promise.all([
+    prisma.coupon.findMany({
+      where,
+      select: {
+        code: true,
+        type: true,
+        value: true,
+        spinPrizeLabel: true,
+        customerEmail: true,
+        isActive: true,
+        expiresAt: true,
+        redeemedCount: true,
+        maxRedemptions: true,
+        createdAt: true,
+        redemptions: { select: { redeemedAt: true, customerEmail: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.coupon.count({ where }),
+  ]);
+
+  return { entries, total };
+}
+
 export async function deleteCoupon(id: string, actor?: AuditActor) {
-  await connectDB();
+  const existing = await prisma.coupon.findUnique({ where: { id } });
+  if (!existing) return null;
 
-  const result = await Coupon.findByIdAndDelete(id).lean();
+  const result = await prisma.coupon.delete({ where: { id } });
 
-  if (result && actor) {
+  if (actor) {
     void writeAuditLog({
       action: "coupon.deleted",
       actor,

@@ -9,7 +9,7 @@ import {
 } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
-import type { CouponSource } from "@/lib/db/models/Coupon";
+import type { CouponSource } from "@prisma/client";
 
 const getHandler = async (req: AuthedRequest) => {
   try {

@@ -1,9 +1,6 @@
 import { unstable_cache } from "next/cache";
-import { connectDB } from "@/lib/db/connect";
-import { Branch } from "@/lib/db/models/Branch";
-// Side-effect import: registers the Organization schema so `.populate("organizationId")` below works.
-import "@/lib/db/models/Organization";
-import type { OrganizationType } from "@/lib/db/models/Organization";
+import { prisma } from "@/lib/db/prisma";
+import type { OrganizationType } from "@prisma/client";
 import logger from "@/lib/logger";
 
 export interface PublicLocation {
@@ -54,30 +51,34 @@ const geocodeAddress = unstable_cache(
 
 /** Active branches with geocoded coordinates, for the public /locations map. Branches whose address fails to geocode are omitted. */
 export async function getPublicLocations(): Promise<PublicLocation[]> {
-  await connectDB();
-
-  const branches = await Branch.find({ isActive: true, deletedAt: null })
-    .select("name code address phone isHeadOffice organizationId")
-    .populate("organizationId", "name type")
-    .sort({ isHeadOffice: -1, name: 1 })
-    .lean();
+  const branches = await prisma.branch.findMany({
+    where: { isActive: true, deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      address: true,
+      phone: true,
+      isHeadOffice: true,
+      organization: { select: { name: true, type: true } },
+    },
+    orderBy: [{ isHeadOffice: "desc" }, { name: "asc" }],
+  });
 
   const geocoded = await Promise.all(
     branches.map(async (branch) => {
       const coords = await geocodeAddress(branch.address);
       if (!coords) return null;
 
-      const org = branch.organizationId as { name?: string; type?: OrganizationType } | null;
-
       const location: PublicLocation = {
-        id: String(branch._id),
+        id: branch.id,
         name: branch.name,
         code: branch.code,
         address: branch.address,
         phone: branch.phone ?? null,
         isHeadOffice: branch.isHeadOffice,
-        organizationType: org?.type ?? null,
-        organizationName: org?.name ?? null,
+        organizationType: branch.organization?.type ?? null,
+        organizationName: branch.organization?.name ?? null,
         lat: coords.lat,
         lng: coords.lng,
       };

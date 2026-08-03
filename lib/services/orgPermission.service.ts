@@ -1,9 +1,39 @@
-import { connectDB } from "@/lib/db/connect";
-import { OrgPermission, type OrgPermissionKey } from "@/lib/db/models/OrgPermission";
-import { Organization } from "@/lib/db/models/Organization";
+import { OrgPermissionKey as PrismaOrgPermissionKey } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
-const PERMISSION_TO_SETTING: Record<OrgPermissionKey, string> = {
+/**
+ * Public string-literal form used throughout the app (routes, permission
+ * checks). Maps 1:1 to the Prisma `OrgPermissionKey` enum, whose members are
+ * `@map`-ed back to these exact literals at the DB layer.
+ */
+export type OrgPermissionKey =
+  | "sell:retail"
+  | "distribute:stock"
+  | "has:inventory"
+  | "earn:commission"
+  | "submit:orders";
+
+const TO_PRISMA_ENUM: Record<OrgPermissionKey, PrismaOrgPermissionKey> = {
+  "sell:retail": PrismaOrgPermissionKey.sell_retail,
+  "distribute:stock": PrismaOrgPermissionKey.distribute_stock,
+  "has:inventory": PrismaOrgPermissionKey.has_inventory,
+  "earn:commission": PrismaOrgPermissionKey.earn_commission,
+  "submit:orders": PrismaOrgPermissionKey.submit_orders,
+};
+
+const FROM_PRISMA_ENUM: Record<PrismaOrgPermissionKey, OrgPermissionKey> = {
+  [PrismaOrgPermissionKey.sell_retail]: "sell:retail",
+  [PrismaOrgPermissionKey.distribute_stock]: "distribute:stock",
+  [PrismaOrgPermissionKey.has_inventory]: "has:inventory",
+  [PrismaOrgPermissionKey.earn_commission]: "earn:commission",
+  [PrismaOrgPermissionKey.submit_orders]: "submit:orders",
+};
+
+const PERMISSION_TO_SETTING_COLUMN: Record<
+  OrgPermissionKey,
+  "canSellRetail" | "canDistribute" | "hasInventory" | "commissionEnabled" | "canSubmitOrders"
+> = {
   "sell:retail": "canSellRetail",
   "distribute:stock": "canDistribute",
   "has:inventory": "hasInventory",
@@ -12,11 +42,12 @@ const PERMISSION_TO_SETTING: Record<OrgPermissionKey, string> = {
 };
 
 export async function getOrgPermissions(organizationId: string) {
-  await connectDB();
-  return OrgPermission.find({ organizationId })
-    .populate("grantedBy", "name")
-    .sort({ permission: 1 })
-    .lean();
+  const rows = await prisma.orgPermission.findMany({
+    where: { organizationId },
+    include: { grantedByUser: { select: { name: true } } },
+    orderBy: { permission: "asc" },
+  });
+  return rows.map((r) => ({ ...r, permission: FROM_PRISMA_ENUM[r.permission] }));
 }
 
 export async function setOrgPermission(
@@ -26,29 +57,32 @@ export async function setOrgPermission(
   grantedBy: string,
   opts?: { expiresAt?: Date | null; notes?: string; actor?: AuditActor }
 ) {
-  await connectDB();
+  const prismaPermission = TO_PRISMA_ENUM[permission];
 
-  const record = await OrgPermission.findOneAndUpdate(
-    { organizationId, permission },
-    {
-      $set: {
+  const [record] = await prisma.$transaction([
+    prisma.orgPermission.upsert({
+      where: { organizationId_permission: { organizationId, permission: prismaPermission } },
+      create: {
+        organizationId,
+        permission: prismaPermission,
         isGranted,
         grantedBy,
         expiresAt: opts?.expiresAt ?? null,
         notes: opts?.notes,
       },
-    },
-    { upsert: true, new: true }
-  ).lean();
-
-  // Sync to org.settings for quick-read access
-  const settingKey = PERMISSION_TO_SETTING[permission];
-  if (settingKey) {
-    await Organization.findByIdAndUpdate(
-      organizationId,
-      { $set: { [`settings.${settingKey}`]: isGranted } }
-    );
-  }
+      update: {
+        isGranted,
+        grantedBy,
+        expiresAt: opts?.expiresAt ?? null,
+        notes: opts?.notes,
+      },
+    }),
+    // Sync to Organization's flattened settings columns for quick-read access
+    prisma.organization.update({
+      where: { id: organizationId },
+      data: { [PERMISSION_TO_SETTING_COLUMN[permission]]: isGranted },
+    }),
+  ]);
 
   if (opts?.actor) {
     void writeAuditLog({
@@ -60,22 +94,25 @@ export async function setOrgPermission(
     });
   }
 
-  return record;
+  return { ...record, permission: FROM_PRISMA_ENUM[record.permission] };
 }
 
 export async function hasOrgPermission(
   organizationId: string,
   permission: OrgPermissionKey
 ): Promise<boolean> {
-  await connectDB();
-  const record = await OrgPermission.findOne({ organizationId, permission }).lean();
+  const record = await prisma.orgPermission.findUnique({
+    where: {
+      organizationId_permission: { organizationId, permission: TO_PRISMA_ENUM[permission] },
+    },
+  });
   if (!record) {
-    // Fall back to org.settings if no explicit permission record exists
-    const org = await Organization.findById(organizationId).lean();
+    // Fall back to Organization's flattened settings columns if no explicit
+    // permission record exists.
+    const org = await prisma.organization.findUnique({ where: { id: organizationId } });
     if (!org) return false;
-    const key = PERMISSION_TO_SETTING[permission];
-    if (!key || typeof key !== "string") return false;
-    return !!(org.settings as Record<string, boolean>)[key];
+    const column = PERMISSION_TO_SETTING_COLUMN[permission];
+    return !!org[column];
   }
   if (record.expiresAt && record.expiresAt < new Date()) return false;
   return record.isGranted;

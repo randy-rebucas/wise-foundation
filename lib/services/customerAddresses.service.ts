@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
+import { prisma } from "@/lib/db/prisma";
 
 export type CustomerAddressFromOrder = {
   id: string;
@@ -14,46 +12,34 @@ export type CustomerAddressFromOrder = {
   lastUsedAt: string;
 };
 
-function addressKey(ship: {
-  line1: string;
-  city: string;
-  postalCode: string;
-}) {
+function addressKey(ship: { line1: string; city: string; postalCode: string }) {
   return `${ship.line1}|${ship.city}|${ship.postalCode}`.toLowerCase();
 }
+
+type MarketplaceShipping = {
+  fullName?: string;
+  phone?: string;
+  line1?: string;
+  line2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+};
 
 export async function listAddressesFromOrders(
   customerUserId: string
 ): Promise<CustomerAddressFromOrder[]> {
-  await connectDB();
-  if (!mongoose.isValidObjectId(customerUserId)) return [];
-
-  const oid = new mongoose.Types.ObjectId(customerUserId);
-  const rows = await Order.find({
-    type: "MARKETPLACE",
-    marketplaceCustomerUserId: oid,
-    deletedAt: null,
-    "marketplaceShipping.line1": { $exists: true, $ne: "" },
-  })
-    .sort({ createdAt: -1 })
-    .select("marketplaceShipping createdAt")
-    .limit(50)
-    .lean();
+  const rows = await prisma.order.findMany({
+    where: { type: "MARKETPLACE", marketplaceCustomerUserId: customerUserId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { paymentDetails: true, createdAt: true },
+    take: 50,
+  });
 
   const seen = new Map<string, CustomerAddressFromOrder>();
 
   for (const row of rows) {
-    const ship = row.marketplaceShipping as
-      | {
-          fullName?: string;
-          phone?: string;
-          line1?: string;
-          line2?: string;
-          city?: string;
-          region?: string;
-          postalCode?: string;
-        }
-      | undefined;
+    const ship = (row.paymentDetails as { shipping?: MarketplaceShipping } | null)?.shipping;
     if (!ship?.line1?.trim()) continue;
 
     const key = addressKey({
@@ -72,7 +58,7 @@ export async function listAddressesFromOrders(
       city: ship.city?.trim() || "—",
       region: ship.region?.trim() || "—",
       postalCode: ship.postalCode?.trim() || "—",
-      lastUsedAt: (row.createdAt as Date).toISOString(),
+      lastUsedAt: row.createdAt.toISOString(),
     });
   }
 

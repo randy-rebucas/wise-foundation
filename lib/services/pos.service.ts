@@ -1,13 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { OrderItem } from "@/lib/db/models/OrderItem";
-import { Inventory } from "@/lib/db/models/Inventory";
-import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
-import { StockMovement } from "@/lib/db/models/StockMovement";
-import { Member } from "@/lib/db/models/Member";
-import { Branch } from "@/lib/db/models/Branch";
-import { Transaction } from "@/lib/db/models/Transaction";
+import { prisma } from "@/lib/db/prisma";
 import { generateOrderNumber } from "@/lib/utils";
 import type { CartItem } from "@/types";
 
@@ -23,15 +14,9 @@ interface CheckoutInput {
   shippingFee?: number;
 }
 
-
 export async function processCheckout(input: CheckoutInput) {
-  await connectDB();
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
-    const branch = await Branch.findById(input.branchId).session(session).lean();
+  return prisma.$transaction(async (tx) => {
+    const branch = await tx.branch.findUnique({ where: { id: input.branchId } });
     if (!branch) throw new Error("Branch not found");
     const organizationId = branch.organizationId ?? null;
 
@@ -45,23 +30,17 @@ export async function processCheckout(input: CheckoutInput) {
 
     let memberName: string | undefined;
     if (input.memberId) {
-      const member = await Member.findOne({
-        _id: input.memberId,
-        status: "active",
-      }).session(session);
+      const member = await tx.member.findFirst({ where: { id: input.memberId, status: "active" } });
       if (!member) throw new Error("Member not found or inactive");
       memberName = member.name;
     }
 
     // Batch-fetch all inventory records, validate, then bulk-update
-    const inventoryDocs = await Inventory.find({
-      branchId: input.branchId,
-      productId: { $in: input.items.map((i) => i.productId) },
-    }).session(session).lean();
+    const inventoryDocs = await tx.inventory.findMany({
+      where: { branchId: input.branchId, productId: { in: input.items.map((i) => i.productId) } },
+    });
 
-    const invMap = new Map(
-      inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv])
-    );
+    const invMap = new Map(inventoryDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv]));
 
     for (const item of input.items) {
       const inv = invMap.get(`${item.productId}:${item.variantId ?? ""}`);
@@ -73,48 +52,35 @@ export async function processCheckout(input: CheckoutInput) {
       }
     }
 
-    // Batch deduct branch inventory
-    await Inventory.bulkWrite(
-      input.items.map((item) => ({
-        updateOne: {
-          filter: {
-            branchId: input.branchId,
-            productId: item.productId,
-            variantId: item.variantId ?? null,
-          },
-          update: { $inc: { quantity: -item.quantity } },
-        },
-      })),
-      { session }
-    );
+    // Deduct branch inventory
+    for (const item of input.items) {
+      const inv = invMap.get(`${item.productId}:${item.variantId ?? ""}`)!;
+      await tx.inventory.update({
+        where: { id: inv.id },
+        data: { quantity: { decrement: item.quantity } },
+      });
+    }
 
-    // Batch deduct org inventory (if applicable)
+    // Deduct org inventory (if applicable)
     if (organizationId) {
-      await OrganizationInventory.bulkWrite(
-        input.items.map((item) => ({
-          updateOne: {
-            filter: {
-              organizationId,
-              productId: item.productId,
-              variantId: item.variantId ?? null,
-            },
-            update: { $inc: { quantity: -item.quantity, totalSold: item.quantity } },
-          },
-        })),
-        { session }
-      );
+      for (const item of input.items) {
+        await tx.organizationInventory.updateMany({
+          where: { organizationId, productId: item.productId, variantId: item.variantId ?? null },
+          data: { quantity: { decrement: item.quantity }, totalSold: { increment: item.quantity } },
+        });
+      }
     }
 
     // Batch create stock movements
-    await StockMovement.insertMany(
-      input.items.map((item) => {
+    await tx.stockMovement.createMany({
+      data: input.items.map((item) => {
         const inv = invMap.get(`${item.productId}:${item.variantId ?? ""}`)!;
         return {
           branchId: input.branchId,
           organizationId,
           productId: item.productId,
           variantId: item.variantId ?? null,
-          type: "OUT",
+          type: "OUT" as const,
           quantity: item.quantity,
           previousQuantity: inv.quantity,
           newQuantity: inv.quantity - item.quantity,
@@ -122,80 +88,70 @@ export async function processCheckout(input: CheckoutInput) {
           performedBy: input.cashierId,
         };
       }),
-      { session }
-    );
+    });
 
-    const [order] = await Order.create(
-      [
-        {
-          branchId: input.branchId,
-          organizationId,
-          orderNumber,
-          type: "POS",
-          status: "paid",
-          memberId: input.memberId ?? null,
-          memberName,
-          cashierId: input.cashierId,
-          subtotal,
-          discountAmount,
-          discountPercent: input.discountPercent,
-          shippingAmount: shippingFee,
-          total,
-          amountPaid: input.amountPaid,
-          change,
-          paymentMethod: input.paymentMethod,
-          notes: input.notes,
-          paidAt: new Date(),
-        },
-      ],
-      { session }
-    );
+    const order = await tx.order.create({
+      data: {
+        branchId: input.branchId,
+        organizationId,
+        orderNumber,
+        type: "POS",
+        status: "paid",
+        memberId: input.memberId ?? null,
+        memberName,
+        cashierId: input.cashierId,
+        subtotal,
+        discountAmount,
+        discountPercent: input.discountPercent,
+        shippingAmount: shippingFee,
+        total,
+        amountPaid: input.amountPaid,
+        change,
+        paymentMethod: input.paymentMethod,
+        notes: input.notes,
+        paidAt: new Date(),
+      },
+    });
 
-    const orderItems = input.items.map((item) => ({
-      orderId: order._id,
-      branchId: input.branchId,
-      organizationId,
-      productId: item.productId,
-      variantId: item.variantId ?? null,
-      productName: item.name,
-      sku: item.sku,
-      quantity: item.quantity,
-      unitPrice: item.price,
-      cost: 0,
-      total: item.price * item.quantity,
-    }));
+    await tx.orderItem.createMany({
+      data: input.items.map((item) => ({
+        orderId: order.id,
+        branchId: input.branchId,
+        organizationId,
+        productId: item.productId,
+        variantId: item.variantId ?? null,
+        productName: item.name,
+        sku: item.sku,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        cost: 0,
+        total: item.price * item.quantity,
+      })),
+    });
 
-    await OrderItem.insertMany(orderItems, { session });
-
-    await Transaction.create(
-      [
-        {
-          branchId: input.branchId,
-          organizationId,
-          orderId: order._id,
-          memberId: input.memberId ?? null,
-          type: "SALE",
-          amount: total,
-          paymentMethod: input.paymentMethod,
-          performedBy: input.cashierId,
-        },
-      ],
-      { session }
-    );
+    await tx.transaction.create({
+      data: {
+        branchId: input.branchId,
+        organizationId,
+        orderId: order.id,
+        memberId: input.memberId ?? null,
+        type: "SALE",
+        amount: total,
+        paymentMethod: input.paymentMethod,
+        performedBy: input.cashierId,
+      },
+    });
 
     if (input.memberId) {
-      await Member.updateOne(
-        { _id: input.memberId },
-        { $inc: { totalPurchases: 1, totalSpent: total } },
-        { session }
-      );
+      await tx.member.update({
+        where: { id: input.memberId },
+        data: { totalPurchases: { increment: 1 }, totalSpent: { increment: total } },
+      });
     }
-
-    await session.commitTransaction();
 
     return {
       orderNumber,
-      orderId: order._id.toString(),
+      orderId: order.id,
       subtotal,
       discountAmount,
       shippingFee,
@@ -203,10 +159,5 @@ export async function processCheckout(input: CheckoutInput) {
       change,
       paymentMethod: input.paymentMethod,
     };
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
-  } finally {
-    await session.endSession();
-  }
+  });
 }

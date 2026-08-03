@@ -1,9 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { OrderItem } from "@/lib/db/models/OrderItem";
-import { Product } from "@/lib/db/models/Product";
-import { User, type IUserMarketplace } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 import type {
   MarketplaceCustomerReview,
   MarketplacePaymentMethod,
@@ -22,57 +17,42 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function getCustomerUser(userId: string) {
-  await connectDB();
-  if (!mongoose.isValidObjectId(userId)) return null;
-  return User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null }).select("marketplace");
-}
-
-function defaultMarketplace(): IUserMarketplace {
-  return {
-    wishlist: [],
-    savedAddresses: [],
-    paymentMethods: [],
-    reviews: [],
-  };
-}
-
-function ensureMarketplace(raw: IUserMarketplace | null | undefined): IUserMarketplace {
-  if (!raw) return defaultMarketplace();
-  return {
-    wishlist: [...(raw.wishlist ?? [])],
-    savedAddresses: [...(raw.savedAddresses ?? [])],
-    paymentMethods: [...(raw.paymentMethods ?? [])],
-    reviews: [...(raw.reviews ?? [])],
-  };
+async function assertCustomerExists(userId: string) {
+  const user = await prisma.user.findFirst({ where: { id: userId, role: "CUSTOMER", deletedAt: null } });
+  if (!user) throw new Error("Account not found");
+  return user;
 }
 
 export async function getCustomerWishlist(userId: string): Promise<MarketplaceWishlistItem[]> {
-  const user = await getCustomerUser(userId);
-  return user?.marketplace?.wishlist ?? [];
+  const rows = await prisma.userWishlistItem.findMany({ where: { userId } });
+  return rows.map((r) => ({
+    productId: r.productId,
+    variantId: r.variantId,
+    slug: r.slug,
+    name: r.name,
+    variantName: r.variantName ?? undefined,
+    sku: r.sku,
+    price: r.price,
+    image: r.image ?? undefined,
+    addedAt: r.addedAt,
+  }));
 }
 
 export async function addCustomerWishlistItem(
   userId: string,
   item: z.infer<typeof wishlistItemSchema>
 ): Promise<MarketplaceWishlistItem[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  const exists = marketplace.wishlist.some(
-    (w: MarketplaceWishlistItem) => w.productId === item.productId && w.variantId === item.variantId
-  );
+  const exists = await prisma.userWishlistItem.findFirst({
+    where: { userId, productId: item.productId, variantId: item.variantId ?? null },
+  });
   if (!exists) {
-    marketplace.wishlist.push({
-      ...item,
-      addedAt: new Date().toISOString(),
+    await prisma.userWishlistItem.create({
+      data: { id: newId("wish"), userId, ...item, addedAt: new Date().toISOString() },
     });
   }
-  user.marketplace = marketplace;
-  await user.save();
-  return marketplace.wishlist;
+  return getCustomerWishlist(userId);
 }
 
 export async function removeCustomerWishlistItem(
@@ -80,205 +60,171 @@ export async function removeCustomerWishlistItem(
   productId: string,
   variantId: string | null
 ): Promise<MarketplaceWishlistItem[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
-
-  const marketplace = ensureMarketplace(user.marketplace);
-  marketplace.wishlist = marketplace.wishlist.filter(
-    (w: MarketplaceWishlistItem) => !(w.productId === productId && w.variantId === variantId)
-  );
-  user.marketplace = marketplace;
-  await user.save();
-  return marketplace.wishlist;
+  await assertCustomerExists(userId);
+  await prisma.userWishlistItem.deleteMany({ where: { userId, productId, variantId } });
+  return getCustomerWishlist(userId);
 }
 
 export async function getCustomerSavedAddresses(userId: string): Promise<MarketplaceSavedAddress[]> {
-  const user = await getCustomerUser(userId);
-  return user?.marketplace?.savedAddresses ?? [];
+  const rows = await prisma.userSavedAddress.findMany({ where: { userId } });
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    fullName: r.fullName,
+    phone: r.phone,
+    line1: r.line1,
+    line2: r.line2 ?? undefined,
+    city: r.city,
+    region: r.region,
+    postalCode: r.postalCode,
+    isDefault: r.isDefault,
+  }));
 }
 
 export async function addCustomerSavedAddress(
   userId: string,
   input: z.infer<typeof savedAddressSchema>
 ): Promise<MarketplaceSavedAddress[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  const isDefault = input.isDefault ?? marketplace.savedAddresses.length === 0;
-  const addresses = isDefault
-    ? marketplace.savedAddresses.map((a: MarketplaceSavedAddress) => ({ ...a, isDefault: false }))
-    : [...marketplace.savedAddresses];
+  const existingCount = await prisma.userSavedAddress.count({ where: { userId } });
+  const isDefault = input.isDefault ?? existingCount === 0;
 
-  addresses.push({
-    id: newId("addr"),
-    label: input.label,
-    fullName: input.fullName,
-    phone: input.phone,
-    line1: input.line1,
-    line2: input.line2,
-    city: input.city,
-    region: input.region,
-    postalCode: input.postalCode,
-    isDefault,
+  await prisma.$transaction(async (tx) => {
+    if (isDefault) {
+      await tx.userSavedAddress.updateMany({ where: { userId }, data: { isDefault: false } });
+    }
+    await tx.userSavedAddress.create({
+      data: { id: newId("addr"), userId, ...input, isDefault },
+    });
   });
 
-  marketplace.savedAddresses = addresses;
-  user.marketplace = marketplace;
-  await user.save();
-  return addresses;
+  return getCustomerSavedAddresses(userId);
 }
 
 export async function removeCustomerSavedAddress(
   userId: string,
   addressId: string
 ): Promise<MarketplaceSavedAddress[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  let addresses = marketplace.savedAddresses.filter((a: MarketplaceSavedAddress) => a.id !== addressId);
-  if (addresses.length > 0 && !addresses.some((a: MarketplaceSavedAddress) => a.isDefault)) {
-    addresses = addresses.map((a: MarketplaceSavedAddress, i: number) => ({
-      ...a,
-      isDefault: i === 0,
-    }));
-  }
-  marketplace.savedAddresses = addresses;
-  user.marketplace = marketplace;
-  await user.save();
-  return addresses;
+  await prisma.$transaction(async (tx) => {
+    await tx.userSavedAddress.deleteMany({ where: { id: addressId, userId } });
+    const remaining = await tx.userSavedAddress.findMany({ where: { userId } });
+    if (remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
+      await tx.userSavedAddress.update({ where: { id: remaining[0]!.id }, data: { isDefault: true } });
+    }
+  });
+
+  return getCustomerSavedAddresses(userId);
 }
 
 export async function setCustomerDefaultAddress(
   userId: string,
   addressId: string
 ): Promise<MarketplaceSavedAddress[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  marketplace.savedAddresses = marketplace.savedAddresses.map((a: MarketplaceSavedAddress) => ({
-    ...a,
-    isDefault: a.id === addressId,
-  }));
-  user.marketplace = marketplace;
-  await user.save();
-  return marketplace.savedAddresses;
+  await prisma.$transaction([
+    prisma.userSavedAddress.updateMany({ where: { userId }, data: { isDefault: false } }),
+    prisma.userSavedAddress.updateMany({ where: { userId, id: addressId }, data: { isDefault: true } }),
+  ]);
+
+  return getCustomerSavedAddresses(userId);
 }
 
 export async function getCustomerPaymentMethods(userId: string): Promise<MarketplacePaymentMethod[]> {
-  const user = await getCustomerUser(userId);
-  return user?.marketplace?.paymentMethods ?? [];
+  const rows = await prisma.userPaymentMethod.findMany({ where: { userId } });
+  return rows.map((r) => ({
+    id: r.id,
+    type: r.type,
+    label: r.label,
+    last4: r.last4 ?? undefined,
+    isDefault: r.isDefault,
+  }));
 }
 
 export async function addCustomerPaymentMethod(
   userId: string,
   input: z.infer<typeof paymentMethodSchema>
 ): Promise<MarketplacePaymentMethod[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  const isDefault = input.isDefault ?? marketplace.paymentMethods.length === 0;
-  const methods = isDefault
-    ? marketplace.paymentMethods.map((m: MarketplacePaymentMethod) => ({ ...m, isDefault: false }))
-    : [...marketplace.paymentMethods];
+  const existingCount = await prisma.userPaymentMethod.count({ where: { userId } });
+  const isDefault = input.isDefault ?? existingCount === 0;
 
-  methods.push({
-    id: newId("pay"),
-    type: input.type,
-    label: input.label,
-    last4: input.last4,
-    isDefault,
+  await prisma.$transaction(async (tx) => {
+    if (isDefault) {
+      await tx.userPaymentMethod.updateMany({ where: { userId }, data: { isDefault: false } });
+    }
+    await tx.userPaymentMethod.create({
+      data: { id: newId("pay"), userId, ...input, isDefault },
+    });
   });
 
-  marketplace.paymentMethods = methods;
-  user.marketplace = marketplace;
-  await user.save();
-  return methods;
+  return getCustomerPaymentMethods(userId);
 }
 
 export async function removeCustomerPaymentMethod(
   userId: string,
   methodId: string
 ): Promise<MarketplacePaymentMethod[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  let methods = marketplace.paymentMethods.filter((m: MarketplacePaymentMethod) => m.id !== methodId);
-  if (methods.length > 0 && !methods.some((m: MarketplacePaymentMethod) => m.isDefault)) {
-    methods = methods.map((m: MarketplacePaymentMethod, i: number) => ({
-      ...m,
-      isDefault: i === 0,
-    }));
-  }
-  marketplace.paymentMethods = methods;
-  user.marketplace = marketplace;
-  await user.save();
-  return methods;
+  await prisma.$transaction(async (tx) => {
+    await tx.userPaymentMethod.deleteMany({ where: { id: methodId, userId } });
+    const remaining = await tx.userPaymentMethod.findMany({ where: { userId } });
+    if (remaining.length > 0 && !remaining.some((m) => m.isDefault)) {
+      await tx.userPaymentMethod.update({ where: { id: remaining[0]!.id }, data: { isDefault: true } });
+    }
+  });
+
+  return getCustomerPaymentMethods(userId);
 }
 
 export async function setCustomerDefaultPaymentMethod(
   userId: string,
   methodId: string
 ): Promise<MarketplacePaymentMethod[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  marketplace.paymentMethods = marketplace.paymentMethods.map((m: MarketplacePaymentMethod) => ({
-    ...m,
-    isDefault: m.id === methodId,
-  }));
-  user.marketplace = marketplace;
-  await user.save();
-  return marketplace.paymentMethods;
+  await prisma.$transaction([
+    prisma.userPaymentMethod.updateMany({ where: { userId }, data: { isDefault: false } }),
+    prisma.userPaymentMethod.updateMany({ where: { userId, id: methodId }, data: { isDefault: true } }),
+  ]);
+
+  return getCustomerPaymentMethods(userId);
 }
 
 export async function getCustomerReviews(userId: string): Promise<MarketplaceCustomerReview[]> {
-  const user = await getCustomerUser(userId);
-  const reviews = user?.marketplace?.reviews ?? [];
-  return [...reviews].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const rows = await prisma.userReview.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+  return rows.map((r) => ({
+    id: r.id,
+    productId: r.productId,
+    productName: r.productName,
+    productSlug: r.productSlug ?? undefined,
+    rating: r.rating,
+    text: r.text,
+    createdAt: r.createdAt,
+    images: r.images ?? undefined,
+    featured: r.featured,
+  }));
 }
 
 const REVIEWABLE_ORDER_STATUSES = ["delivered", "completed"] as const;
 
-async function customerPurchasedProductForReview(
-  userId: string,
-  productId: string
-): Promise<boolean> {
-  if (!mongoose.isValidObjectId(userId) || !mongoose.isValidObjectId(productId)) {
-    return false;
-  }
-  const customerOid = new mongoose.Types.ObjectId(userId);
-  const productOid = new mongoose.Types.ObjectId(productId);
-  const orders = await Order.find({
-    type: "MARKETPLACE",
-    marketplaceCustomerUserId: customerOid,
-    deletedAt: null,
-    status: { $in: [...REVIEWABLE_ORDER_STATUSES] },
-  })
-    .select("_id")
-    .lean();
-  if (!orders.length) return false;
-  const orderIds = orders.map((o) => o._id);
-  const match = await OrderItem.findOne({
-    orderId: { $in: orderIds },
-    productId: productOid,
-  })
-    .select("_id")
-    .lean();
+async function customerPurchasedProductForReview(userId: string, productId: string): Promise<boolean> {
+  const match = await prisma.orderItem.findFirst({
+    where: {
+      productId,
+      order: {
+        type: "MARKETPLACE",
+        marketplaceCustomerUserId: userId,
+        deletedAt: null,
+        status: { in: [...REVIEWABLE_ORDER_STATUSES] },
+      },
+    },
+  });
   return !!match;
 }
 
@@ -286,40 +232,110 @@ export async function addCustomerReview(
   userId: string,
   input: z.infer<typeof customerReviewSchema>
 ): Promise<MarketplaceCustomerReview[]> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, role: "CUSTOMER", deletedAt: null });
-  if (!user) throw new Error("Account not found");
+  await assertCustomerExists(userId);
 
   const canReview = await customerPurchasedProductForReview(userId, input.productId);
   if (!canReview) {
     throw new Error("You can only review products from a delivered order");
   }
 
-  const marketplace = ensureMarketplace(user.marketplace);
-  const duplicate = marketplace.reviews.some(
-    (r: MarketplaceCustomerReview) => r.productId === input.productId
-  );
+  const duplicate = await prisma.userReview.findFirst({ where: { userId, productId: input.productId } });
   if (duplicate) throw new Error("You have already reviewed this product");
 
   let productSlug = input.productSlug;
-  if (!productSlug && mongoose.isValidObjectId(input.productId)) {
-    const product = await Product.findById(input.productId).select("slug").lean();
-    productSlug = product?.slug as string | undefined;
+  if (!productSlug) {
+    const product = await prisma.product.findUnique({ where: { id: input.productId }, select: { slug: true } });
+    productSlug = product?.slug;
   }
 
-  marketplace.reviews.push({
-    id: newId("rev"),
-    productId: input.productId,
-    productName: input.productName,
-    productSlug,
-    rating: input.rating,
-    text: input.text.trim(),
-    createdAt: new Date().toISOString(),
+  await prisma.userReview.create({
+    data: {
+      id: newId("rev"),
+      userId,
+      productId: input.productId,
+      productName: input.productName,
+      productSlug,
+      rating: input.rating,
+      text: input.text.trim(),
+      createdAt: new Date().toISOString(),
+    },
   });
 
-  user.marketplace = marketplace;
-  await user.save();
   return getCustomerReviews(userId);
+}
+
+export type CustomerDataExport = {
+  exportedAt: string;
+  profile: {
+    name: string;
+    email: string;
+    phone: string | null;
+    createdAt: Date;
+    lastLoginAt: Date | null;
+    emailVerified: boolean;
+  };
+  savedAddresses: MarketplaceSavedAddress[];
+  paymentMethods: { type: string; label: string; last4: string | null }[];
+  wishlist: MarketplaceWishlistItem[];
+  reviews: MarketplaceCustomerReview[];
+  orders: {
+    orderNumber: string;
+    status: string;
+    total: number;
+    createdAt: Date;
+    shippingAddress: unknown;
+    items: { productName: string; sku: string; quantity: number; unitPrice: number }[];
+  }[];
+};
+
+/** Full data export for a customer account (GDPR-style "download my data"). */
+export async function exportCustomerData(userId: string): Promise<CustomerDataExport | null> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: { name: true, email: true, phone: true, createdAt: true, lastLoginAt: true, emailVerified: true },
+  });
+  if (!user) return null;
+
+  const [savedAddresses, paymentMethods, wishlist, reviews, orders] = await Promise.all([
+    getCustomerSavedAddresses(userId),
+    getCustomerPaymentMethods(userId),
+    getCustomerWishlist(userId),
+    getCustomerReviews(userId),
+    prisma.order.findMany({
+      where: { marketplaceCustomerUserId: userId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      include: { orderItems: { select: { productName: true, sku: true, quantity: true, unitPrice: true } } },
+    }),
+  ]);
+
+  return {
+    exportedAt: new Date().toISOString(),
+    profile: {
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      emailVerified: user.emailVerified,
+    },
+    savedAddresses,
+    paymentMethods: paymentMethods.map((pm) => ({ type: pm.type, label: pm.label, last4: pm.last4 ?? null })),
+    wishlist,
+    reviews,
+    orders: orders.map((o) => ({
+      orderNumber: o.orderNumber,
+      status: o.status,
+      total: o.total,
+      createdAt: o.createdAt,
+      shippingAddress: (o.paymentDetails as { shipping?: unknown } | null)?.shipping ?? null,
+      items: o.orderItems.map((i) => ({
+        productName: i.productName,
+        sku: i.sku,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+      })),
+    })),
+  };
 }
 
 export type CustomerOrderDetail = {
@@ -361,73 +377,64 @@ export type CustomerOrderDetail = {
   } | null;
 };
 
+type MarketplacePaymentDetails = {
+  shipping?: CustomerOrderDetail["shipping"];
+  codPayment?: { amountDue: number; prepareChangeFor?: number; changeToReturn?: number };
+};
+
 export async function getMyMarketplaceOrderDetail(
   customerUserId: string,
   orderId: string
 ): Promise<CustomerOrderDetail | null> {
-  await connectDB();
-  if (!mongoose.isValidObjectId(customerUserId) || !mongoose.isValidObjectId(orderId)) {
-    return null;
-  }
-
-  const order = await Order.findOne({
-    _id: orderId,
-    type: "MARKETPLACE",
-    marketplaceCustomerUserId: new mongoose.Types.ObjectId(customerUserId),
-    deletedAt: null,
-  }).lean();
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, type: "MARKETPLACE", marketplaceCustomerUserId: customerUserId, deletedAt: null },
+  });
 
   if (!order) return null;
 
-  const lineItems = await OrderItem.find({ orderId: order._id })
-    .select("productId productName variantName sku quantity unitPrice total")
-    .lean();
+  const lineItems = await prisma.orderItem.findMany({
+    where: { orderId: order.id },
+    select: { productId: true, productName: true, variantName: true, sku: true, quantity: true, unitPrice: true, total: true },
+  });
 
-  const productIds = lineItems.map((i) => i.productId as mongoose.Types.ObjectId);
-  const products =
-    productIds.length > 0
-      ? await Product.find({ _id: { $in: productIds }, deletedAt: null })
-          .select("images slug")
-          .lean()
-      : [];
-  const imageByProductId = new Map(
-    products.map((p) => [String(p._id), (p.images?.[0] as string | undefined) ?? null])
-  );
-  const slugByProductId = new Map(products.map((p) => [String(p._id), p.slug as string]));
+  const productIds = lineItems.map((i) => i.productId);
+  const products = productIds.length
+    ? await prisma.product.findMany({
+        where: { id: { in: productIds }, deletedAt: null },
+        select: { id: true, images: true, slug: true },
+      })
+    : [];
+  const imageByProductId = new Map(products.map((p) => [p.id, p.images?.[0] ?? null]));
+  const slugByProductId = new Map(products.map((p) => [p.id, p.slug]));
 
-  const ship = order.marketplaceShipping as CustomerOrderDetail["shipping"];
+  const details = order.paymentDetails as MarketplacePaymentDetails | null;
+  const ship = details?.shipping ?? null;
   const parts = ship ? [ship.line1, ship.city, ship.region].filter(Boolean) : [];
   const shipSummary = parts.length > 0 ? parts.join(" · ") : "—";
 
   return {
-    _id: String(order._id),
+    _id: order.id,
     orderNumber: order.orderNumber,
     status: order.status,
     subtotal: order.subtotal,
     discountAmount: order.discountAmount,
     total: order.total,
     paymentMethod: order.paymentMethod,
-    createdAt: (order.createdAt as Date).toISOString(),
-    paidAt: order.paidAt ? (order.paidAt as Date).toISOString() : null,
+    createdAt: order.createdAt.toISOString(),
+    paidAt: order.paidAt ? order.paidAt.toISOString() : null,
     shipSummary,
-    shipping: ship ?? null,
+    shipping: ship,
     items: lineItems.map((item) => ({
-      productId: String(item.productId),
+      productId: item.productId,
       productName: item.productName,
-      productSlug: slugByProductId.get(String(item.productId)),
+      productSlug: slugByProductId.get(item.productId),
       variantName: item.variantName ?? undefined,
       sku: item.sku,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       total: item.total,
-      thumbnailUrl: imageByProductId.get(String(item.productId)) ?? null,
+      thumbnailUrl: imageByProductId.get(item.productId) ?? null,
     })),
-    codPayment: order.marketplaceCodPayment
-      ? {
-          amountDue: order.marketplaceCodPayment.amountDue,
-          prepareChangeFor: order.marketplaceCodPayment.prepareChangeFor,
-          changeToReturn: order.marketplaceCodPayment.changeToReturn,
-        }
-      : null,
+    codPayment: details?.codPayment ?? null,
   };
 }

@@ -1,10 +1,8 @@
-import { connectDB } from "@/lib/db/connect";
-import { Supplier } from "@/lib/db/models/Supplier";
+import { prisma } from "@/lib/db/prisma";
 import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 
 export async function getSuppliers() {
-  await connectDB();
-  return Supplier.find({ deletedAt: null }).sort({ name: 1 }).lean();
+  return prisma.supplier.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } });
 }
 
 export async function createSupplier(
@@ -18,14 +16,13 @@ export async function createSupplier(
   },
   actor?: AuditActor
 ) {
-  await connectDB();
-  const supplier = await Supplier.create({ ...data });
+  const supplier = await prisma.supplier.create({ data });
 
   if (actor) {
     void writeAuditLog({
       action: "supplier.created",
       actor,
-      targetId: String(supplier._id),
+      targetId: supplier.id,
       targetType: "Supplier",
       metadata: { name: data.name },
     });
@@ -46,14 +43,12 @@ export async function updateSupplier(
   }>,
   actor?: AuditActor
 ) {
-  await connectDB();
-  const result = await Supplier.findOneAndUpdate(
-    { _id: supplierId, deletedAt: null },
-    { $set: data },
-    { new: true }
-  ).lean();
+  const existing = await prisma.supplier.findFirst({ where: { id: supplierId, deletedAt: null } });
+  if (!existing) return null;
 
-  if (result && actor) {
+  const result = await prisma.supplier.update({ where: { id: supplierId }, data });
+
+  if (actor) {
     void writeAuditLog({
       action: "supplier.updated",
       actor,
@@ -67,13 +62,15 @@ export async function updateSupplier(
 }
 
 export async function deleteSupplier(supplierId: string, actor?: AuditActor) {
-  await connectDB();
-  const result = await Supplier.findOneAndUpdate(
-    { _id: supplierId, deletedAt: null },
-    { $set: { deletedAt: new Date() } }
-  );
+  const existing = await prisma.supplier.findFirst({ where: { id: supplierId, deletedAt: null } });
+  if (!existing) return null;
 
-  if (result && actor) {
+  const result = await prisma.supplier.update({
+    where: { id: supplierId },
+    data: { deletedAt: new Date() },
+  });
+
+  if (actor) {
     void writeAuditLog({
       action: "supplier.deleted",
       actor,

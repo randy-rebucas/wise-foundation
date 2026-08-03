@@ -1,5 +1,3 @@
-import { connectDB } from "@/lib/db/connect";
-import { BlogPost } from "@/lib/db/models/BlogPost";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { updateBlogPostSchema } from "@/lib/validations/blogPost.schema";
@@ -11,14 +9,14 @@ import {
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
 import { writeAuditLog } from "@/lib/services/audit.service";
+import { getAdminBlogPostById, updateBlogPost, deleteBlogPost } from "@/lib/services/blog.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await connectDB();
-    const post = await BlogPost.findOne({ _id: id, deletedAt: null }).lean();
+    const post = await getAdminBlogPostById(id);
     if (!post) return notFoundResponse("Post not found");
     return successResponse(post);
   } catch (err) {
@@ -37,27 +35,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((issue) => issue.message).join(", "), 400);
     }
 
-    await connectDB();
-
-    if (parsed.data.slug) {
-      const existing = await BlogPost.findOne({
-        slug: parsed.data.slug,
-        deletedAt: null,
-        _id: { $ne: id },
-      })
-        .select("_id")
-        .lean();
-      if (existing) return errorResponse("A post with this slug already exists", 409);
-    }
-
-    const data = { ...parsed.data };
-    if (data.isPublished && !data.publishedAt) data.publishedAt = new Date();
-
-    const post = await BlogPost.findOneAndUpdate(
-      { _id: id, deletedAt: null },
-      { $set: data },
-      { new: true }
-    );
+    const post = await updateBlogPost(id, parsed.data);
     if (!post) return notFoundResponse("Post not found");
 
     void writeAuditLog({
@@ -69,6 +47,9 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     return successResponse(post, "Post updated");
   } catch (err) {
+    if (err instanceof Error && err.message === "A post with this slug already exists") {
+      return errorResponse(err.message, 409);
+    }
     console.error("[admin/blog/:id] PATCH error", err);
     return serverErrorResponse();
   }
@@ -78,13 +59,8 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await connectDB();
 
-    const post = await BlogPost.findOneAndUpdate(
-      { _id: id, deletedAt: null },
-      { $set: { deletedAt: new Date() } },
-      { new: true }
-    );
+    const post = await deleteBlogPost(id);
     if (!post) return notFoundResponse("Post not found");
 
     void writeAuditLog({

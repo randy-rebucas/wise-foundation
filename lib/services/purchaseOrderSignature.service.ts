@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
+import { prisma } from "@/lib/db/prisma";
 import type { SignPurchaseOrderInput } from "@/lib/validations/purchaseOrder.schema";
 import { buildPurchaseOrderSignatureEmbed } from "@/lib/purchaseOrders/signatureEmbed";
 import { getPurchaseOrderById } from "@/lib/services/purchaseOrder.service";
@@ -17,19 +15,13 @@ export async function signPurchaseOrder(
   user: SessionUser,
   input: SignPurchaseOrderInput
 ) {
-  await connectDB();
-
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (!canUserAccessPurchaseOrder(po, user)) {
     throw new Error("Purchase order not found");
   }
 
-  const signature = buildPurchaseOrderSignatureEmbed(
-    user,
-    input.signedByName,
-    input.signatureDataUrl
-  );
+  const signature = buildPurchaseOrderSignatureEmbed(user, input.signedByName, input.signatureDataUrl);
 
   if (input.role === "submit") {
     if (!isOrgPurchaseOrderSubmitter(user) && !canApprovePurchaseOrders(user)) {
@@ -38,12 +30,14 @@ export async function signPurchaseOrder(
     if (po.status !== "draft") {
       throw new Error("Only draft purchase orders can be submitted");
     }
-    await PurchaseOrder.findByIdAndUpdate(poId, {
-      $set: {
-        status: "submitted",
-        submittedSignature: signature,
-      },
-    });
+    await prisma.$transaction([
+      prisma.purchaseOrder.update({ where: { id: poId }, data: { status: "submitted" } }),
+      prisma.purchaseOrderSignature.upsert({
+        where: { purchaseOrderId_kind: { purchaseOrderId: poId, kind: "SUBMITTED" } },
+        create: { purchaseOrderId: poId, kind: "SUBMITTED", ...signature },
+        update: signature,
+      }),
+    ]);
     await recordPurchaseOrderAudit({
       purchaseOrderId: poId,
       action: "submitted",
@@ -59,14 +53,17 @@ export async function signPurchaseOrder(
     if (po.status !== "submitted") {
       throw new Error("Only submitted purchase orders can be approved");
     }
-    await PurchaseOrder.findByIdAndUpdate(poId, {
-      $set: {
-        status: "approved",
-        approvedBy: new mongoose.Types.ObjectId(user.id),
-        approvedAt: new Date(),
-        approvedSignature: signature,
-      },
-    });
+    await prisma.$transaction([
+      prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: "approved", approvedBy: user.id, approvedAt: new Date() },
+      }),
+      prisma.purchaseOrderSignature.upsert({
+        where: { purchaseOrderId_kind: { purchaseOrderId: poId, kind: "APPROVED" } },
+        create: { purchaseOrderId: poId, kind: "APPROVED", ...signature },
+        update: signature,
+      }),
+    ]);
     await recordPurchaseOrderAudit({
       purchaseOrderId: poId,
       action: "approved",

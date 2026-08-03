@@ -1,9 +1,12 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getOrgPermissions, setOrgPermission } from "@/lib/services/orgPermission.service";
+import {
+  getOrgPermissions,
+  setOrgPermission,
+  type OrgPermissionKey,
+} from "@/lib/services/orgPermission.service";
 import { successResponse, errorResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
-import type { OrgPermissionKey } from "@/lib/db/models/OrgPermission";
 
 const VALID_PERMISSIONS: OrgPermissionKey[] = [
   "sell:retail",

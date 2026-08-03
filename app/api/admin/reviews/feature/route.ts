@@ -1,9 +1,8 @@
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { successResponse, serverErrorResponse, errorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import { writeAuditLog } from "@/lib/services/audit.service";
+import { setAdminReviewFeatured } from "@/lib/services/marketplace.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 // PATCH /api/admin/reviews/feature
@@ -23,22 +22,8 @@ const handler = async (req: AuthedRequest) => {
       return errorResponse("userId, reviewId, and featured are required", 400);
     }
 
-    await connectDB();
-
-    const update: Record<string, unknown> = {
-      "marketplace.reviews.$[rev].featured": featured,
-    };
-    if (Array.isArray(images)) {
-      update["marketplace.reviews.$[rev].images"] = images;
-    }
-
-    const result = await User.updateOne(
-      { _id: userId },
-      { $set: update },
-      { arrayFilters: [{ "rev.id": reviewId }] }
-    );
-
-    if (result.matchedCount === 0) return errorResponse("Review not found", 404);
+    const found = await setAdminReviewFeatured(reviewId, featured, images);
+    if (!found) return errorResponse("Review not found", 404);
 
     void writeAuditLog({
       action: "review.featured_changed",

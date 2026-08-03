@@ -1,52 +1,29 @@
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { OrderItem } from "@/lib/db/models/OrderItem";
-import "@/lib/db/models/Product";
-import { Member } from "@/lib/db/models/Member";
-import { Organization } from "@/lib/db/models/Organization";
-import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
-import { StockMovement } from "@/lib/db/models/StockMovement";
-import { Transaction } from "@/lib/db/models/Transaction";
-import mongoose from "mongoose";
-import type { ClientSession } from "mongoose";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import type { OrderStatus, SessionUser } from "@/types";
-
-function refEntityId(field: unknown): string | null {
-  if (field == null) return null;
-  if (typeof field === "object" && field !== null && "_id" in field) {
-    return String((field as { _id: unknown })._id);
-  }
-  if (typeof field === "object" && field !== null && "toString" in field) {
-    return (field as { toString(): string }).toString();
-  }
-  return String(field);
-}
 
 /** Whether the user may read or transition this order (branch- or org-scoped). */
 export function canUserAccessOrder(
   order: {
-    branchId?: unknown;
-    organizationId?: unknown;
-    buyerOrganizationId?: unknown;
-    sellerOrganizationId?: unknown;
+    branchId?: string | null;
+    organizationId?: string | null;
+    buyerOrganizationId?: string | null;
+    sellerOrganizationId?: string | null;
   },
   user: SessionUser
 ): boolean {
   if (user.role === "ADMIN") return true;
   if (user.role === "ORG_ADMIN") {
-    const oid = user.organizationId;
-    if (!oid) return false;
-    const orgStr = oid.toString();
-    if (refEntityId(order.organizationId) === orgStr) return true;
-    if (refEntityId(order.buyerOrganizationId) === orgStr) return true;
-    if (refEntityId(order.sellerOrganizationId) === orgStr) return true;
-    const bid = refEntityId(order.branchId);
-    if (bid && (user.branchIds ?? []).map(String).includes(bid)) return true;
+    const orgStr = user.organizationId;
+    if (!orgStr) return false;
+    if (order.organizationId === orgStr) return true;
+    if (order.buyerOrganizationId === orgStr) return true;
+    if (order.sellerOrganizationId === orgStr) return true;
+    if (order.branchId && (user.branchIds ?? []).includes(order.branchId)) return true;
     return false;
   }
-  const bid = refEntityId(order.branchId);
-  if (!bid) return false;
-  return (user.branchIds ?? []).map(String).includes(bid);
+  if (!order.branchId) return false;
+  return (user.branchIds ?? []).includes(order.branchId);
 }
 
 export interface OrderDeliveryPayload {
@@ -79,85 +56,159 @@ export async function getOrders(
   limit = 20,
   organizationId?: string
 ) {
-  await connectDB();
+  const orgClause: Prisma.OrderWhereInput[] = organizationId
+    ? [{ organizationId }, { buyerOrganizationId: organizationId }, { sellerOrganizationId: organizationId }]
+    : [];
 
-  const query: Record<string, unknown> = { deletedAt: null };
-  if (organizationId) {
-    query.$or = (
-      [
-        { organizationId },
-        { buyerOrganizationId: organizationId },
-        { sellerOrganizationId: organizationId },
-      ] as Record<string, unknown>[]
-    );
-  } else if (branchId) {
-    query.branchId = branchId;
-  }
-  if (filter.status) query.status = filter.status;
-  if (filter.type) query.type = filter.type;
-  if (filter.memberId) query.memberId = filter.memberId;
+  const where: Prisma.OrderWhereInput = {
+    deletedAt: null,
+    ...(organizationId ? { OR: orgClause } : branchId ? { branchId } : {}),
+  };
+  if (filter.status) where.status = filter.status as OrderStatus;
+  if (filter.type) where.type = filter.type as Prisma.OrderWhereInput["type"];
+  if (filter.memberId) where.memberId = filter.memberId;
   if (filter.dateFrom || filter.dateTo) {
-    query.createdAt = {};
-    if (filter.dateFrom) (query.createdAt as Record<string, Date>).$gte = filter.dateFrom;
-    if (filter.dateTo) (query.createdAt as Record<string, Date>).$lte = filter.dateTo;
+    where.createdAt = {
+      ...(filter.dateFrom ? { gte: filter.dateFrom } : {}),
+      ...(filter.dateTo ? { lte: filter.dateTo } : {}),
+    };
   }
 
   const skip = (page - 1) * limit;
 
-  type MongoQuery = Record<string, unknown>;
-  const orgClause: MongoQuery[] = organizationId
-    ? [{ organizationId }, { buyerOrganizationId: organizationId }, { sellerOrganizationId: organizationId }]
-    : [];
-  const pendingBase: MongoQuery = {
-    deletedAt: null,
-    ...(organizationId ? { $or: orgClause } : branchId ? { branchId } : {}),
-  };
-
-  const [orders, countsResult] = await Promise.all([
-    Order.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("cashierId", "name")
-      .populate("buyerOrganizationId", "name type")
-      .populate("sellerOrganizationId", "name type")
-      .lean(),
-    Order.aggregate([
-      {
-        $facet: {
-          total: [{ $match: query as Record<string, unknown> }, { $count: "n" }],
-          pending: [{ $match: { ...(pendingBase as Record<string, unknown>), status: "pending" } }, { $count: "n" }],
-          approved: [{ $match: { ...(pendingBase as Record<string, unknown>), status: "approved" } }, { $count: "n" }],
-        },
+  const [orders, total, pendingCount, approvedCount] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        cashier: { select: { name: true } },
+        buyerOrganization: { select: { name: true, type: true } },
+        sellerOrganization: { select: { name: true, type: true } },
       },
-    ]),
+    }),
+    prisma.order.count({ where }),
+    prisma.order.count({ where: { ...where, status: "pending" } }),
+    prisma.order.count({ where: { ...where, status: "approved" } }),
   ]);
-
-  const counts = countsResult[0] ?? {};
-  const total = counts.total?.[0]?.n ?? 0;
-  const pendingCount = counts.pending?.[0]?.n ?? 0;
-  const approvedCount = counts.approved?.[0]?.n ?? 0;
 
   return { orders, total, pages: Math.ceil(total / limit), pendingCount, approvedCount };
 }
 
 export async function getOrderById(orderId: string) {
-  await connectDB();
-  const order = await Order.findOne({ _id: orderId, deletedAt: null })
-    .populate("cashierId", "name")
-    .populate("deliveredBy", "name")
-    .populate("memberId", "name memberId")
-    .populate("buyerOrganizationId", "name type")
-    .populate("sellerOrganizationId", "name type")
-    .lean();
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, deletedAt: null },
+    include: {
+      cashier: { select: { name: true } },
+      deliveredByUser: { select: { name: true } },
+      member: { select: { name: true, memberId: true } },
+      buyerOrganization: { select: { name: true, type: true } },
+      sellerOrganization: { select: { name: true, type: true } },
+    },
+  });
 
   if (!order) return null;
 
-  const items = await OrderItem.find({ orderId })
-    .populate("productId", "name sku images")
-    .lean();
+  const items = await prisma.orderItem.findMany({
+    where: { orderId },
+    include: { product: { select: { name: true, sku: true, images: true } } },
+  });
 
   return { ...order, items };
+}
+
+/** Transfers org-level inventory (and records the paired stock movements) within a transaction. */
+async function transferOrgStock(
+  tx: Prisma.TransactionClient,
+  input: {
+    fromOrganizationId: string;
+    toOrganizationId: string;
+    productId: string;
+    variantId: string | null;
+    quantity: number;
+    reference?: string;
+    notesPrefix?: string;
+  },
+  performedBy: string
+) {
+  const notesPrefix = input.notesPrefix ?? "B2B";
+  const vId = input.variantId ?? null;
+
+  const sourceInv = await tx.organizationInventory.findFirst({
+    where: { organizationId: input.fromOrganizationId, productId: input.productId, variantId: vId },
+  });
+
+  if (!sourceInv || sourceInv.quantity < input.quantity) {
+    throw new Error(
+      `Insufficient seller stock for product ${input.productId}. Available: ${sourceInv?.quantity ?? 0}, Required: ${input.quantity}`
+    );
+  }
+
+  const sourcePrev = sourceInv.quantity;
+  const sourceNew = sourcePrev - input.quantity;
+
+  await tx.organizationInventory.update({
+    where: { id: sourceInv.id },
+    data: { quantity: { decrement: input.quantity }, totalSold: { increment: input.quantity } },
+  });
+
+  const destInv = await tx.organizationInventory.findFirst({
+    where: { organizationId: input.toOrganizationId, productId: input.productId, variantId: vId },
+  });
+  const destPrev = destInv?.quantity ?? 0;
+
+  if (destInv) {
+    await tx.organizationInventory.update({
+      where: { id: destInv.id },
+      data: { quantity: { increment: input.quantity }, totalReceived: { increment: input.quantity } },
+    });
+  } else {
+    await tx.organizationInventory.create({
+      data: {
+        organizationId: input.toOrganizationId,
+        productId: input.productId,
+        variantId: vId,
+        quantity: input.quantity,
+        totalReceived: input.quantity,
+      },
+    });
+  }
+
+  await tx.stockMovement.createMany({
+    data: [
+      {
+        branchId: null,
+        organizationId: input.fromOrganizationId,
+        fromOrganizationId: input.fromOrganizationId,
+        toOrganizationId: input.toOrganizationId,
+        productId: input.productId,
+        variantId: vId,
+        type: "TRANSFER",
+        quantity: input.quantity,
+        previousQuantity: sourcePrev,
+        newQuantity: sourceNew,
+        reference: input.reference,
+        notes: `${notesPrefix} fulfillment: ${input.reference}`,
+        performedBy,
+      },
+      {
+        branchId: null,
+        organizationId: input.toOrganizationId,
+        fromOrganizationId: input.fromOrganizationId,
+        toOrganizationId: input.toOrganizationId,
+        productId: input.productId,
+        variantId: vId,
+        type: "IN",
+        quantity: input.quantity,
+        previousQuantity: destPrev,
+        newQuantity: destPrev + input.quantity,
+        reference: input.reference,
+        notes: `${notesPrefix} receipt: ${input.reference}`,
+        performedBy,
+      },
+    ],
+  });
 }
 
 export async function updateOrderStatus(
@@ -167,9 +218,7 @@ export async function updateOrderStatus(
   delivery?: OrderDeliveryPayload,
   opts?: { force?: boolean }
 ) {
-  await connectDB();
-
-  const order = await Order.findOne({ _id: orderId, deletedAt: null });
+  const order = await prisma.order.findFirst({ where: { id: orderId, deletedAt: null } });
   if (!order) return null;
 
   // `force` is an admin-only escape hatch for correcting orders created during
@@ -189,16 +238,15 @@ export async function updateOrderStatus(
     if (!receipt) {
       throw new Error("Delivery receipt number is required to mark an order as delivered");
     }
-    const duplicate = await Order.findOne({
-      _id: { $ne: orderId },
-      deliveryReceiptNumber: receipt,
-    }).lean();
+    const duplicate = await prisma.order.findFirst({
+      where: { id: { not: orderId }, deliveryReceiptNumber: receipt },
+    });
     if (duplicate) {
       throw new Error(`Delivery receipt number "${receipt}" is already used by order ${duplicate.orderNumber}`);
     }
   }
 
-  const updates: Record<string, unknown> = { status: newStatus };
+  const updates: Prisma.OrderUpdateInput = { status: newStatus };
   if (newStatus === "approved") updates.approvedAt = new Date();
   if (newStatus === "paid") updates.paidAt = new Date();
   if (newStatus === "completed") updates.completedAt = new Date();
@@ -206,207 +254,107 @@ export async function updateOrderStatus(
     const receipt = delivery!.deliveryReceiptNumber.trim();
     updates.deliveredAt = new Date();
     updates.deliveryReceiptNumber = receipt;
-    updates.deliveredBy = new mongoose.Types.ObjectId(userId);
+    updates.deliveredByUser = { connect: { id: userId } };
     const receiver = delivery?.receivedByName?.trim();
     updates.receivedByName = receiver || null;
   }
 
   // B2B orders: transfer inventory from seller to buyer when payment is confirmed
   if (newStatus === "paid" && order.type === "B2B" && order.sellerOrganizationId && order.buyerOrganizationId) {
-    const session = await mongoose.startSession();
-    try {
-      session.startTransaction();
+    return prisma.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: orderId }, data: updates });
 
-      await Order.findByIdAndUpdate(orderId, { $set: updates }, { session });
-
-      const items = await OrderItem.find({ orderId }).session(session).lean();
+      const items = await tx.orderItem.findMany({ where: { orderId } });
       for (const item of items) {
         await transferOrgStock(
+          tx,
           {
-            fromOrganizationId: order.sellerOrganizationId.toString(),
-            toOrganizationId: order.buyerOrganizationId.toString(),
-            productId: item.productId.toString(),
-            variantId: item.variantId?.toString() ?? null,
+            fromOrganizationId: order.sellerOrganizationId!,
+            toOrganizationId: order.buyerOrganizationId!,
+            productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             reference: order.orderNumber,
           },
-          userId,
-          session
+          userId
         );
       }
 
-      await Transaction.create(
-        [
-          {
-            branchId: null,
-            organizationId: order.sellerOrganizationId,
-            orderId: order._id,
-            type: "SALE",
-            amount: order.total,
-            paymentMethod: order.paymentMethod,
-            reference: order.orderNumber,
-            performedBy: userId,
-          },
-        ],
-        { session }
-      );
+      await tx.transaction.create({
+        data: {
+          branchId: null,
+          organizationId: order.sellerOrganizationId,
+          orderId: order.id,
+          type: "SALE",
+          amount: order.total,
+          paymentMethod: order.paymentMethod,
+          reference: order.orderNumber,
+          performedBy: userId,
+        },
+      });
 
-      await session.commitTransaction();
-      return Order.findById(orderId).lean();
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
+      return tx.order.findUnique({ where: { id: orderId } });
+    });
   }
 
   // B2B orders: a refund after payment reverses the earlier seller-to-buyer transfer,
   // otherwise the buyer keeps stock they were refunded for and the seller never gets it back.
-  if (newStatus === "refunded" && order.type === "B2B" && order.status === "paid" &&
-      order.sellerOrganizationId && order.buyerOrganizationId) {
-    const session = await mongoose.startSession();
-    try {
-      session.startTransaction();
+  if (
+    newStatus === "refunded" &&
+    order.type === "B2B" &&
+    order.status === "paid" &&
+    order.sellerOrganizationId &&
+    order.buyerOrganizationId
+  ) {
+    return prisma.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: orderId }, data: updates });
 
-      await Order.findByIdAndUpdate(orderId, { $set: updates }, { session });
-
-      const items = await OrderItem.find({ orderId }).session(session).lean();
+      const items = await tx.orderItem.findMany({ where: { orderId } });
       for (const item of items) {
         await transferOrgStock(
+          tx,
           {
-            fromOrganizationId: order.buyerOrganizationId.toString(),
-            toOrganizationId: order.sellerOrganizationId.toString(),
-            productId: item.productId.toString(),
-            variantId: item.variantId?.toString() ?? null,
+            fromOrganizationId: order.buyerOrganizationId!,
+            toOrganizationId: order.sellerOrganizationId!,
+            productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             reference: `${order.orderNumber}-REFUND`,
             notesPrefix: "B2B refund",
           },
-          userId,
-          session
+          userId
         );
       }
 
-      await Transaction.create(
-        [
-          {
-            branchId: null,
-            organizationId: order.sellerOrganizationId,
-            orderId: order._id,
-            type: "REFUND",
-            amount: order.total,
-            paymentMethod: order.paymentMethod,
-            reference: `${order.orderNumber}-REFUND`,
-            performedBy: userId,
-          },
-        ],
-        { session }
-      );
+      await tx.transaction.create({
+        data: {
+          branchId: null,
+          organizationId: order.sellerOrganizationId,
+          orderId: order.id,
+          type: "REFUND",
+          amount: order.total,
+          paymentMethod: order.paymentMethod,
+          reference: `${order.orderNumber}-REFUND`,
+          performedBy: userId,
+        },
+      });
 
-      await session.commitTransaction();
-      return Order.findById(orderId).lean();
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
+      return tx.order.findUnique({ where: { id: orderId } });
+    });
   }
 
   try {
-    return await Order.findByIdAndUpdate(orderId, { $set: updates }, { new: true }).lean();
+    return await prisma.order.update({ where: { id: orderId }, data: updates });
   } catch (err) {
-    if (newStatus === "delivered" && err instanceof Error && /E11000/.test(err.message)) {
+    if (
+      newStatus === "delivered" &&
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
       throw new Error(`Delivery receipt number "${updates.deliveryReceiptNumber}" is already in use`);
     }
     throw err;
   }
-}
-
-async function transferOrgStock(
-  input: {
-    fromOrganizationId: string;
-    toOrganizationId: string;
-    productId: string;
-    variantId: string | null;
-    quantity: number;
-    reference?: string;
-    notesPrefix?: string;
-  },
-  performedBy: string,
-  session: ClientSession
-) {
-  const notesPrefix = input.notesPrefix ?? "B2B";
-  const sourceInv = await OrganizationInventory.findOne({
-    organizationId: input.fromOrganizationId,
-    productId: input.productId,
-    variantId: input.variantId ?? null,
-  }).session(session);
-
-  if (!sourceInv || sourceInv.quantity < input.quantity) {
-    throw new Error(
-      `Insufficient seller stock for product ${input.productId}. Available: ${sourceInv?.quantity ?? 0}, Required: ${input.quantity}`
-    );
-  }
-
-  const sourcePrev = sourceInv.quantity;
-  const sourceNew = sourcePrev - input.quantity;
-
-  await OrganizationInventory.findOneAndUpdate(
-    { organizationId: input.fromOrganizationId, productId: input.productId, variantId: input.variantId ?? null },
-    { $inc: { quantity: -input.quantity, totalSold: input.quantity } },
-    { session }
-  );
-
-  const destInv = await OrganizationInventory.findOne({
-    organizationId: input.toOrganizationId,
-    productId: input.productId,
-    variantId: input.variantId ?? null,
-  }).session(session);
-  const destPrev = destInv?.quantity ?? 0;
-
-  await OrganizationInventory.findOneAndUpdate(
-    { organizationId: input.toOrganizationId, productId: input.productId, variantId: input.variantId ?? null },
-    { $inc: { quantity: input.quantity, totalReceived: input.quantity } },
-    { upsert: true, session }
-  );
-
-  await StockMovement.insertMany(
-    [
-      {
-        branchId: null,
-        organizationId: input.fromOrganizationId,
-        fromOrganizationId: input.fromOrganizationId,
-        toOrganizationId: input.toOrganizationId,
-        productId: input.productId,
-        variantId: input.variantId ?? null,
-        type: "TRANSFER",
-        quantity: input.quantity,
-        previousQuantity: sourcePrev,
-        newQuantity: sourceNew,
-        reference: input.reference,
-        notes: `${notesPrefix} fulfillment: ${input.reference}`,
-        performedBy,
-      },
-      {
-        branchId: null,
-        organizationId: input.toOrganizationId,
-        fromOrganizationId: input.fromOrganizationId,
-        toOrganizationId: input.toOrganizationId,
-        productId: input.productId,
-        variantId: input.variantId ?? null,
-        type: "IN",
-        quantity: input.quantity,
-        previousQuantity: destPrev,
-        newQuantity: destPrev + input.quantity,
-        reference: input.reference,
-        notes: `${notesPrefix} receipt: ${input.reference}`,
-        performedBy,
-      },
-    ],
-    { session }
-  );
 }
 
 export interface CreateB2BOrderInput {
@@ -428,8 +376,6 @@ export interface CreateB2BOrderInput {
 }
 
 export async function createB2BOrder(input: CreateB2BOrderInput) {
-  await connectDB();
-
   // A non-admin must be transacting on behalf of one of the two organizations —
   // otherwise an ORG_ADMIN could pair two unrelated orgs and, once the order they're
   // party to is marked paid, siphon stock between organizations they don't belong to.
@@ -440,35 +386,28 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
     }
   }
 
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
+  return prisma.$transaction(async (tx) => {
     // Validate seller is authorized to distribute
-    const seller = await Organization.findOne({
-      _id: input.sellerOrganizationId,
-      isActive: true,
-      deletedAt: null,
-    }).session(session).lean();
+    const seller = await tx.organization.findFirst({
+      where: { id: input.sellerOrganizationId, isActive: true, deletedAt: null },
+    });
     if (!seller) throw new Error("Seller organization not found or inactive");
-    if (!seller.settings.canDistribute) throw new Error("Seller organization is not authorized to distribute");
+    if (!seller.canDistribute) throw new Error("Seller organization is not authorized to distribute");
 
-    const buyer = await Organization.findOne({
-      _id: input.buyerOrganizationId,
-      isActive: true,
-      deletedAt: null,
-    }).session(session).lean();
+    const buyer = await tx.organization.findFirst({
+      where: { id: input.buyerOrganizationId, isActive: true, deletedAt: null },
+    });
     if (!buyer) throw new Error("Buyer organization not found or inactive");
-    if (!buyer.settings.canSubmitOrders) throw new Error("Buyer organization is not authorized to submit orders");
+    if (!buyer.canSubmitOrders) throw new Error("Buyer organization is not authorized to submit orders");
 
     // Validate seller has enough stock — batch fetch then validate in memory
-    const sellerStockDocs = await OrganizationInventory.find({
-      organizationId: input.sellerOrganizationId,
-      productId: { $in: input.items.map((i) => i.productId) },
-    }).session(session).lean();
-    const sellerStockKey = (productId: unknown, variantId: unknown) =>
-      `${productId}:${variantId ?? ""}`;
+    const sellerStockDocs = await tx.organizationInventory.findMany({
+      where: {
+        organizationId: input.sellerOrganizationId,
+        productId: { in: input.items.map((i) => i.productId) },
+      },
+    });
+    const sellerStockKey = (productId: string, variantId: string | null) => `${productId}:${variantId ?? ""}`;
     const sellerStockMap = new Map(
       sellerStockDocs.map((s) => [sellerStockKey(s.productId, s.variantId), s.quantity])
     );
@@ -479,39 +418,36 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
       }
     }
 
-    const count = await Order.countDocuments().session(session);
+    const count = await tx.order.count();
     const orderNumber = `B2B-${String(count + 1).padStart(6, "0")}`;
 
     const subtotal = input.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const discountPercent = input.discountPercent ?? 0;
-    const discountAmount = Math.round((subtotal * discountPercent) / 100 * 100) / 100;
+    const discountAmount = Math.round(((subtotal * discountPercent) / 100) * 100) / 100;
     const total = subtotal - discountAmount;
 
-    const [order] = await Order.create(
-      [
-        {
-          orderNumber,
-          type: "B2B",
-          status: "pending",
-          sellerOrganizationId: input.sellerOrganizationId,
-          buyerOrganizationId: input.buyerOrganizationId,
-          cashierId: input.createdBy,
-          subtotal,
-          discountAmount,
-          discountPercent,
-          total,
-          amountPaid: 0,
-          change: 0,
-          paymentMethod: input.paymentMethod,
-          notes: input.notes,
-        },
-      ],
-      { session }
-    );
+    const order = await tx.order.create({
+      data: {
+        orderNumber,
+        type: "B2B",
+        status: "pending",
+        sellerOrganizationId: input.sellerOrganizationId,
+        buyerOrganizationId: input.buyerOrganizationId,
+        cashierId: input.createdBy,
+        subtotal,
+        discountAmount,
+        discountPercent,
+        total,
+        amountPaid: 0,
+        change: 0,
+        paymentMethod: input.paymentMethod,
+        notes: input.notes,
+      },
+    });
 
-    await OrderItem.insertMany(
-      input.items.map((item) => ({
-        orderId: order._id,
+    await tx.orderItem.createMany({
+      data: input.items.map((item) => ({
+        orderId: order.id,
         productId: item.productId,
         variantId: item.variantId ?? null,
         productName: item.productName,
@@ -520,15 +456,8 @@ export async function createB2BOrder(input: CreateB2BOrderInput) {
         unitPrice: item.unitPrice,
         total: item.unitPrice * item.quantity,
       })),
-      { session }
-    );
+    });
 
-    await session.commitTransaction();
     return order;
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
-  } finally {
-    session.endSession();
-  }
+  });
 }

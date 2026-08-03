@@ -1,7 +1,5 @@
-import { connectDB } from "@/lib/db/connect";
-import { Product, type IProduct } from "@/lib/db/models/Product";
-import { ProductVariant } from "@/lib/db/models/ProductVariant";
-import { Inventory } from "@/lib/db/models/Inventory";
+import { prisma } from "@/lib/db/prisma";
+import type { Prisma, Product } from "@prisma/client";
 import { slugify } from "@/lib/utils";
 import { parseCsv, serializeCsv } from "@/lib/utils/csv";
 import {
@@ -17,6 +15,15 @@ async function cleanupRemovedImageUrls(previous: string[] | undefined, next: str
   const nextSet = new Set(next ?? []);
   const removed = (previous ?? []).filter((url) => !nextSet.has(url));
   if (removed.length) await deleteMediaAssetsByUrls(removed);
+}
+
+/** IDs of products matching a full-text search against the trigger-maintained searchVector column. */
+async function searchProductIds(search: string): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "Product"
+    WHERE "searchVector" @@ plainto_tsquery('english', ${search})
+  `;
+  return rows.map((r) => r.id);
 }
 
 interface ProductFilter {
@@ -35,49 +42,40 @@ export async function getProducts(
   limit = 20,
   options: GetProductsOptions = {}
 ) {
-  await connectDB();
-
-  const query: Record<string, unknown> = { deletedAt: null };
-  if (filter.category) query.category = filter.category;
-  if (filter.isActive !== undefined) query.isActive = filter.isActive;
+  const where: Prisma.ProductWhereInput = { deletedAt: null };
+  if (filter.category) where.category = filter.category;
+  if (filter.isActive !== undefined) where.isActive = filter.isActive;
   if (filter.search) {
-    query.$text = { $search: filter.search };
+    where.id = { in: await searchProductIds(filter.search) };
   }
 
   const skip = (page - 1) * limit;
   const [products, total] = await Promise.all([
-    Product.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Product.countDocuments(query),
+    prisma.product.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit }),
+    prisma.product.count({ where }),
   ]);
 
   if (options.includeVariantSummary && products.length) {
-    const productIds = products.map((p) => p._id);
+    const productIds = products.map((p) => p.id);
 
-    const variantSummaries = await ProductVariant.aggregate<{
-      _id: unknown;
-      count: number;
-      firstVariant?: { name: string; sku: string };
-    }>([
-      { $match: { productId: { $in: productIds }, deletedAt: null } },
-      // "firstVariant" is the most recently created variant (best effort ordering).
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: "$productId",
-          count: { $sum: 1 },
-          firstVariant: {
-            $first: { name: "$name", sku: "$sku" },
-          },
-        },
-      },
-    ]);
+    const variants = await prisma.productVariant.findMany({
+      where: { productId: { in: productIds }, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      select: { productId: true, name: true, sku: true },
+    });
 
-    const summaryMap = new Map(
-      variantSummaries.map((s) => [String(s._id), s] as const)
-    );
+    const summaryMap = new Map<string, { count: number; firstVariant: { name: string; sku: string } }>();
+    for (const v of variants) {
+      const existing = summaryMap.get(v.productId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        summaryMap.set(v.productId, { count: 1, firstVariant: { name: v.name, sku: v.sku } });
+      }
+    }
 
     const enriched = products.map((p) => {
-      const s = summaryMap.get(String(p._id));
+      const s = summaryMap.get(p.id);
       return {
         ...p,
         variantCount: s?.count ?? 0,
@@ -93,11 +91,12 @@ export async function getProducts(
 }
 
 export async function getProductById(productId: string) {
-  await connectDB();
-  const product = await Product.findOne({ _id: productId, deletedAt: null }).lean();
+  const product = await prisma.product.findFirst({ where: { id: productId, deletedAt: null } });
   if (!product) return null;
 
-  const variants = await ProductVariant.find({ productId, deletedAt: null }).lean();
+  const variants = await prisma.productVariant.findMany({
+    where: { productId, deletedAt: null },
+  });
 
   return { ...product, variants };
 }
@@ -129,19 +128,17 @@ function copyProductName(name: string): string {
 }
 
 export async function createProduct(data: CreateProductInput, actor?: AuditActor) {
-  await connectDB();
-
-  const existingSku = await Product.findOne({ sku: data.sku });
+  const existingSku = await prisma.product.findUnique({ where: { sku: data.sku } });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
 
   const slug = slugify(data.name);
-  const product = await Product.create({ ...data, slug });
+  const product = await prisma.product.create({ data: { ...data, slug } });
 
   if (actor) {
     void writeAuditLog({
       action: "product.created",
       actor,
-      targetId: product._id.toString(),
+      targetId: product.id,
       targetType: "Product",
       metadata: { name: data.name, sku: data.sku },
     });
@@ -151,89 +148,86 @@ export async function createProduct(data: CreateProductInput, actor?: AuditActor
 }
 
 export async function cloneProduct(productId: string, actor?: AuditActor) {
-  await connectDB();
-
   const source = await getProductById(productId);
   if (!source) throw new Error("Product not found");
 
   const newSku = await nextAvailableSku(source.sku, async (sku) => {
-    const found = await Product.findOne({ sku });
+    const found = await prisma.product.findUnique({ where: { sku } });
     return !!found;
   });
 
   const newName = copyProductName(source.name);
-  const product = await Product.create({
-    name: newName,
-    slug: slugify(newName),
-    shortDescription: source.shortDescription,
-    description: source.description,
-    seoTitle: source.seoTitle,
-    seoDescription: source.seoDescription,
-    category: source.category,
-    sku: newSku,
-    images: source.images ?? [],
-    retailPrice: source.retailPrice,
-    isActive: source.isActive,
-    tags: source.tags ?? [],
-    marketplaceListed: source.marketplaceListed ?? true,
+  const product = await prisma.product.create({
+    data: {
+      name: newName,
+      slug: slugify(newName),
+      shortDescription: source.shortDescription,
+      description: source.description,
+      seoTitle: source.seoTitle,
+      seoDescription: source.seoDescription,
+      category: source.category,
+      sku: newSku,
+      images: source.images ?? [],
+      retailPrice: source.retailPrice,
+      isActive: source.isActive,
+      tags: source.tags ?? [],
+      marketplaceListed: source.marketplaceListed ?? true,
+    },
   });
 
   const variants = source.variants ?? [];
-  if (variants.length > 0) {
-    const variantDocs = [];
-    for (const v of variants) {
-      const variantSku = await nextAvailableSku(v.sku, async (sku) => {
-        const found = await ProductVariant.findOne({ sku });
-        return !!found;
-      });
-      variantDocs.push({
-        productId: product._id,
+  for (const v of variants) {
+    const variantSku = await nextAvailableSku(v.sku, async (sku) => {
+      const found = await prisma.productVariant.findUnique({ where: { sku } });
+      return !!found;
+    });
+    await prisma.productVariant.create({
+      data: {
+        productId: product.id,
         name: v.name,
         sku: variantSku,
         attributes: v.attributes ?? [],
         retailPrice: v.retailPrice,
         images: v.images ?? [],
         isActive: v.isActive !== false,
-      });
-    }
-    await ProductVariant.insertMany(variantDocs);
+      },
+    });
   }
 
   if (actor) {
     void writeAuditLog({
       action: "product.cloned",
       actor,
-      targetId: String(product._id),
+      targetId: product.id,
       targetType: "Product",
       metadata: { sourceProductId: productId, name: newName },
     });
   }
 
-  return getProductById(String(product._id));
+  return getProductById(product.id);
 }
 
-export async function updateProduct(productId: string, data: Partial<IProduct>, actor?: AuditActor) {
-  await connectDB();
-
+export async function updateProduct(
+  productId: string,
+  data: Partial<Product>,
+  actor?: AuditActor
+) {
   if (data.images !== undefined) {
-    const existing = await Product.findOne({ _id: productId, deletedAt: null })
-      .select("images")
-      .lean();
+    const existing = await prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+      select: { images: true },
+    });
     if (existing) {
-      await cleanupRemovedImageUrls(
-        existing.images as string[] | undefined,
-        data.images as string[]
-      );
+      await cleanupRemovedImageUrls(existing.images, data.images as string[]);
     }
   }
 
-  const result = await Product.findOneAndUpdate(
-    { _id: productId, deletedAt: null },
-    { $set: data },
-    { new: true, runValidators: true }
-  ).lean();
+  const existing = await prisma.product.findFirst({ where: { id: productId, deletedAt: null } });
+  if (!existing) return null;
 
-  if (result && actor) {
+  const result = await prisma.product.update({ where: { id: productId }, data });
+
+  if (actor) {
     void writeAuditLog({
       action: "product.updated",
       actor,
@@ -247,22 +241,22 @@ export async function updateProduct(productId: string, data: Partial<IProduct>, 
 }
 
 export async function deleteProduct(productId: string, actor?: AuditActor) {
-  await connectDB();
+  const existing = await prisma.product.findFirst({ where: { id: productId } });
+  if (!existing) return null;
 
   // Soft delete: the product (and its images) may still be referenced by historical
   // orders/invoices, so storage assets are left in place rather than deleted here.
-  await ProductVariant.updateMany(
-    { productId, deletedAt: null },
-    { $set: { deletedAt: new Date(), isActive: false } }
-  );
+  await prisma.productVariant.updateMany({
+    where: { productId, deletedAt: null },
+    data: { deletedAt: new Date(), isActive: false },
+  });
 
-  const result = await Product.findOneAndUpdate(
-    { _id: productId },
-    { $set: { deletedAt: new Date(), isActive: false } },
-    { new: true }
-  ).lean();
+  const result = await prisma.product.update({
+    where: { id: productId },
+    data: { deletedAt: new Date(), isActive: false },
+  });
 
-  if (result && actor) {
+  if (actor) {
     void writeAuditLog({
       action: "product.deleted",
       actor,
@@ -280,16 +274,15 @@ export async function createProductVariant(
   data: CreateVariantInput,
   actor?: AuditActor
 ) {
-  await connectDB();
-  const existingSku = await ProductVariant.findOne({ sku: data.sku });
+  const existingSku = await prisma.productVariant.findUnique({ where: { sku: data.sku } });
   if (existingSku) throw new Error(`SKU "${data.sku}" already exists`);
-  const variant = await ProductVariant.create({ ...data, productId });
+  const variant = await prisma.productVariant.create({ data: { ...data, productId } });
 
   if (actor) {
     void writeAuditLog({
       action: "product.variant_created",
       actor,
-      targetId: String(variant._id),
+      targetId: variant.id,
       targetType: "ProductVariant",
       metadata: { productId, name: data.name, sku: data.sku },
     });
@@ -299,8 +292,7 @@ export async function createProductVariant(
 }
 
 export async function getProductVariants(productId: string) {
-  await connectDB();
-  return ProductVariant.find({ productId, deletedAt: null }).lean();
+  return prisma.productVariant.findMany({ where: { productId, deletedAt: null } });
 }
 
 export async function updateProductVariant(
@@ -308,27 +300,24 @@ export async function updateProductVariant(
   data: Partial<CreateVariantInput>,
   actor?: AuditActor
 ) {
-  await connectDB();
-
   if (data.images !== undefined) {
-    const existing = await ProductVariant.findOne({ _id: variantId, deletedAt: null })
-      .select("images")
-      .lean();
+    const existing = await prisma.productVariant.findFirst({
+      where: { id: variantId, deletedAt: null },
+      select: { images: true },
+    });
     if (existing) {
-      await cleanupRemovedImageUrls(
-        existing.images as string[] | undefined,
-        data.images as string[]
-      );
+      await cleanupRemovedImageUrls(existing.images, data.images as string[]);
     }
   }
 
-  const result = await ProductVariant.findOneAndUpdate(
-    { _id: variantId, deletedAt: null },
-    { $set: data },
-    { new: true, runValidators: true }
-  ).lean();
+  const existing = await prisma.productVariant.findFirst({
+    where: { id: variantId, deletedAt: null },
+  });
+  if (!existing) return null;
 
-  if (result && actor) {
+  const result = await prisma.productVariant.update({ where: { id: variantId }, data });
+
+  if (actor) {
     void writeAuditLog({
       action: "product.variant_updated",
       actor,
@@ -342,17 +331,17 @@ export async function updateProductVariant(
 }
 
 export async function deleteProductVariant(variantId: string, actor?: AuditActor) {
-  await connectDB();
+  const existing = await prisma.productVariant.findUnique({ where: { id: variantId } });
+  if (!existing) return null;
 
   // Soft delete: leave storage assets in place since historical orders may still
   // reference this variant's images (see deleteProduct for the same reasoning).
-  const result = await ProductVariant.findOneAndUpdate(
-    { _id: variantId },
-    { $set: { deletedAt: new Date(), isActive: false } },
-    { new: true }
-  ).lean();
+  const result = await prisma.productVariant.update({
+    where: { id: variantId },
+    data: { deletedAt: new Date(), isActive: false },
+  });
 
-  if (result && actor) {
+  if (actor) {
     void writeAuditLog({
       action: "product.variant_deleted",
       actor,
@@ -365,47 +354,44 @@ export async function deleteProductVariant(variantId: string, actor?: AuditActor
 }
 
 export async function getProductsForPOS(branchId: string, search?: string) {
-  await connectDB();
+  const where: Prisma.ProductWhereInput = { isActive: true, deletedAt: null };
+  if (search) where.id = { in: await searchProductIds(search) };
 
-  const query: Record<string, unknown> = { isActive: true, deletedAt: null };
-  if (search) query.$text = { $search: search };
-
-  const products = await Product.find(query).sort({ name: 1 }).limit(50).lean();
-  const productIds = products.map((p) => p._id);
+  const products = await prisma.product.findMany({ where, orderBy: { name: "asc" }, take: 50 });
+  const productIds = products.map((p) => p.id);
 
   const [inventoryItems, variantsList] = await Promise.all([
-    Inventory.find({ branchId, productId: { $in: productIds } }).lean(),
-    ProductVariant.find({ productId: { $in: productIds }, isActive: true, deletedAt: null }).lean(),
+    prisma.inventory.findMany({ where: { branchId, productId: { in: productIds } } }),
+    prisma.productVariant.findMany({
+      where: { productId: { in: productIds }, isActive: true, deletedAt: null },
+    }),
   ]);
 
   const baseStockMap = new Map<string, number>();
   const variantStockMap = new Map<string, number>();
   for (const item of inventoryItems) {
-    const key = item.productId.toString();
     if (!item.variantId) {
-      baseStockMap.set(key, (baseStockMap.get(key) ?? 0) + item.quantity);
+      baseStockMap.set(item.productId, (baseStockMap.get(item.productId) ?? 0) + item.quantity);
     } else {
-      variantStockMap.set(item.variantId.toString(), item.quantity);
+      variantStockMap.set(item.variantId, item.quantity);
     }
   }
 
   const variantsByProduct = new Map<string, typeof variantsList>();
   for (const v of variantsList) {
-    const pid = v.productId.toString();
-    if (!variantsByProduct.has(pid)) variantsByProduct.set(pid, []);
-    variantsByProduct.get(pid)!.push(v);
+    if (!variantsByProduct.has(v.productId)) variantsByProduct.set(v.productId, []);
+    variantsByProduct.get(v.productId)!.push(v);
   }
 
   return products.map((p) => {
-    const pid = p._id.toString();
-    const productVariants = variantsByProduct.get(pid) ?? [];
+    const productVariants = variantsByProduct.get(p.id) ?? [];
     const variantsWithStock = productVariants.map((v) => ({
       ...v,
-      stock: variantStockMap.get(v._id.toString()) ?? 0,
+      stock: variantStockMap.get(v.id) ?? 0,
     }));
     return {
       ...p,
-      stock: baseStockMap.get(pid) ?? 0,
+      stock: baseStockMap.get(p.id) ?? 0,
       variants: variantsWithStock,
     };
   });
@@ -461,8 +447,7 @@ function parseTagsCell(raw: string): string[] {
 }
 
 export async function exportProductsToCsv(): Promise<string> {
-  await connectDB();
-  const products = await Product.find({ deletedAt: null }).sort({ sku: 1 }).lean();
+  const products = await prisma.product.findMany({ where: { deletedAt: null }, orderBy: { sku: "asc" } });
   const dataRows: string[][] = products.map((p) => [
     p.sku,
     p.name,
@@ -477,7 +462,7 @@ export async function exportProductsToCsv(): Promise<string> {
     p.marketplaceListed !== false ? "true" : "false",
     (p.tags ?? []).join("; "),
   ]);
-  return "\uFEFF" + serializeCsv([[...CSV_HEADERS_EXPORT], ...dataRows]);
+  return "﻿" + serializeCsv([[...CSV_HEADERS_EXPORT], ...dataRows]);
 }
 
 export interface ProductImportRowError {
@@ -493,7 +478,6 @@ export interface ProductImportResult {
 }
 
 export async function importProductsFromCsv(csv: string): Promise<ProductImportResult> {
-  await connectDB();
   const rows = parseCsv(csv);
   const errors: ProductImportRowError[] = [];
 
@@ -588,18 +572,14 @@ export async function importProductsFromCsv(csv: string): Promise<ProductImportR
     }
 
     try {
-      const existing = await Product.findOne({ sku: parsed.data.sku, deletedAt: null }).lean();
+      const existing = await prisma.product.findFirst({
+        where: { sku: parsed.data.sku, deletedAt: null },
+      });
       if (existing) {
-        await Product.findOneAndUpdate(
-          { _id: existing._id, deletedAt: null },
-          {
-            $set: {
-              ...parsed.data,
-              slug: slugify(parsed.data.name),
-            },
-          },
-          { runValidators: true }
-        );
+        await prisma.product.update({
+          where: { id: existing.id },
+          data: { ...parsed.data, slug: slugify(parsed.data.name) },
+        });
         updated++;
       } else {
         await createProduct(parsed.data);

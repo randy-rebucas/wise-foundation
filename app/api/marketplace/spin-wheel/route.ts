@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { connectDB } from "@/lib/db/connect";
-import { Coupon } from "@/lib/db/models/Coupon";
-import { AppSettings } from "@/lib/db/models/AppSettings";
-import { issueSpinCoupon } from "@/lib/services/coupon.service";
+import { issueSpinCoupon, hasSpunWheel } from "@/lib/services/coupon.service";
+import { getAdminAppSettingsExtras } from "@/lib/services/appSettings.service";
 import { pickWeightedPrize } from "@/lib/server/spinWheelPrize";
 import { enforceRateLimit } from "@/lib/utils/rateLimit";
 import { errorResponse, successResponse } from "@/lib/utils/apiResponse";
@@ -23,17 +21,12 @@ export async function POST(req: Request) {
     }
     const email = parsed.data.email.toLowerCase();
 
-    await connectDB();
-
-    const existing = await Coupon.findOne({ source: "spin", customerEmail: email })
-      .select("_id")
-      .lean();
-    if (existing) {
+    if (await hasSpunWheel(email)) {
       return successResponse({ alreadySpun: true });
     }
 
-    const settings = await AppSettings.findOne().sort({ _id: 1 }).lean();
-    const freeGiftProductId = settings?.spinWheelFreeGiftProductId ?? null;
+    const { spinWheelFreeGiftProductId } = await getAdminAppSettingsExtras();
+    const freeGiftProductId = spinWheelFreeGiftProductId || null;
 
     const prize = pickWeightedPrize(!!freeGiftProductId);
     const coupon = await issueSpinCoupon(email, prize, freeGiftProductId);

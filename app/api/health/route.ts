@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/db/connect";
+import { prisma } from "@/lib/db/prisma";
 import { pingCloudinary, cloudinaryConfigured } from "@/lib/server/cloudinaryStorage";
 
 type ServiceStatus = "ok" | "degraded" | "unconfigured";
 
-async function checkMongo(): Promise<{ status: ServiceStatus; latencyMs?: number }> {
+async function checkDatabase(): Promise<{ status: ServiceStatus; latencyMs?: number }> {
   const start = Date.now();
   try {
-    const mongoose = await connectDB();
-    await mongoose.connection.db?.command({ ping: 1 });
+    await prisma.$queryRaw`SELECT 1`;
     return { status: "ok", latencyMs: Date.now() - start };
   } catch {
     return { status: "degraded" };
@@ -36,21 +35,21 @@ async function checkPaymongo(): Promise<{ status: ServiceStatus }> {
 }
 
 export async function GET() {
-  const [mongo, cloudinary, paymongo] = await Promise.all([
-    checkMongo(),
+  const [database, cloudinary, paymongo] = await Promise.all([
+    checkDatabase(),
     checkCloudinary(),
     checkPaymongo(),
   ]);
 
   const degraded =
-    mongo.status === "degraded" ||
+    database.status === "degraded" ||
     cloudinary.status === "degraded" ||
     paymongo.status === "degraded";
 
   const body = {
     status: degraded ? "degraded" : "ok",
     timestamp: new Date().toISOString(),
-    services: { mongo, cloudinary, paymongo },
+    services: { database, cloudinary, paymongo },
   };
 
   return NextResponse.json(body, { status: degraded ? 503 : 200 });

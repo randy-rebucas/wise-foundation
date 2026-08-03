@@ -1,7 +1,6 @@
-import mongoose from "mongoose";
 import { unstable_cache, revalidateTag } from "next/cache";
-import { connectDB } from "@/lib/db/connect";
-import { AppSettings } from "@/lib/db/models/AppSettings";
+import { prisma } from "@/lib/db/prisma";
+import type { AppSettings } from "@prisma/client";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import type { PatchAppSettingsInput } from "@/lib/validations/appSettings.schema";
 import { imageUploadConfigured } from "@/lib/server/imageStorage";
@@ -10,7 +9,7 @@ import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import {
   DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE,
   normalizePurchaseOrderDiscountByOrgType,
-  PO_DISCOUNT_ORG_TYPES,
+  type PurchaseOrderDiscountByOrgType,
 } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 
 const DEFAULTS: PublicAppSettings = {
@@ -28,23 +27,31 @@ const DEFAULTS: PublicAppSettings = {
   imageUploadEnabled: false,
 };
 
-export function toPublicAppSettings(
-  doc: {
-    appName?: string;
-    appTagline?: string;
-    appLogoUrl?: string;
-    seoDefaultDescription?: string;
-    seoOgImageUrl?: string;
-    currency?: string;
-    timezone?: string;
-    memberDefaultDiscountPercent?: number;
-    defaultLowStockThreshold?: number;
-    receiptFooter?: string;
-    purchaseOrderDiscountByOrgType?: Partial<
-      PublicAppSettings["purchaseOrderDiscountByOrgType"]
-    >;
-  } | null
-): PublicAppSettings {
+function discountColumnsToMap(
+  doc: Pick<
+    AppSettings,
+    "discountDistributor" | "discountFranchise" | "discountPartner" | "discountHeadquarters"
+  >
+): PurchaseOrderDiscountByOrgType {
+  return normalizePurchaseOrderDiscountByOrgType({
+    distributor: doc.discountDistributor,
+    franchise: doc.discountFranchise,
+    partner: doc.discountPartner,
+    headquarters: doc.discountHeadquarters,
+  });
+}
+
+function discountMapToColumns(map: Partial<PurchaseOrderDiscountByOrgType>) {
+  const normalized = normalizePurchaseOrderDiscountByOrgType(map);
+  return {
+    discountDistributor: normalized.distributor,
+    discountFranchise: normalized.franchise,
+    discountPartner: normalized.partner,
+    discountHeadquarters: normalized.headquarters,
+  };
+}
+
+export function toPublicAppSettings(doc: AppSettings | null): PublicAppSettings {
   if (!doc) return { ...DEFAULTS, imageUploadEnabled: imageUploadConfigured() };
   return {
     appName: doc.appName ?? DEFAULTS.appName,
@@ -58,21 +65,19 @@ export function toPublicAppSettings(
       doc.memberDefaultDiscountPercent ?? DEFAULTS.memberDefaultDiscountPercent,
     defaultLowStockThreshold: doc.defaultLowStockThreshold ?? DEFAULTS.defaultLowStockThreshold,
     receiptFooter: doc.receiptFooter ?? DEFAULTS.receiptFooter,
-    purchaseOrderDiscountByOrgType: normalizePurchaseOrderDiscountByOrgType(
-      doc.purchaseOrderDiscountByOrgType
-    ),
+    purchaseOrderDiscountByOrgType: discountColumnsToMap(doc),
     imageUploadEnabled: imageUploadConfigured(),
   };
 }
 
 export async function getPurchaseOrderDiscountByOrgType() {
   const doc = await getAppSettingsLean();
-  return normalizePurchaseOrderDiscountByOrgType(doc?.purchaseOrderDiscountByOrgType);
+  if (!doc) return { ...DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE };
+  return discountColumnsToMap(doc);
 }
 
 export async function getAppSettingsLean() {
-  await connectDB();
-  return AppSettings.findOne().lean();
+  return prisma.appSettings.findFirst();
 }
 
 export const getPublicAppSettings = unstable_cache(
@@ -91,17 +96,69 @@ export async function getDefaultLowStockThreshold(): Promise<number> {
 
 export async function getAdminAppSettingsExtras() {
   const doc = await getAppSettingsLean();
-  const branchId = doc?.marketplaceFulfillmentBranchId;
-  const giftProductId = doc?.spinWheelFreeGiftProductId;
   return {
-    marketplaceFulfillmentBranchId: branchId ? String(branchId) : "",
-    spinWheelFreeGiftProductId: giftProductId ? String(giftProductId) : "",
+    marketplaceFulfillmentBranchId: doc?.marketplaceFulfillmentBranchId ?? "",
+    spinWheelFreeGiftProductId: doc?.spinWheelFreeGiftProductId ?? "",
   };
 }
 
+export interface InitialSetupInput {
+  appName: string;
+  currency: string;
+  timezone: string;
+  adminName: string;
+  adminEmail: string;
+  adminPasswordHash: string;
+}
+
+const DEFAULT_APP_TAGLINE = "POS & online store";
+const DEFAULT_MEMBER_DISCOUNT = 10;
+const DEFAULT_LOW_STOCK = 10;
+
+/** First-run setup: creates/updates AppSettings and the initial ADMIN user in one transaction. */
+export async function runInitialSetup(input: InitialSetupInput): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const existingAdmin = await tx.user.findFirst({ where: { role: "ADMIN", deletedAt: null } });
+    if (existingAdmin) throw new Error("An admin user already exists");
+
+    const emailTaken = await tx.user.findFirst({ where: { email: input.adminEmail.toLowerCase() } });
+    if (emailTaken) throw new Error("Email already in use");
+
+    const settingsRow = await tx.appSettings.findFirst({ orderBy: { id: "asc" } });
+    if (settingsRow?.setupCompleted) throw new Error("Setup already completed");
+
+    const settingsPayload = {
+      appName: input.appName,
+      currency: input.currency,
+      timezone: input.timezone,
+      setupCompleted: true,
+      appTagline: DEFAULT_APP_TAGLINE,
+      memberDefaultDiscountPercent: DEFAULT_MEMBER_DISCOUNT,
+      defaultLowStockThreshold: DEFAULT_LOW_STOCK,
+      receiptFooter: "",
+    };
+
+    if (settingsRow) {
+      await tx.appSettings.update({ where: { id: settingsRow.id }, data: settingsPayload });
+    } else {
+      await tx.appSettings.create({ data: settingsPayload });
+    }
+
+    await tx.user.create({
+      data: {
+        name: input.adminName,
+        email: input.adminEmail.toLowerCase(),
+        password: input.adminPasswordHash,
+        role: "ADMIN",
+        permissions: [],
+        isActive: true,
+      },
+    });
+  });
+}
+
 export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: AuditActor) {
-  await connectDB();
-  const existing = await AppSettings.findOne().sort({ createdAt: 1 });
+  const existing = await prisma.appSettings.findFirst({ orderBy: { createdAt: "asc" } });
   if (!existing) throw new Error("Application settings not found");
 
   const {
@@ -110,7 +167,7 @@ export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: 
     purchaseOrderDiscountByOrgType,
     ...rest
   } = updates;
-  const set: Record<string, unknown> = { ...rest };
+  const data: Record<string, unknown> = { ...rest };
 
   if (rest.appLogoUrl !== undefined) {
     const next = String(rest.appLogoUrl).trim();
@@ -118,47 +175,33 @@ export async function updateAppSettings(updates: PatchAppSettingsInput, actor?: 
     if (prev && prev !== next) {
       await maybeRemoveReplacedAppLogo(prev);
     }
-    set.appLogoUrl = next;
+    data.appLogoUrl = next;
   }
 
   if (rest.seoOgImageUrl !== undefined) {
-    set.seoOgImageUrl = String(rest.seoOgImageUrl).trim();
+    data.seoOgImageUrl = String(rest.seoOgImageUrl).trim();
   }
 
   if (rest.seoDefaultDescription !== undefined) {
-    set.seoDefaultDescription = String(rest.seoDefaultDescription).trim();
+    data.seoDefaultDescription = String(rest.seoDefaultDescription).trim();
   }
 
   if (purchaseOrderDiscountByOrgType !== undefined) {
-    const normalized = normalizePurchaseOrderDiscountByOrgType(
-      purchaseOrderDiscountByOrgType
-    );
-    for (const key of PO_DISCOUNT_ORG_TYPES) {
-      set[`purchaseOrderDiscountByOrgType.${key}`] = normalized[key];
-    }
+    Object.assign(data, discountMapToColumns(purchaseOrderDiscountByOrgType));
   }
 
   if (marketplaceFulfillmentBranchId !== undefined) {
-    set.marketplaceFulfillmentBranchId =
-      marketplaceFulfillmentBranchId &&
-      mongoose.isValidObjectId(marketplaceFulfillmentBranchId)
-        ? new mongoose.Types.ObjectId(marketplaceFulfillmentBranchId)
-        : null;
+    data.marketplaceFulfillmentBranchId = marketplaceFulfillmentBranchId || null;
   }
 
   if (spinWheelFreeGiftProductId !== undefined) {
-    set.spinWheelFreeGiftProductId =
-      spinWheelFreeGiftProductId && mongoose.isValidObjectId(spinWheelFreeGiftProductId)
-        ? new mongoose.Types.ObjectId(spinWheelFreeGiftProductId)
-        : null;
+    data.spinWheelFreeGiftProductId = spinWheelFreeGiftProductId || null;
   }
 
-  const doc = await AppSettings.findByIdAndUpdate(
-    existing._id,
-    { $set: set },
-    { new: true, runValidators: true }
-  ).lean();
-  if (!doc) throw new Error("Application settings not found");
+  const doc = await prisma.appSettings.update({
+    where: { id: existing.id },
+    data,
+  });
   revalidateTag("app-settings", "seconds");
 
   if (actor) {

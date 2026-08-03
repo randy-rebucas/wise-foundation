@@ -1,6 +1,14 @@
-import type { IOrganizationSettings, OrganizationType } from "@/lib/db/models/Organization";
+import type { OrganizationType } from "@prisma/client";
 
-export const TYPE_DEFAULT_SETTINGS: Record<OrganizationType, IOrganizationSettings> = {
+export interface OrganizationSettings {
+  canSellRetail: boolean;
+  canDistribute: boolean;
+  hasInventory: boolean;
+  commissionEnabled: boolean;
+  canSubmitOrders: boolean;
+}
+
+export const TYPE_DEFAULT_SETTINGS: Record<OrganizationType, OrganizationSettings> = {
   headquarters: {
     canSellRetail: false,
     canDistribute: true,

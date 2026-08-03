@@ -1,8 +1,5 @@
-import { connectDB } from "@/lib/db/connect";
-import { Product } from "@/lib/db/models/Product";
-import { ProductVariant } from "@/lib/db/models/ProductVariant";
+import { prisma } from "@/lib/db/prisma";
 import { defaultProcurementUnitCost } from "@/lib/utils/procurementCost";
-import type { Types } from "mongoose";
 
 export const CATALOG_TEMPLATE_PAGE_SIZE = 100;
 export const CATALOG_TEMPLATE_MAX_PAGES = 500;
@@ -35,12 +32,7 @@ export interface PurchaseOrderCatalogTemplate {
 }
 
 function buildLinesForProducts(
-  products: {
-    _id: Types.ObjectId;
-    name: string;
-    sku: string;
-    retailPrice: number;
-  }[],
+  products: { id: string; name: string; sku: string; retailPrice: number }[],
   variantsByProductId: Map<
     string,
     { _id: string; name: string; sku: string; retailPrice: number; isActive?: boolean }[]
@@ -49,13 +41,12 @@ function buildLinesForProducts(
   const items: PurchaseOrderCatalogTemplateLine[] = [];
 
   for (const product of products) {
-    const productId = String(product._id);
-    const variants = variantsByProductId.get(productId) ?? [];
+    const variants = variantsByProductId.get(product.id) ?? [];
 
     if (variants.length > 0) {
       for (const variant of variants) {
         items.push({
-          productId,
+          productId: product.id,
           baseProductName: product.name,
           productName: `${product.name} — ${variant.name}`,
           sku: variant.sku,
@@ -67,7 +58,7 @@ function buildLinesForProducts(
       }
     } else {
       items.push({
-        productId,
+        productId: product.id,
         baseProductName: product.name,
         productName: product.name,
         sku: product.sku,
@@ -81,7 +72,7 @@ function buildLinesForProducts(
 }
 
 async function loadVariantsByProductIds(
-  productIds: Types.ObjectId[]
+  productIds: string[]
 ): Promise<
   Map<string, { _id: string; name: string; sku: string; retailPrice: number; isActive?: boolean }[]>
 > {
@@ -89,13 +80,10 @@ async function loadVariantsByProductIds(
     return new Map();
   }
 
-  const variantDocs = await ProductVariant.find({
-    productId: { $in: productIds },
-    deletedAt: null,
-    isActive: true,
-  })
-    .sort({ name: 1 })
-    .lean();
+  const variantDocs = await prisma.productVariant.findMany({
+    where: { productId: { in: productIds }, deletedAt: null, isActive: true },
+    orderBy: { name: "asc" },
+  });
 
   const variantsByProductId = new Map<
     string,
@@ -103,16 +91,9 @@ async function loadVariantsByProductIds(
   >();
 
   for (const v of variantDocs) {
-    const pid = String(v.productId);
-    const list = variantsByProductId.get(pid) ?? [];
-    list.push({
-      _id: String(v._id),
-      name: v.name,
-      sku: v.sku,
-      retailPrice: v.retailPrice,
-      isActive: v.isActive,
-    });
-    variantsByProductId.set(pid, list);
+    const list = variantsByProductId.get(v.productId) ?? [];
+    list.push({ _id: v.id, name: v.name, sku: v.sku, retailPrice: v.retailPrice, isActive: v.isActive });
+    variantsByProductId.set(v.productId, list);
   }
 
   return variantsByProductId;
@@ -123,19 +104,17 @@ export async function getPurchaseOrderCatalogTemplatePage(
   page = 1,
   limit = CATALOG_TEMPLATE_PAGE_SIZE
 ): Promise<PurchaseOrderCatalogTemplate> {
-  await connectDB();
-
   const safePage = Math.max(1, page);
   const safeLimit = Math.min(Math.max(1, limit), 200);
   const skip = (safePage - 1) * safeLimit;
 
-  const filter = { deletedAt: null, isActive: true };
+  const where = { deletedAt: null, isActive: true };
   const [products, totalProducts] = await Promise.all([
-    Product.find(filter).sort({ name: 1 }).skip(skip).limit(safeLimit).lean(),
-    Product.countDocuments(filter),
+    prisma.product.findMany({ where, orderBy: { name: "asc" }, skip, take: safeLimit }),
+    prisma.product.count({ where }),
   ]);
 
-  const productIds = products.map((p) => p._id);
+  const productIds = products.map((p) => p.id);
   const variantsByProductId = await loadVariantsByProductIds(productIds);
   const items = buildLinesForProducts(products, variantsByProductId);
 
@@ -173,4 +152,3 @@ export async function getPurchaseOrderCatalogTemplateAll(): Promise<PurchaseOrde
     hasMore: false,
   };
 }
-

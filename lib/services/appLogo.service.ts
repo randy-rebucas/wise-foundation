@@ -1,5 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { AppSettings } from "@/lib/db/models/AppSettings";
+import { prisma } from "@/lib/db/prisma";
 import { deleteStoredImage } from "@/lib/server/imageStorage";
 import { uploadImageBlobToStorage } from "@/lib/server/imageUpload";
 import { getBrandingFolder } from "@/lib/server/uploadFolders";
@@ -50,11 +49,10 @@ async function deleteStoredLogoUrl(url: string): Promise<void> {
 }
 
 export async function uploadAppLogo(file: Blob, actor?: AuditActor) {
-  await connectDB();
   const folder = getBrandingFolder();
   const uploaded = await uploadImageBlobToStorage(file, folder);
 
-  const existing = await AppSettings.findOne().sort({ createdAt: 1 }).lean();
+  const existing = await prisma.appSettings.findFirst({ orderBy: { createdAt: "asc" } });
   const previousUrl = existing?.appLogoUrl?.trim() ?? "";
   if (previousUrl && previousUrl !== uploaded.url) {
     await maybeRemoveReplacedAppLogo(previousUrl);
@@ -70,17 +68,12 @@ export async function uploadAppLogo(file: Blob, actor?: AuditActor) {
 }
 
 export async function removeAppLogo(actor?: AuditActor) {
-  await connectDB();
-  const existing = await AppSettings.findOne().sort({ createdAt: 1 }).lean();
+  const existing = await prisma.appSettings.findFirst({ orderBy: { createdAt: "asc" } });
   if (!existing) throw new Error("Application settings not found");
 
   await maybeRemoveReplacedAppLogo(existing.appLogoUrl);
 
-  const doc = await AppSettings.findByIdAndUpdate(
-    existing._id,
-    { $set: { appLogoUrl: "" } },
-    { new: true, runValidators: true }
-  ).lean();
+  const doc = await prisma.appSettings.update({ where: { id: existing.id }, data: { appLogoUrl: "" } });
   if (!doc) throw new Error("Application settings not found");
 
   if (actor) {

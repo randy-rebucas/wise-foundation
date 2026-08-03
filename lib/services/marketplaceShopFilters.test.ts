@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Prisma } from "@prisma/client";
 import {
   buildMarketplaceProductFilter,
   marketplaceProductSortSpec,
@@ -8,9 +9,9 @@ import {
 describe("buildMarketplaceProductFilter", () => {
   it("keeps listing rules when search is applied", () => {
     const filter = buildMarketplaceProductFilter({ search: "serum" });
-    expect(filter).toHaveProperty("$and");
-    const and = (filter as { $and: Record<string, unknown>[] }).$and;
-    expect(and.some((c) => c.$or && Array.isArray(c.$or))).toBe(true);
+    expect(filter).toHaveProperty("AND");
+    const and = (filter as { AND: Prisma.ProductWhereInput[] }).AND;
+    expect(and.some((c) => c.OR && Array.isArray(c.OR))).toBe(true);
     expect(and.some((c) => c.deletedAt === null)).toBe(true);
   });
 
@@ -20,11 +21,11 @@ describe("buildMarketplaceProductFilter", () => {
       minPrice: 100,
       maxPrice: 500,
     });
-    const and = (filter as { $and: Record<string, unknown>[] }).$and;
+    const and = (filter as { AND: Prisma.ProductWhereInput[] }).AND;
     expect(and).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ tags: { $in: ["rose"] } }),
-        expect.objectContaining({ retailPrice: { $gte: 100, $lte: 500 } }),
+        expect.objectContaining({ tags: { hasSome: ["rose"] } }),
+        expect.objectContaining({ retailPrice: { gte: 100, lte: 500 } }),
       ])
     );
   });
@@ -38,7 +39,7 @@ describe("normalizeShopTags", () => {
 
 describe("marketplaceProductSortSpec", () => {
   it("maps price sorts", () => {
-    expect(marketplaceProductSortSpec("price-low")).toEqual({ retailPrice: 1, createdAt: -1 });
-    expect(marketplaceProductSortSpec("price-high")).toEqual({ retailPrice: -1, createdAt: -1 });
+    expect(marketplaceProductSortSpec("price-low")).toEqual([{ retailPrice: "asc" }, { createdAt: "desc" }]);
+    expect(marketplaceProductSortSpec("price-high")).toEqual([{ retailPrice: "desc" }, { createdAt: "desc" }]);
   });
 });

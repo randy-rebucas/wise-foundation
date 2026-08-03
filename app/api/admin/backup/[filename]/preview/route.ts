@@ -26,8 +26,7 @@ const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
     const filepath = join(BACKUP_DIR, filename);
     if (!existsSync(filepath)) return notFoundResponse("Backup not found");
 
-    type CollectionEntry = unknown[] | { docs: unknown[]; indexes?: unknown[] };
-    let parsed: { createdAt?: string; collections: Record<string, CollectionEntry> };
+    let parsed: { createdAt?: string; tables: Record<string, unknown[]> };
     try {
       const json = gunzipSync(readFileSync(filepath)).toString("utf-8");
       parsed = JSON.parse(json);
@@ -35,20 +34,16 @@ const getHandler = async (_req: AuthedRequest, ctx?: unknown) => {
       return errorResponse("Failed to read backup file", 400);
     }
 
-    if (!parsed?.collections || typeof parsed.collections !== "object") {
+    if (!parsed?.tables || typeof parsed.tables !== "object") {
       return errorResponse("Invalid backup format", 400);
     }
 
-    const collections = Object.entries(parsed.collections).map(([name, entry]) => {
-      const docs = Array.isArray(entry) ? entry : Array.isArray(entry?.docs) ? entry.docs : [];
-      const indexCount = Array.isArray(entry) ? 0 : entry?.indexes?.length ?? 0;
-      return {
-        name,
-        count: docs.length,
-        indexCount,
-        sample: docs.length > 0 ? docs[0] : null,
-      };
-    });
+    const collections = Object.entries(parsed.tables).map(([name, docs]) => ({
+      name,
+      count: Array.isArray(docs) ? docs.length : 0,
+      indexCount: 0,
+      sample: Array.isArray(docs) && docs.length > 0 ? docs[0] : null,
+    }));
 
     return successResponse({
       filename,

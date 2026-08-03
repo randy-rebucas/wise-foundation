@@ -1,8 +1,6 @@
 import "server-only";
 
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Organization } from "@/lib/db/models/Organization";
+import { prisma } from "@/lib/db/prisma";
 import { getPurchaseOrderDiscountByOrgType } from "@/lib/services/appSettings.service";
 import { canSetPurchaseOrderDiscount } from "@/lib/permissions/purchaseOrders";
 import {
@@ -23,17 +21,10 @@ export async function resolvePurchaseOrderDiscountPercent(options: {
   user?: SessionUser;
   settingsMap?: PurchaseOrderDiscountByOrgType;
 }): Promise<number> {
-  await connectDB();
-  if (!mongoose.Types.ObjectId.isValid(options.organizationId)) {
-    throw new Error("Invalid organization id");
-  }
-
-  const org = await Organization.findOne({
-    _id: options.organizationId,
-    deletedAt: null,
-  })
-    .select("type")
-    .lean();
+  const org = await prisma.organization.findFirst({
+    where: { id: options.organizationId, deletedAt: null },
+    select: { type: true },
+  });
   if (!org) throw new Error("Organization not found");
 
   const settingsMap =

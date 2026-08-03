@@ -1,5 +1,3 @@
-import { Types } from "mongoose";
-
 // ─── Enums ──────────────────────────────────────────────────────────────────
 
 export type UserRole =
@@ -86,15 +84,6 @@ export interface SessionUser {
   organizationCapabilities?: OrganizationCapabilities | null;
   permissions: string[];
   image?: string;
-}
-
-// ─── Shared Base ─────────────────────────────────────────────────────────────
-
-export interface BaseDocument {
-  _id: Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date | null;
 }
 
 // ─── Cart (Zustand) ───────────────────────────────────────────────────────────

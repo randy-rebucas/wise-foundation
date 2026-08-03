@@ -21,7 +21,7 @@ import { Search, Star, AlertTriangle, TrendingUp, MessageSquare, Shuffle, Loader
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownEditor } from "@/components/shared/MarkdownEditor";
 import { MediaPickerDialog } from "@/components/media/MediaPickerDialog";
-import type { AdminReview } from "@/app/api/admin/reviews/route";
+import type { AdminReview } from "@/lib/services/marketplace.service";
 
 type RatingFilter = "all" | "negative" | "positive";
 

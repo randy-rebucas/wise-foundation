@@ -1,12 +1,11 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { connectDB } from "@/lib/db/connect";
 import { successResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import { writeAuditLog } from "@/lib/services/audit.service";
+import { dumpDatabase } from "@/lib/db/backup";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 import { createGzip } from "zlib";
 import { createWriteStream, mkdirSync, readdirSync, statSync } from "fs";
 import { join } from "path";
-import mongoose from "mongoose";
 
 const BACKUP_DIR = process.env.BACKUP_DIR ?? join(process.cwd(), "backups");
 
@@ -43,15 +42,8 @@ const postHandler = async (req: AuthedRequest) => {
     const label: string = body?.label ?? "";
 
     ensureBackupDir();
-    await connectDB();
 
-    const db = mongoose.connection.db;
-    if (!db) return serverErrorResponse("Database not connected");
-
-    // Only real collections are backed up; views are derived and have no data of their own to restore.
-    const collections = (await db.listCollections().toArray()).filter(
-      (c) => c.type === undefined || c.type === "collection"
-    );
+    const payload = await dumpDatabase();
 
     const timestamp = new Date()
       .toISOString()
@@ -67,22 +59,7 @@ const postHandler = async (req: AuthedRequest) => {
     const gzip = createGzip();
     const out = createWriteStream(filepath);
     gzip.pipe(out);
-
-    // Stream each collection via cursor so the entire DB is never held in memory.
-    // Indexes are captured too so a restore into an empty database recreates them.
-    gzip.write(`{"createdAt":${JSON.stringify(new Date())},"collections":{`);
-    for (let i = 0; i < collections.length; i++) {
-      const colName = collections[i].name;
-      const indexes = await db.collection(colName).indexes();
-      gzip.write(`${i === 0 ? "" : ","}${JSON.stringify(colName)}:{"indexes":${JSON.stringify(indexes)},"docs":[`);
-      let first = true;
-      for await (const doc of db.collection(colName).find({})) {
-        gzip.write(`${first ? "" : ","}${JSON.stringify(doc)}`);
-        first = false;
-      }
-      gzip.write("]}");
-    }
-    gzip.write("}}");
+    gzip.write(JSON.stringify(payload));
     gzip.end();
 
     await new Promise<void>((resolve, reject) => {

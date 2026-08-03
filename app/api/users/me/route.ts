@@ -1,7 +1,5 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
-import "@/lib/db/models/Organization";
+import { getMe, updateMe } from "@/lib/services/user.service";
 import { serializeMeUser } from "@/lib/utils/serializeMeUser";
 import { z } from "zod";
 import {
@@ -20,13 +18,9 @@ const updateSchema = z.object({
 
 const getHandler = async (req: AuthedRequest) => {
   try {
-    await connectDB();
-    const user = await User.findOne({ _id: req.user.id, deletedAt: null })
-      .select("-password")
-      .populate({ path: "organizationId", select: "name" })
-      .lean();
+    const user = await getMe(req.user.id);
     if (!user) return errorResponse("User not found", 404);
-    return successResponse(serializeMeUser(user as Record<string, unknown>));
+    return successResponse(serializeMeUser(user));
   } catch (err) {
     logger.error({ err }, "GET /api/users/me error");
     return serverErrorResponse();
@@ -41,18 +35,9 @@ const patchHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    await connectDB();
-    const user = await User.findOneAndUpdate(
-      { _id: req.user.id, deletedAt: null },
-      { $set: parsed.data },
-      { new: true, runValidators: true }
-    )
-      .select("-password")
-      .populate({ path: "organizationId", select: "name" })
-      .lean();
-
+    const user = await updateMe(req.user.id, parsed.data);
     if (!user) return errorResponse("User not found", 404);
-    return successResponse(serializeMeUser(user as Record<string, unknown>), "Profile updated");
+    return successResponse(serializeMeUser(user), "Profile updated");
   } catch {
     return serverErrorResponse();
   }

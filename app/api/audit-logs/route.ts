@@ -1,9 +1,8 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getAuditLogs } from "@/lib/services/audit.service";
+import { getAuditLogs, type AuditAction } from "@/lib/services/audit.service";
 import { successResponse, errorResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import { parsePagination } from "@/lib/utils/pagination";
-import type { AuditAction } from "@/lib/db/models/AuditLog";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const VALID_ACTIONS = new Set<AuditAction>([

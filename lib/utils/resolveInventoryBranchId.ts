@@ -1,5 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { Branch } from "@/lib/db/models/Branch";
+import { prisma } from "@/lib/db/prisma";
 import { loadOrganizationCapabilitiesForUser } from "@/lib/organization/capabilities";
 import { assertBranchAccess, type BranchScopeUser } from "@/lib/utils/branchAccess";
 
@@ -26,25 +25,21 @@ export async function resolveInventoryBranchId(
   if (user.role === "ORG_ADMIN" && user.organizationId) {
     const caps = await loadOrganizationCapabilitiesForUser(user);
     if (caps?.posSurface === "branch" || caps?.inventorySurface === "branch") {
-      await connectDB();
-      const b = await Branch.findOne({
-        organizationId: user.organizationId,
-        deletedAt: null,
-        isActive: true,
-      })
-        .sort({ isHeadOffice: -1, name: 1 })
-        .lean();
-      return b?._id?.toString() ?? null;
+      const b = await prisma.branch.findFirst({
+        where: { organizationId: user.organizationId, deletedAt: null, isActive: true },
+        orderBy: [{ isHeadOffice: "desc" }, { name: "asc" }],
+      });
+      return b?.id ?? null;
     }
     return null;
   }
 
   if (user.role === "ADMIN") {
-    await connectDB();
-    const b = await Branch.findOne({ deletedAt: null, isActive: true })
-      .sort({ isHeadOffice: -1, _id: 1 })
-      .lean();
-    return b?._id?.toString() ?? null;
+    const b = await prisma.branch.findFirst({
+      where: { deletedAt: null, isActive: true },
+      orderBy: [{ isHeadOffice: "desc" }, { id: "asc" }],
+    });
+    return b?.id ?? null;
   }
 
   return null;

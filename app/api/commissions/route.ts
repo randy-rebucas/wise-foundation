@@ -3,7 +3,7 @@ import { withPermission } from "@/lib/middleware/withPermission";
 import { getCommissions, getCommissionSummary } from "@/lib/services/commission.service";
 import { successResponse, serverErrorResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
-import type { CommissionStatus } from "@/lib/db/models/Commission";
+import type { CommissionStatus } from "@prisma/client";
 
 const getHandler = async (req: AuthedRequest) => {
   try {

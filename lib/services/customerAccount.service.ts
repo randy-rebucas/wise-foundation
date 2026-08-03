@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 import { getSiteUrl } from "@/lib/seo/site";
 import { sendEmail } from "@/lib/email/mailer";
 import { emailVerificationTemplate, welcomeCouponTemplate } from "@/lib/email/templates";
@@ -15,20 +14,20 @@ const emailEnabled = () => !!process.env.SMTP_HOST;
 
 /** Issues a one-time welcome coupon and emails it. Idempotent via `welcomeCouponIssuedAt`. */
 async function issueAndSendWelcomeCoupon(user: {
-  _id: unknown;
+  id: string;
   name: string;
   email: string;
   marketingOptIn?: boolean;
 }) {
-  const claimed = await User.findOneAndUpdate(
-    { _id: user._id, welcomeCouponIssuedAt: null },
-    { welcomeCouponIssuedAt: new Date() }
-  );
-  if (!claimed) return; // already issued
+  const claimed = await prisma.user.updateMany({
+    where: { id: user.id, welcomeCouponIssuedAt: null },
+    data: { welcomeCouponIssuedAt: new Date() },
+  });
+  if (claimed.count === 0) return; // already issued
   if (user.marketingOptIn === false) return;
 
   try {
-    const coupon = await issueWelcomeCoupon(user._id as never);
+    const coupon = await issueWelcomeCoupon(user.id);
     const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Glowish";
     const { subject, html } = welcomeCouponTemplate({
       name: user.name,
@@ -45,9 +44,8 @@ async function issueAndSendWelcomeCoupon(user: {
 }
 
 export async function registerMarketplaceCustomer(input: RegisterCustomerInput) {
-  await connectDB();
   const email = input.email.toLowerCase().trim();
-  const existing = await User.findOne({ email, deletedAt: null }).lean();
+  const existing = await prisma.user.findFirst({ where: { email, deletedAt: null } });
   if (existing) {
     throw new Error("An account with this email already exists");
   }
@@ -56,20 +54,21 @@ export async function registerMarketplaceCustomer(input: RegisterCustomerInput) 
   const requireVerification = emailEnabled();
   const verificationToken = requireVerification ? nanoid(40) : null;
 
-  const user = await User.create({
-    name: input.name.trim(),
-    email,
-    password,
-    role: DEFAULT_MARKETPLACE_SIGNUP_ROLE,
-    branchIds: [],
-    organizationId: null,
-    permissions: [],
-    isActive: true,
-    emailVerified: !requireVerification,
-    emailVerificationToken: verificationToken,
-    emailVerificationExpiry: verificationToken
-      ? new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_MS)
-      : null,
+  const user = await prisma.user.create({
+    data: {
+      name: input.name.trim(),
+      email,
+      password,
+      role: DEFAULT_MARKETPLACE_SIGNUP_ROLE,
+      organizationId: null,
+      permissions: [],
+      isActive: true,
+      emailVerified: !requireVerification,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiry: verificationToken
+        ? new Date(Date.now() + EMAIL_VERIFICATION_EXPIRY_MS)
+        : null,
+    },
   });
 
   if (verificationToken) {
@@ -92,22 +91,17 @@ export async function registerMarketplaceCustomer(input: RegisterCustomerInput) 
 }
 
 export async function verifyEmailToken(token: string): Promise<boolean> {
-  await connectDB();
-  const user = await User.findOne({
-    emailVerificationToken: token,
-    emailVerified: false,
-    deletedAt: null,
-  })
-    .select("+emailVerificationToken +emailVerificationExpiry")
-    .lean();
+  const user = await prisma.user.findFirst({
+    where: { emailVerificationToken: token, emailVerified: false, deletedAt: null },
+  });
 
   if (!user) return false;
   if (user.emailVerificationExpiry && user.emailVerificationExpiry < new Date()) return false;
 
-  await User.updateOne(
-    { _id: user._id },
-    { emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null }
-  );
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null },
+  });
   void issueAndSendWelcomeCoupon(user);
   return true;
 }

@@ -17,38 +17,29 @@ import {
   Store,
   LayoutGrid,
 } from "lucide-react";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { Commission } from "@/lib/db/models/Commission";
-import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
-import { Organization } from "@/lib/db/models/Organization";
+import { prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@prisma/client";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import { formatCurrency, formatDateTimeInTimezone } from "@/lib/utils";
 import { ORDER_PAID_STATUSES } from "@/types";
-import mongoose from "mongoose";
 import Link from "next/link";
 
 async function getOrgDashboardStats(organizationId: string) {
-  await connectDB();
-
-  const orgObjectId = new mongoose.Types.ObjectId(organizationId);
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const paidStatuses = [...ORDER_PAID_STATUSES];
 
   // Revenue queries: only where this org is the seller
-  const sellerMatch = {
-    $or: [
-      { organizationId: orgObjectId },
-      { sellerOrganizationId: orgObjectId },
-    ],
+  const sellerMatch: Prisma.OrderWhereInput = {
+    OR: [{ organizationId }, { sellerOrganizationId: organizationId }],
   };
   // Full match: any order involving this org (seller or buyer)
-  const orgMatch = {
-    $or: [
-      { organizationId: orgObjectId },
-      { sellerOrganizationId: orgObjectId },
-      { buyerOrganizationId: orgObjectId },
+  const orgMatch: Prisma.OrderWhereInput = {
+    OR: [
+      { organizationId },
+      { sellerOrganizationId: organizationId },
+      { buyerOrganizationId: organizationId },
     ],
   };
 
@@ -58,58 +49,57 @@ async function getOrgDashboardStats(organizationId: string) {
     monthlyOrders,
     pendingOrders,
     commissionSummary,
+    pendingCommission,
     inventorySummary,
     recentOrders,
   ] = await Promise.all([
-    Organization.findById(organizationId).lean(),
-    Order.aggregate([
-      { $match: { ...sellerMatch, status: { $in: [...ORDER_PAID_STATUSES] }, createdAt: { $gte: startOfDay }, deletedAt: null } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-    ]),
-    Order.aggregate([
-      { $match: { ...sellerMatch, status: { $in: [...ORDER_PAID_STATUSES] }, createdAt: { $gte: startOfMonth }, deletedAt: null } },
-      { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-    ]),
-    Order.countDocuments({ ...orgMatch, status: { $in: ["pending", "approved"] }, deletedAt: null }),
-    Commission.aggregate([
-      { $match: { organizationId: orgObjectId } },
-      {
-        $group: {
-          _id: null,
-          totalEarned: { $sum: { $cond: [{ $in: ["$status", ["pending", "paid"]] }, "$amount", 0] } },
-          pendingPayout: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, "$amount", 0] } },
-        },
-      },
-    ]),
-    OrganizationInventory.aggregate([
-      { $match: { organizationId: orgObjectId } },
-      {
-        $group: {
-          _id: null,
-          totalProducts: { $sum: 1 },
-          totalUnits: { $sum: "$quantity" },
-          lowStock: { $sum: { $cond: [{ $lte: ["$quantity", 5] }, 1, 0] } },
-        },
-      },
-    ]),
-    Order.find({ ...orgMatch, deletedAt: null })
-      .sort({ createdAt: -1 })
-      .limit(6)
-      .lean(),
+    prisma.organization.findUnique({ where: { id: organizationId } }),
+    prisma.order.aggregate({
+      where: { ...sellerMatch, status: { in: paidStatuses }, createdAt: { gte: startOfDay }, deletedAt: null },
+      _sum: { total: true },
+      _count: { _all: true },
+    }),
+    prisma.order.aggregate({
+      where: { ...sellerMatch, status: { in: paidStatuses }, createdAt: { gte: startOfMonth }, deletedAt: null },
+      _sum: { total: true },
+      _count: { _all: true },
+    }),
+    prisma.order.count({ where: { ...orgMatch, status: { in: ["pending", "approved"] }, deletedAt: null } }),
+    prisma.commission.aggregate({
+      where: { organizationId, status: { in: ["pending", "paid"] } },
+      _sum: { amount: true },
+    }),
+    prisma.commission.aggregate({
+      where: { organizationId, status: "pending" },
+      _sum: { amount: true },
+    }),
+    prisma.organizationInventory.findMany({
+      where: { organizationId },
+      select: { quantity: true },
+    }),
+    prisma.order.findMany({
+      where: { ...orgMatch, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+    }),
   ]);
+
+  const totalProducts = inventorySummary.length;
+  const totalUnits = inventorySummary.reduce((s, i) => s + i.quantity, 0);
+  const lowStock = inventorySummary.filter((i) => i.quantity <= 5).length;
 
   return {
     org,
-    todaySales: todayOrders[0]?.total ?? 0,
-    todayOrders: todayOrders[0]?.count ?? 0,
-    monthlySales: monthlyOrders[0]?.total ?? 0,
-    monthlyOrders: monthlyOrders[0]?.count ?? 0,
+    todaySales: todayOrders._sum.total ?? 0,
+    todayOrders: todayOrders._count._all,
+    monthlySales: monthlyOrders._sum.total ?? 0,
+    monthlyOrders: monthlyOrders._count._all,
     pendingOrders,
-    totalEarned: commissionSummary[0]?.totalEarned ?? 0,
-    pendingPayout: commissionSummary[0]?.pendingPayout ?? 0,
-    inventoryProducts: inventorySummary[0]?.totalProducts ?? 0,
-    inventoryUnits: inventorySummary[0]?.totalUnits ?? 0,
-    lowStockCount: inventorySummary[0]?.lowStock ?? 0,
+    totalEarned: commissionSummary._sum.amount ?? 0,
+    pendingPayout: pendingCommission._sum.amount ?? 0,
+    inventoryProducts: totalProducts,
+    inventoryUnits: totalUnits,
+    lowStockCount: lowStock,
     recentOrders,
   };
 }
@@ -143,14 +133,10 @@ export default async function OrgDashboardPage() {
     getPublicAppSettings(),
   ]);
   const { currency, timezone } = settings;
-  const org = stats.org as {
-    name: string;
-    type: string;
-    settings: { hasInventory: boolean; commissionEnabled: boolean };
-  } | null;
+  const org = stats.org;
 
-  const hasInventory = org?.settings?.hasInventory ?? false;
-  const hasCommission = org?.settings?.commissionEnabled ?? false;
+  const hasInventory = org?.hasInventory ?? false;
+  const hasCommission = org?.commissionEnabled ?? false;
 
   // Quick links aligned to ORG_ADMIN sidebar permissions
   const quickLinks = [
@@ -253,7 +239,7 @@ export default async function OrgDashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {stats.recentOrders.map((order) => (
-                    <div key={order._id.toString()} className="flex items-center justify-between">
+                    <div key={order.id} className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium font-mono">{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">{formatDateTimeInTimezone(order.createdAt, timezone)}</p>

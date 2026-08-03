@@ -1,5 +1,5 @@
-import type { IOrganizationSettings, OrganizationType } from "@/lib/db/models/Organization";
-import { TYPE_DEFAULT_SETTINGS } from "@/lib/organization/typeDefaults";
+import type { OrganizationType } from "@prisma/client";
+import { TYPE_DEFAULT_SETTINGS, type OrganizationSettings } from "@/lib/organization/typeDefaults";
 import type { SessionUser } from "@/types";
 
 /** How org users view/manage stock. */
@@ -11,17 +11,17 @@ export type PosSurface = "branch" | "none";
 export interface OrgCapabilities {
   organizationId: string;
   type: OrganizationType;
-  settings: IOrganizationSettings;
+  settings: OrganizationSettings;
   inventorySurface: InventorySurface;
   posSurface: PosSurface;
 }
 
 export function resolveOrgCapabilities(org: {
   type: OrganizationType;
-  settings?: Partial<IOrganizationSettings> | null;
+  settings?: Partial<OrganizationSettings> | null;
 }): OrgCapabilities {
   const defaults = TYPE_DEFAULT_SETTINGS[org.type];
-  const settings: IOrganizationSettings = {
+  const settings: OrganizationSettings = {
     ...defaults,
     ...(org.settings ?? {}),
   };
@@ -62,15 +62,25 @@ export async function loadOrganizationCapabilities(
   const hit = orgCapsCache.get(organizationId);
   if (hit && hit.expiresAt > now) return hit.caps;
 
-  const { connectDB } = await import("@/lib/db/connect");
-  const { Organization } = await import("@/lib/db/models/Organization");
-  await connectDB();
-  const org = await Organization.findOne({ _id: organizationId, deletedAt: null, isActive: true })
-    .select("type settings")
-    .lean();
+  const { prisma } = await import("@/lib/db/prisma");
+  const org = await prisma.organization.findFirst({
+    where: { id: organizationId, deletedAt: null, isActive: true },
+    select: {
+      id: true,
+      type: true,
+      canSellRetail: true,
+      canDistribute: true,
+      hasInventory: true,
+      commissionEnabled: true,
+      canSubmitOrders: true,
+    },
+  });
 
   const caps = org
-    ? { ...resolveOrgCapabilities({ type: org.type, settings: org.settings }), organizationId: org._id.toString() }
+    ? {
+        ...resolveOrgCapabilities({ type: org.type, settings: org }),
+        organizationId: org.id,
+      }
     : null;
 
   orgCapsCache.set(organizationId, { caps, expiresAt: now + ORG_CAPS_TTL_MS });

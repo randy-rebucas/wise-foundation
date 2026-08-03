@@ -1,7 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { AbandonedCheckout } from "@/lib/db/models/AbandonedCheckout";
-import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
-import mongoose from "mongoose";
+import { prisma } from "@/lib/db/prisma";
 
 export interface AbandonedCheckoutSnapshotInput {
   email: string;
@@ -26,54 +23,53 @@ export interface AbandonedCheckoutSnapshotInput {
 }
 
 export async function snapshotAbandonedCheckout(input: AbandonedCheckoutSnapshotInput) {
-  await connectDB();
   const email = input.email.trim().toLowerCase();
   if (!email || input.items.length === 0) return null;
 
-  return AbandonedCheckout.findOneAndUpdate(
-    { email, status: "open" },
-    {
-      $set: {
-        email,
-        fullName: input.fullName,
-        phone: input.phone,
-        customerId: input.customerId ? new mongoose.Types.ObjectId(input.customerId) : null,
-        items: input.items.map((i) => ({
-          productId: new mongoose.Types.ObjectId(i.productId),
-          variantId: i.variantId ? new mongoose.Types.ObjectId(i.variantId) : null,
-          name: i.name,
-          variantName: i.variantName,
-          sku: i.sku,
-          image: i.image,
-          price: i.price,
-          quantity: i.quantity,
-        })),
-        subtotal: input.subtotal,
-        discountAmount: input.discountAmount,
-        shippingCost: input.shippingCost,
-        total: input.total,
-        paymentMethod: input.paymentMethod,
-        lastSeenAt: new Date(),
-      },
-    },
-    { upsert: true, new: true }
-  );
+  const itemsData = input.items.map((i) => ({
+    productId: i.productId,
+    variantId: i.variantId ?? null,
+    name: i.name,
+    variantName: i.variantName,
+    sku: i.sku,
+    image: i.image,
+    price: i.price,
+    quantity: i.quantity,
+  }));
+
+  const fields = {
+    email,
+    fullName: input.fullName,
+    phone: input.phone,
+    customerId: input.customerId ?? null,
+    subtotal: input.subtotal,
+    discountAmount: input.discountAmount,
+    shippingCost: input.shippingCost,
+    total: input.total,
+    paymentMethod: input.paymentMethod,
+    lastSeenAt: new Date(),
+  };
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.abandonedCheckout.findFirst({ where: { email, status: "open" } });
+    if (existing) {
+      await tx.abandonedCheckoutItem.deleteMany({ where: { abandonedCheckoutId: existing.id } });
+      return tx.abandonedCheckout.update({
+        where: { id: existing.id },
+        data: { ...fields, items: { create: itemsData } },
+      });
+    }
+    return tx.abandonedCheckout.create({ data: { ...fields, items: { create: itemsData } } });
+  });
 }
 
 export async function markAbandonedCheckoutRecovered(email: string, orderId: string) {
-  await connectDB();
   const normalized = email.trim().toLowerCase();
   if (!normalized) return;
-  await AbandonedCheckout.updateMany(
-    { email: normalized, status: "open" },
-    {
-      $set: {
-        status: "recovered",
-        recoveredOrderId: new mongoose.Types.ObjectId(orderId),
-        recoveredAt: new Date(),
-      },
-    }
-  );
+  await prisma.abandonedCheckout.updateMany({
+    where: { email: normalized, status: "open" },
+    data: { status: "recovered", recoveredOrderId: orderId, recoveredAt: new Date() },
+  });
 }
 
 export async function getAbandonedCheckouts(
@@ -82,26 +78,32 @@ export async function getAbandonedCheckouts(
   page: number,
   limit: number
 ) {
-  await connectDB();
-
-  const query: Record<string, unknown> = {};
-  if (status) query.status = status;
+  const where: Record<string, unknown> = {};
+  if (status) where.status = status;
   if (search) {
-    const rx = caseInsensitiveRegex(search);
-    query.$or = [{ email: rx }, { fullName: rx }, { phone: rx }];
+    where.OR = [
+      { email: { contains: search, mode: "insensitive" } },
+      { fullName: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+    ];
   }
 
   const skip = (page - 1) * limit;
   const [checkouts, total, openCount] = await Promise.all([
-    AbandonedCheckout.find(query).sort({ lastSeenAt: -1 }).skip(skip).limit(limit).lean(),
-    AbandonedCheckout.countDocuments(query),
-    AbandonedCheckout.countDocuments({ status: "open" }),
+    prisma.abandonedCheckout.findMany({
+      where,
+      orderBy: { lastSeenAt: "desc" },
+      skip,
+      take: limit,
+      include: { items: true },
+    }),
+    prisma.abandonedCheckout.count({ where }),
+    prisma.abandonedCheckout.count({ where: { status: "open" } }),
   ]);
 
   return { checkouts, total, openCount };
 }
 
 export async function deleteAbandonedCheckout(id: string) {
-  await connectDB();
-  await AbandonedCheckout.deleteOne({ _id: id });
+  await prisma.abandonedCheckout.delete({ where: { id } });
 }

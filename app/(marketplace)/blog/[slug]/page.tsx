@@ -36,7 +36,7 @@ export async function generateMetadata({
     description: post.summary,
     path: `/blog/${post.slug}`,
     settings,
-    image: post.coverImage,
+    image: post.coverImage ?? undefined,
   });
 }
 

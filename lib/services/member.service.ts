@@ -1,45 +1,35 @@
-import { connectDB } from "@/lib/db/connect";
-import { Branch } from "@/lib/db/models/Branch";
-import { Member } from "@/lib/db/models/Member";
+import { prisma } from "@/lib/db/prisma";
 import { generateMemberId } from "@/lib/utils/generateMemberId";
 import { writeAuditLog, type AuditActor } from "@/lib/services/audit.service";
 import type { CreateMemberInput, UpdateMemberInput } from "@/lib/validations/member.schema";
 import type { SessionUser } from "@/types";
-import { caseInsensitiveRegex } from "@/lib/utils/escapeRegex";
-
-function refIdToString(id: unknown): string | null {
-  if (id == null) return null;
-  if (typeof id === "object" && id !== null && "toString" in id) {
-    return (id as { toString(): string }).toString();
-  }
-  return String(id);
-}
 
 /** Whether the authenticated user may read or mutate this member row. */
 export function canUserAccessMember(
-  member: { branchId?: unknown; organizationId?: unknown },
+  member: { branchId?: string | null; organizationId?: string | null },
   user: SessionUser
 ): boolean {
   if (user.role === "ADMIN") return true;
   if (user.role === "ORG_ADMIN") {
     const org = user.organizationId;
     if (!org) return false;
-    return refIdToString(member.organizationId) === org;
+    return member.organizationId === org;
   }
-  const bid = refIdToString(member.branchId);
-  if (!bid) return false;
-  return (user.branchIds ?? []).includes(bid);
+  if (!member.branchId) return false;
+  return (user.branchIds ?? []).includes(member.branchId);
 }
 
 /** Ensures the target branch exists and is assignable for a new member for this user. */
 export async function assertBranchAssignableForMemberCreate(branchId: string, user: SessionUser): Promise<void> {
-  await connectDB();
-  const branch = await Branch.findOne({ _id: branchId, deletedAt: null }).select("organizationId").lean();
+  const branch = await prisma.branch.findFirst({
+    where: { id: branchId, deletedAt: null },
+    select: { organizationId: true },
+  });
   if (!branch) throw new Error("Branch not found");
   if (user.role === "ADMIN") return;
   if (user.role === "ORG_ADMIN") {
     const org = user.organizationId;
-    if (!org || refIdToString(branch.organizationId) !== org) {
+    if (!org || branch.organizationId !== org) {
       throw new Error("Branch is not in your organization");
     }
     return;
@@ -57,65 +47,53 @@ export async function getMembers(
   limit = 20,
   organizationId?: string
 ) {
-  await connectDB();
-
-  const baseFilter: Record<string, unknown> = { deletedAt: null };
+  const baseWhere: Record<string, unknown> = { deletedAt: null };
   if (organizationId) {
-    baseFilter.organizationId = organizationId;
+    baseWhere.organizationId = organizationId;
   } else if (branchId) {
-    baseFilter.branchId = branchId;
+    baseWhere.branchId = branchId;
   }
 
-  const query: Record<string, unknown> = { ...baseFilter };
-  if (status) query.status = status;
+  const where: Record<string, unknown> = { ...baseWhere };
+  if (status) where.status = status;
   if (search) {
-    const rx = caseInsensitiveRegex(search);
-    query.$or = [{ name: rx }, { phone: rx }, { memberId: rx }, { email: rx }];
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { phone: { contains: search, mode: "insensitive" } },
+      { memberId: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
+    ];
   }
 
   const skip = (page - 1) * limit;
-  const [members, countsResult] = await Promise.all([
-    Member.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-    Member.aggregate([
-      {
-        $facet: {
-          total: [{ $match: query }, { $count: "n" }],
-          active: [{ $match: { ...(baseFilter as Record<string, unknown>), status: "active" } }, { $count: "n" }],
-          inactive: [{ $match: { ...(baseFilter as Record<string, unknown>), status: { $in: ["inactive", "suspended"] } } }, { $count: "n" }],
-        },
-      },
-    ]),
+  const [members, total, activeCount, inactiveCount] = await Promise.all([
+    prisma.member.findMany({ where, orderBy: { createdAt: "desc" }, skip, take: limit }),
+    prisma.member.count({ where }),
+    prisma.member.count({ where: { ...baseWhere, status: "active" } }),
+    prisma.member.count({ where: { ...baseWhere, status: { in: ["inactive", "suspended"] } } }),
   ]);
-
-  const counts = countsResult[0] ?? {};
-  const total = counts.total?.[0]?.n ?? 0;
-  const activeCount = counts.active?.[0]?.n ?? 0;
-  const inactiveCount = counts.inactive?.[0]?.n ?? 0;
 
   return { members, total, pages: Math.ceil(total / limit), activeCount, inactiveCount };
 }
 
 export async function getMemberById(memberId: string) {
-  await connectDB();
-  return Member.findOne({ _id: memberId, deletedAt: null }).lean();
+  return prisma.member.findFirst({ where: { id: memberId, deletedAt: null } });
 }
 
 export async function createMember(data: CreateMemberInput, actor?: AuditActor) {
-  await connectDB();
-
-  const existing = await Member.findOne({ phone: data.phone, deletedAt: null });
+  const existing = await prisma.member.findFirst({ where: { phone: data.phone, deletedAt: null } });
   if (existing) throw new Error("A member with this phone number already exists");
 
-  const count = await Member.countDocuments();
+  const count = await prisma.member.count();
   const memberId = generateMemberId(count + 1);
 
-  const member = await Member.create({ ...data, memberId });
+  const member = await prisma.member.create({ data: { ...data, memberId } });
 
   if (actor) {
     void writeAuditLog({
       action: "member.created",
       actor,
-      targetId: String(member._id),
+      targetId: member.id,
       targetType: "Member",
       metadata: { name: data.name, memberId },
     });
@@ -130,16 +108,12 @@ export async function updateMember(
   data: UpdateMemberInput,
   actor?: AuditActor
 ) {
-  await connectDB();
-  const existing = await Member.findOne({ _id: memberId, deletedAt: null }).lean();
+  const existing = await prisma.member.findFirst({ where: { id: memberId, deletedAt: null } });
   if (!existing || !canUserAccessMember(existing, user)) return null;
-  const result = await Member.findOneAndUpdate(
-    { _id: memberId, deletedAt: null },
-    { $set: data },
-    { new: true, runValidators: true }
-  ).lean();
 
-  if (result && actor) {
+  const result = await prisma.member.update({ where: { id: memberId }, data });
+
+  if (actor) {
     void writeAuditLog({
       action: "member.status_changed",
       actor,
@@ -156,16 +130,15 @@ export async function updateMember(
 }
 
 export async function deleteMember(memberId: string, user: SessionUser, actor?: AuditActor) {
-  await connectDB();
-  const existing = await Member.findOne({ _id: memberId, deletedAt: null }).lean();
+  const existing = await prisma.member.findFirst({ where: { id: memberId, deletedAt: null } });
   if (!existing || !canUserAccessMember(existing, user)) return null;
-  const result = await Member.findOneAndUpdate(
-    { _id: memberId },
-    { $set: { deletedAt: new Date(), status: "inactive" } },
-    { new: true }
-  ).lean();
 
-  if (result && actor) {
+  const result = await prisma.member.update({
+    where: { id: memberId },
+    data: { deletedAt: new Date(), status: "inactive" },
+  });
+
+  if (actor) {
     void writeAuditLog({
       action: "member.deleted",
       actor,

@@ -15,17 +15,14 @@ import {
   ShoppingCart,
   Package,
 } from "lucide-react";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { Member } from "@/lib/db/models/Member";
-import { Inventory } from "@/lib/db/models/Inventory";
+import { prisma } from "@/lib/db/prisma";
 import { getPublicAppSettings, toPublicAppSettings } from "@/lib/services/appSettings.service";
 import type { PublicAppSettings } from "@/lib/types/appSettings";
 import { formatCurrency, formatDateTimeInTimezone } from "@/lib/utils";
 import { ORDER_PAID_STATUSES } from "@/types";
 
 interface RecentOrderRow {
-  _id: { toString(): string };
+  _id: string;
   orderNumber: string;
   total: number;
   createdAt: Date;
@@ -53,47 +50,48 @@ const emptyDashboardStats: DashboardStats = {
 };
 
 async function getDashboardStats(): Promise<DashboardStats> {
-  await connectDB();
-
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const paidStatuses = [...ORDER_PAID_STATUSES];
 
-  const [todayOrders, monthlyOrders, totalMembers, lowStockCount, recentOrders] =
+  const [todayOrders, monthlyOrders, totalMembers, lowStockItems, recentOrders] =
     await Promise.all([
-      Order.aggregate([
-        {
-          $match: {
-            status: { $in: [...ORDER_PAID_STATUSES] },
-            createdAt: { $gte: startOfDay },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-      ]),
-      Order.aggregate([
-        {
-          $match: {
-            status: { $in: [...ORDER_PAID_STATUSES] },
-            createdAt: { $gte: startOfMonth },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
-      ]),
-      Member.countDocuments({ status: "active", deletedAt: null }),
-      Inventory.countDocuments({
-        $expr: { $lte: ["$quantity", "$lowStockThreshold"] },
+      prisma.order.aggregate({
+        where: { status: { in: paidStatuses }, createdAt: { gte: startOfDay } },
+        _sum: { total: true },
+        _count: { _all: true },
       }),
-      Order.find({ deletedAt: null }).sort({ createdAt: -1 }).limit(5).lean(),
+      prisma.order.aggregate({
+        where: { status: { in: paidStatuses }, createdAt: { gte: startOfMonth } },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
+      prisma.member.count({ where: { status: "active", deletedAt: null } }),
+      prisma.inventory.findMany({ select: { quantity: true, lowStockThreshold: true } }),
+      prisma.order.findMany({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
     ]);
 
+  const lowStockCount = lowStockItems.filter((i) => i.quantity <= i.lowStockThreshold).length;
+
   return {
-    todaySales: todayOrders[0]?.total ?? 0,
-    todayOrders: todayOrders[0]?.count ?? 0,
-    monthlySales: monthlyOrders[0]?.total ?? 0,
-    monthlyOrders: monthlyOrders[0]?.count ?? 0,
+    todaySales: todayOrders._sum.total ?? 0,
+    todayOrders: todayOrders._count._all,
+    monthlySales: monthlyOrders._sum.total ?? 0,
+    monthlyOrders: monthlyOrders._count._all,
     totalMembers,
     lowStockCount,
-    recentOrders: recentOrders as RecentOrderRow[],
+    recentOrders: recentOrders.map((o) => ({
+      _id: o.id,
+      orderNumber: o.orderNumber,
+      total: o.total,
+      createdAt: o.createdAt,
+      status: o.status,
+    })),
   };
 }
 
@@ -177,7 +175,7 @@ export default async function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {stats.recentOrders.map((order) => (
-                    <div key={order._id.toString()} className="flex items-center justify-between">
+                    <div key={order._id} className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">{order.orderNumber}</p>
                         <p className="text-xs text-muted-foreground">

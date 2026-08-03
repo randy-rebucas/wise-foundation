@@ -1,5 +1,3 @@
-import { connectDB } from "@/lib/db/connect";
-import { BlogPost } from "@/lib/db/models/BlogPost";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { createBlogPostSchema } from "@/lib/validations/blogPost.schema";
@@ -10,6 +8,7 @@ import {
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
 import { writeAuditLog } from "@/lib/services/audit.service";
+import { getAdminBlogPosts, createBlogPost } from "@/lib/services/blog.service";
 import { parsePagination } from "@/lib/utils/pagination";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
@@ -18,26 +17,20 @@ const getHandler = async (req: AuthedRequest) => {
   try {
     const { searchParams } = req.nextUrl;
     const { page, limit } = parsePagination(searchParams);
-    const isPublished = searchParams.get("isPublished");
+    const isPublishedParam = searchParams.get("isPublished");
     const search = searchParams.get("search")?.trim();
 
-    await connectDB();
-
-    const filter: Record<string, unknown> = { deletedAt: null };
-    if (isPublished !== null) filter.isPublished = isPublished === "true";
-    if (search) filter.title = { $regex: search, $options: "i" };
-
-    const skip = (page - 1) * limit;
-    const [posts, total] = await Promise.all([
-      BlogPost.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      BlogPost.countDocuments(filter),
-    ]);
+    const { posts, total, pages } = await getAdminBlogPosts(
+      { isPublished: isPublishedParam !== null ? isPublishedParam === "true" : undefined, search },
+      page,
+      limit
+    );
 
     return successResponse(posts, undefined, 200, {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: pages,
     });
   } catch (err) {
     console.error("[admin/blog] GET error", err);
@@ -54,28 +47,21 @@ const postHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((i) => i.message).join(", "), 400);
     }
 
-    await connectDB();
-
-    const existing = await BlogPost.findOne({ slug: parsed.data.slug, deletedAt: null })
-      .select("_id")
-      .lean();
-    if (existing) return errorResponse("A post with this slug already exists", 409);
-
-    const data = { ...parsed.data };
-    if (data.isPublished && !data.publishedAt) data.publishedAt = new Date();
-
-    const post = await BlogPost.create(data);
+    const post = await createBlogPost(parsed.data);
 
     void writeAuditLog({
       action: "blog_post.created",
       actor: { id: req.user.id, name: req.user.name },
-      targetId: String(post._id),
+      targetId: post.id,
       targetType: "BlogPost",
       metadata: { slug: post.slug },
     });
 
     return successResponse(post, "Post created", 201);
   } catch (err) {
+    if (err instanceof Error && err.message === "A post with this slug already exists") {
+      return errorResponse(err.message, 409);
+    }
     console.error("[admin/blog] POST error", err);
     return serverErrorResponse();
   }

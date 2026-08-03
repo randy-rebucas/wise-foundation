@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 import { loadOrganizationCapabilities } from "@/lib/organization/capabilities";
 import { effectivePermissions } from "@/lib/permissions";
 import { captureSecurityEvent } from "@/lib/services/security.service";
@@ -43,13 +42,12 @@ export async function verifyCredentials(
   password: string,
   opts?: { audience?: LoginAudience; totpToken?: string }
 ): Promise<CredentialResult> {
-  await connectDB();
-
   const audience: LoginAudience = opts?.audience ?? "staff";
 
-  const user = await User.findOne({ email: email.toLowerCase(), deletedAt: null, isActive: true })
-    .select("+password +failedLoginAttempts +lockedUntil")
-    .lean();
+  const user = await prisma.user.findFirst({
+    where: { email: email.toLowerCase(), deletedAt: null, isActive: true },
+    include: { branches: { select: { branchId: true } } },
+  });
 
   if (!user) return null;
 
@@ -66,17 +64,17 @@ export async function verifyCredentials(
   if (!isValid) {
     const attempts = (user.failedLoginAttempts ?? 0) + 1;
     const shouldLock = attempts >= MAX_FAILED_ATTEMPTS;
-    await User.updateOne(
-      { _id: user._id },
-      {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
         failedLoginAttempts: attempts,
         ...(shouldLock ? { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) } : {}),
-      }
-    );
+      },
+    });
     if (shouldLock) {
       void captureSecurityEvent({
         type: "account.locked",
-        userId: user._id.toString(),
+        userId: user.id,
         email: user.email,
         metadata: { audience, failedAttempts: attempts },
       });
@@ -89,21 +87,21 @@ export async function verifyCredentials(
     const token = opts?.totpToken;
     if (!token) {
       // Signal to the caller that a second factor is required (no session created yet)
-      return { totpRequired: true, userId: user._id.toString() };
+      return { totpRequired: true, userId: user.id };
     }
-    const totpOk = await verifyTotpToken(user._id.toString(), token);
+    const totpOk = await verifyTotpToken(user.id, token);
     if (!totpOk) return null;
   }
 
   // Successful login — clear lockout state
-  await User.updateOne(
-    { _id: user._id },
-    { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null }
-  );
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+  });
 
   const role = user.role as UserRole;
   const permissions = effectivePermissions({ role, permissions: user.permissions });
-  const organizationId = user.organizationId?.toString() ?? null;
+  const organizationId = user.organizationId ?? null;
 
   let organizationType: OrganizationType | null = null;
   let organizationCapabilities: {
@@ -123,11 +121,11 @@ export async function verifyCredentials(
   }
 
   return {
-    id: user._id.toString(),
+    id: user.id,
     name: user.name,
     email: user.email,
     role,
-    branchIds: (user.branchIds as Array<{ toString(): string }> ?? []).map((b) => b.toString()),
+    branchIds: user.branches.map((b) => b.branchId),
     organizationId,
     organizationType,
     organizationCapabilities,
@@ -136,15 +134,17 @@ export async function verifyCredentials(
 }
 
 export async function getUserById(userId: string) {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, deletedAt: null }).lean();
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    include: { branches: { select: { branchId: true } } },
+  });
   if (!user) return null;
   return {
-    id: user._id.toString(),
+    id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
-    branchIds: (user.branchIds as Array<{ toString(): string }> ?? []).map((b) => b.toString()),
+    branchIds: user.branches.map((b) => b.branchId),
     permissions: user.permissions,
     avatar: user.avatar,
   };

@@ -1,17 +1,6 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { getDefaultLowStockThreshold } from "@/lib/services/appSettings.service";
-import { Branch } from "@/lib/db/models/Branch";
-import { Organization } from "@/lib/db/models/Organization";
-import { User } from "@/lib/db/models/User";
-import { PurchaseOrder } from "@/lib/db/models/PurchaseOrder";
-import { PurchaseOrderItem } from "@/lib/db/models/PurchaseOrderItem";
-import { Product } from "@/lib/db/models/Product";
-import { ProductVariant } from "@/lib/db/models/ProductVariant";
-import { Inventory } from "@/lib/db/models/Inventory";
-import { OrganizationInventory } from "@/lib/db/models/OrganizationInventory";
-import { StockMovement } from "@/lib/db/models/StockMovement";
-import { hasPermission } from "@/lib/permissions";
 import {
   canApprovePurchaseOrders,
   canManagePurchaseOrdersInventory,
@@ -22,7 +11,6 @@ import {
 } from "@/lib/permissions/purchaseOrders";
 import { buildPurchaseOrderSignatureEmbed } from "@/lib/purchaseOrders/signatureEmbed";
 import { resolvePurchaseOrderDiscountPercent } from "@/lib/purchaseOrders/discount.server";
-import { refEntityId } from "@/lib/purchaseOrders/entityId";
 import { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
 import { assertCanEditDraftPurchaseOrder } from "@/lib/purchaseOrders/draftEdit";
 import {
@@ -46,16 +34,16 @@ import type {
   ReceivePurchaseOrderInput,
 } from "@/lib/validations/purchaseOrder.schema";
 
-/** Ensures Mongoose registers models referenced by populate() in this service. */
-const _purchaseOrderRefModels = [Branch, Organization, User] as const;
+export { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
 
 type PurchaseOrderItemInput = CreatePurchaseOrderInput["items"][number];
 
 async function generatePONumber(): Promise<string> {
-  const latest = await PurchaseOrder.findOne({ deletedAt: null })
-    .sort({ createdAt: -1 })
-    .select("poNumber")
-    .lean();
+  const latest = await prisma.purchaseOrder.findFirst({
+    where: { deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { poNumber: true },
+  });
 
   let next = 1;
   if (latest?.poNumber) {
@@ -65,21 +53,19 @@ async function generatePONumber(): Promise<string> {
 
   for (let attempt = 0; attempt < 8; attempt++) {
     const candidate = `PO-${String(next + attempt).padStart(5, "0")}`;
-    const exists = await PurchaseOrder.exists({ poNumber: candidate });
+    const exists = await prisma.purchaseOrder.findFirst({ where: { poNumber: candidate } });
     if (!exists) return candidate;
   }
 
   return `PO-${String(Date.now()).slice(-8)}`;
 }
 
-export { canUserAccessPurchaseOrder } from "@/lib/purchaseOrders/access";
-
 function buildPurchaseOrderListQuery(
   user: SessionUser,
   opts?: { branchId?: string; organizationId?: string; status?: string }
-): Record<string, unknown> | null {
-  const query: Record<string, unknown> = { deletedAt: null };
-  if (opts?.status) query.status = opts.status;
+): Prisma.PurchaseOrderWhereInput | null {
+  const query: Prisma.PurchaseOrderWhereInput = { deletedAt: null };
+  if (opts?.status) query.status = opts.status as PurchaseOrderStatus;
 
   if (user.role === "ADMIN") {
     if (opts?.branchId) query.branchId = opts.branchId;
@@ -108,7 +94,7 @@ function buildPurchaseOrderListQuery(
     if (bids.length > 0 && !bids.includes(opts.branchId)) return null;
     query.branchId = opts.branchId;
   } else {
-    query.$or = [{ branchId: { $in: bids } }, { branchId: null }];
+    query.OR = [{ branchId: { in: bids } }, { branchId: null }];
   }
 
   return query;
@@ -119,7 +105,6 @@ export async function getPurchaseOrderStatusCounts(
   branchId?: string,
   organizationId?: string
 ): Promise<Record<PurchaseOrderStatus, number>> {
-  await connectDB();
   const base = buildPurchaseOrderListQuery(user, { branchId, organizationId });
   const empty: Record<PurchaseOrderStatus, number> = {
     draft: 0,
@@ -131,13 +116,14 @@ export async function getPurchaseOrderStatusCounts(
   };
   if (!base) return empty;
 
-  const rows = await PurchaseOrder.aggregate<{ _id: PurchaseOrderStatus; count: number }>([
-    { $match: base },
-    { $group: { _id: "$status", count: { $sum: 1 } } },
-  ]);
+  const rows = await prisma.purchaseOrder.groupBy({
+    by: ["status"],
+    where: base,
+    _count: { _all: true },
+  });
 
   for (const row of rows) {
-    if (row._id in empty) empty[row._id] = row.count;
+    empty[row.status] = row._count._all;
   }
   return empty;
 }
@@ -150,8 +136,6 @@ export async function getPurchaseOrders(
   limit = 20,
   organizationId?: string
 ) {
-  await connectDB();
-
   const query = buildPurchaseOrderListQuery(user, { branchId, organizationId, status });
   if (!query) {
     return { orders: [], total: 0, pages: 0 };
@@ -159,15 +143,18 @@ export async function getPurchaseOrders(
 
   const skip = (page - 1) * limit;
   const [orders, total] = await Promise.all([
-    PurchaseOrder.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("branchId", "name code")
-      .populate("organizationId", "name type")
-      .populate("createdBy", "name")
-      .lean(),
-    PurchaseOrder.countDocuments(query),
+    prisma.purchaseOrder.findMany({
+      where: query,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: {
+        branch: { select: { name: true, code: true } },
+        organization: { select: { name: true, type: true } },
+        createdByUser: { select: { name: true } },
+      },
+    }),
+    prisma.purchaseOrder.count({ where: query }),
   ]);
 
   return { orders, total, pages: Math.ceil(total / limit) };
@@ -176,23 +163,18 @@ export async function getPurchaseOrders(
 async function normalizePurchaseOrderItems(
   items: PurchaseOrderItemInput[]
 ): Promise<PurchaseOrderItemInput[]> {
-  items.forEach((item) => {
-    assertValidObjectId(item.productId, "product id");
-    if (item.variantId) assertValidObjectId(item.variantId, "variant id");
-  });
-
   const productIds = items.map((i) => i.productId);
   const variantIds = items.filter((i) => i.variantId).map((i) => i.variantId!);
 
   const [productDocs, variantDocs] = await Promise.all([
-    Product.find({ _id: { $in: productIds }, deletedAt: null, isActive: true }).lean(),
+    prisma.product.findMany({ where: { id: { in: productIds }, deletedAt: null, isActive: true } }),
     variantIds.length > 0
-      ? ProductVariant.find({ _id: { $in: variantIds }, deletedAt: null, isActive: true }).lean()
+      ? prisma.productVariant.findMany({ where: { id: { in: variantIds }, deletedAt: null, isActive: true } })
       : Promise.resolve([]),
   ]);
 
-  const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
-  const variantMap = new Map(variantDocs.map((v) => [String(v._id), v]));
+  const productMap = new Map(productDocs.map((p) => [p.id, p]));
+  const variantMap = new Map(variantDocs.map((v) => [v.id, v]));
 
   return items.map((item) => {
     const product = productMap.get(item.productId);
@@ -205,10 +187,10 @@ async function normalizePurchaseOrderItems(
 
     if (item.variantId) {
       const variant = variantMap.get(item.variantId);
-      if (!variant || String(variant.productId) !== String(product._id)) {
+      if (!variant || variant.productId !== product.id) {
         throw new Error(`Variant not found for ${product.name}`);
       }
-      variantId = String(variant._id);
+      variantId = variant.id;
       sku = variant.sku;
       productName = `${product.name} — ${variant.name}`;
       retailPrice = variant.retailPrice;
@@ -221,7 +203,7 @@ async function normalizePurchaseOrderItems(
     const unitCost =
       submittedCost !== undefined ? submittedCost : defaultProcurementUnitCost(retailPrice);
 
-    return { productId: String(product._id), variantId, productName, sku, quantity: item.quantity, unitCost };
+    return { productId: product.id, variantId, productName, sku, quantity: item.quantity, unitCost };
   });
 }
 
@@ -230,7 +212,6 @@ function resolveBranchIdForCreate(
   requestedBranchId?: string | null
 ): string | null {
   if (requestedBranchId) {
-    assertValidObjectId(requestedBranchId, "branch id");
     if (user.role !== "ADMIN") {
       const bids = (user.branchIds ?? []).map(String);
       if (bids.length > 0 && !bids.includes(requestedBranchId)) {
@@ -243,27 +224,20 @@ function resolveBranchIdForCreate(
   if (user.role === "ORG_ADMIN") return null;
 
   const bids = (user.branchIds ?? []).map(String).filter(Boolean);
-  if (bids.length === 1) return bids[0]!;
-  if (bids.length > 1) return bids[0]!;
+  if (bids.length >= 1) return bids[0]!;
   return null;
 }
 
-function assertValidObjectId(id: string, label = "ID"): void {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new Error(`Invalid ${label}`);
-  }
-}
-
-function normalizePaymentTermsMonths(
+/** Splits the app-level `3 | 6 | "weekly" | null` union into the two scalar DB columns. */
+function normalizePaymentTermsColumns(
   value: PurchaseOrderPaymentTermsMonths | null | undefined
-): PurchaseOrderPaymentTermsMonths | null {
-  if (value === 3 || value === 6 || value === "weekly") return value;
-  return null;
+): { paymentTermsMonths: number | null; paymentTermsWeekly: boolean } {
+  if (value === "weekly") return { paymentTermsMonths: null, paymentTermsWeekly: true };
+  if (value === 3 || value === 6) return { paymentTermsMonths: value, paymentTermsWeekly: false };
+  return { paymentTermsMonths: null, paymentTermsWeekly: false };
 }
 
-function lineItemsSubtotal(
-  items: { quantity: number; unitCost: number }[]
-): number {
+function lineItemsSubtotal(items: { quantity: number; unitCost: number }[]): number {
   return items.reduce((sum, i) => sum + i.quantity * i.unitCost, 0);
 }
 
@@ -280,23 +254,25 @@ function applyPricingToUpdates(
 }
 
 export async function getPurchaseOrderById(poId: string) {
-  await connectDB();
-  assertValidObjectId(poId, "purchase order id");
-
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
-    .populate("branchId", "name code")
-    .populate("organizationId", "name type contactPerson email phone")
-    .populate("createdBy", "name")
-    .populate("approvedBy", "name")
-    .populate("declinedBy", "name")
-    .populate("receivedBy", "name")
-    .lean();
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id: poId, deletedAt: null },
+    include: {
+      branch: { select: { name: true, code: true } },
+      organization: { select: { name: true, type: true, contactPerson: true, email: true, phone: true } },
+      createdByUser: { select: { name: true } },
+      approvedByUser: { select: { name: true } },
+      declinedByUser: { select: { name: true } },
+      receivedByUser: { select: { name: true } },
+      signatures: true,
+    },
+  });
 
   if (!po) return null;
 
-  const items = await PurchaseOrderItem.find({ purchaseOrderId: poId })
-    .populate("productId", "name sku images")
-    .lean();
+  const items = await prisma.purchaseOrderItem.findMany({
+    where: { purchaseOrderId: poId },
+    include: { product: { select: { name: true, sku: true, images: true } } },
+  });
 
   const auditLogs = await listPurchaseOrderAuditLogs(poId);
 
@@ -315,11 +291,8 @@ export async function createPurchaseOrder(
   input: CreatePurchaseOrderInput,
   user?: SessionUser
 ) {
-  await connectDB();
-  assertValidObjectId(input.organizationId, "organization id");
-
   if (user && isOrgPurchaseOrderSubmitter(user) && user.organizationId) {
-    if (String(input.organizationId) !== String(user.organizationId)) {
+    if (input.organizationId !== user.organizationId) {
       throw new Error("You can only create purchase orders for your organization");
     }
   }
@@ -334,40 +307,42 @@ export async function createPurchaseOrder(
     user,
   });
   const pricing = computePurchaseOrderTotals(lineItemsSubtotal(items), discountPercent);
+  const { paymentTermsMonths, paymentTermsWeekly } = normalizePaymentTermsColumns(input.paymentTermsMonths);
 
-  const po = await PurchaseOrder.create({
-    organizationId: input.organizationId,
-    branchId,
-    poNumber,
-    status: "draft",
-    subtotal: pricing.subtotal,
-    discountPercent: pricing.discountPercent,
-    discountAmount: pricing.discountAmount,
-    total: pricing.total,
-    paymentTermsMonths: normalizePaymentTermsMonths(input.paymentTermsMonths),
-    title: input.title?.trim() || undefined,
-    expectedDeliveryDate: input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null,
-    notes: input.notes,
-    createdBy: userId,
+  const po = await prisma.purchaseOrder.create({
+    data: {
+      organizationId: input.organizationId,
+      branchId,
+      poNumber,
+      status: "draft",
+      subtotal: pricing.subtotal,
+      discountPercent: pricing.discountPercent,
+      discountAmount: pricing.discountAmount,
+      total: pricing.total,
+      paymentTermsMonths,
+      paymentTermsWeekly,
+      title: input.title?.trim() || undefined,
+      expectedDeliveryDate: input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null,
+      notes: input.notes,
+      createdBy: userId,
+      items: {
+        create: items.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          productName: item.productName,
+          sku: item.sku,
+          quantity: item.quantity,
+          receivedQuantity: 0,
+          unitCost: item.unitCost,
+          total: item.quantity * item.unitCost,
+        })),
+      },
+    },
   });
-
-  const itemDocs = items.map((item) => ({
-    purchaseOrderId: po._id,
-    productId: item.productId,
-    variantId: item.variantId ?? null,
-    productName: item.productName,
-    sku: item.sku,
-    quantity: item.quantity,
-    receivedQuantity: 0,
-    unitCost: item.unitCost,
-    total: item.quantity * item.unitCost,
-  }));
-
-  await PurchaseOrderItem.insertMany(itemDocs);
 
   if (user) {
     await recordPurchaseOrderAudit({
-      purchaseOrderId: String(po._id),
+      purchaseOrderId: po.id,
       action: "created",
       user,
       toStatus: "draft",
@@ -375,7 +350,7 @@ export async function createPurchaseOrder(
     });
   }
 
-  return PurchaseOrder.findById(po._id).lean();
+  return prisma.purchaseOrder.findUnique({ where: { id: po.id } });
 }
 
 export async function updatePurchaseOrder(
@@ -383,9 +358,7 @@ export async function updatePurchaseOrder(
   input: UpdatePurchaseOrderInput,
   user?: SessionUser
 ) {
-  await connectDB();
-
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (user) {
     if (!canUserAccessPurchaseOrder(po, user)) {
@@ -405,11 +378,9 @@ export async function updatePurchaseOrder(
   if (input.title !== undefined) updates.title = input.title.trim() || undefined;
 
   if (input.organizationId !== undefined) {
-    assertValidObjectId(input.organizationId, "organization id");
-    const nextOrgId = String(input.organizationId);
-    const currentOrgId = refEntityId(po.organizationId);
-    if (currentOrgId !== nextOrgId) {
-      const org = await Organization.findOne({ _id: nextOrgId, deletedAt: null }).lean();
+    const nextOrgId = input.organizationId;
+    if (po.organizationId !== nextOrgId) {
+      const org = await prisma.organization.findFirst({ where: { id: nextOrgId, deletedAt: null } });
       if (!org) throw new Error("Organization not found");
       updates.organizationId = nextOrgId;
       updates.branchId = null;
@@ -417,16 +388,16 @@ export async function updatePurchaseOrder(
   }
 
   if (input.paymentTermsMonths !== undefined) {
-    updates.paymentTermsMonths = normalizePaymentTermsMonths(input.paymentTermsMonths);
+    Object.assign(updates, normalizePaymentTermsColumns(input.paymentTermsMonths));
   }
 
   let normalizedItems: Awaited<ReturnType<typeof normalizePurchaseOrderItems>> | undefined;
 
   if (input.items) {
     normalizedItems = await normalizePurchaseOrderItems(input.items);
-    await PurchaseOrderItem.deleteMany({ purchaseOrderId: poId });
-    await PurchaseOrderItem.insertMany(
-      normalizedItems.map((item) => ({
+    await prisma.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: poId } });
+    await prisma.purchaseOrderItem.createMany({
+      data: normalizedItems.map((item) => ({
         purchaseOrderId: poId,
         productId: item.productId,
         variantId: item.variantId ?? null,
@@ -436,22 +407,16 @@ export async function updatePurchaseOrder(
         receivedQuantity: 0,
         unitCost: item.unitCost,
         total: item.quantity * item.unitCost,
-      }))
-    );
+      })),
+    });
   }
 
-  const orgChanged =
-    input.organizationId !== undefined &&
-    String(input.organizationId) !== refEntityId(po.organizationId);
+  const orgChanged = input.organizationId !== undefined && input.organizationId !== po.organizationId;
   const shouldRecalcPricing =
-    normalizedItems !== undefined ||
-    input.discountPercent !== undefined ||
-    orgChanged;
+    normalizedItems !== undefined || input.discountPercent !== undefined || orgChanged;
 
   if (shouldRecalcPricing) {
-    const effectiveOrgId = String(
-      (updates.organizationId as string | undefined) ?? refEntityId(po.organizationId)
-    );
+    const effectiveOrgId = (updates.organizationId as string | undefined) ?? po.organizationId;
     const discountPercent = await resolvePurchaseOrderDiscountPercent({
       organizationId: effectiveOrgId,
       requestedPercent: input.discountPercent,
@@ -464,13 +429,11 @@ export async function updatePurchaseOrder(
           : undefined,
       user,
     });
-    const lineSubtotal = normalizedItems
-      ? lineItemsSubtotal(normalizedItems)
-      : Number(po.subtotal ?? 0);
+    const lineSubtotal = normalizedItems ? lineItemsSubtotal(normalizedItems) : Number(po.subtotal ?? 0);
     applyPricingToUpdates(updates, lineSubtotal, discountPercent);
   }
 
-  const updated = await PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+  const updated = await prisma.purchaseOrder.update({ where: { id: poId }, data: updates });
 
   if (user && updated) {
     await recordPurchaseOrderAudit({
@@ -494,8 +457,7 @@ export async function updatePurchaseOrderDiscount(
     throw new Error("Only administrators can set purchase order discounts");
   }
 
-  await connectDB();
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (!canUserAccessPurchaseOrder(po, user)) {
     throw new Error("Purchase order not found");
@@ -504,11 +466,8 @@ export async function updatePurchaseOrderDiscount(
     throw new Error("Discount can only be changed on draft or submitted purchase orders");
   }
 
-  const orgId = refEntityId(po.organizationId);
-  if (!orgId) throw new Error("Organization not found");
-
   const resolved = await resolvePurchaseOrderDiscountPercent({
-    organizationId: orgId,
+    organizationId: po.organizationId,
     requestedPercent: discountPercent,
     user,
   });
@@ -516,7 +475,7 @@ export async function updatePurchaseOrderDiscount(
   const updates: Record<string, unknown> = {};
   applyPricingToUpdates(updates, Number(po.subtotal ?? 0), resolved);
 
-  const updated = await PurchaseOrder.findByIdAndUpdate(poId, { $set: updates }, { new: true }).lean();
+  const updated = await prisma.purchaseOrder.update({ where: { id: poId }, data: updates });
 
   if (updated) {
     await recordPurchaseOrderAudit({
@@ -533,15 +492,13 @@ export async function updatePurchaseOrderDiscount(
 }
 
 export async function deletePurchaseOrder(poId: string) {
-  await connectDB();
-
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (po.status !== "draft") {
     throw new Error("Only draft purchase orders can be deleted");
   }
 
-  await PurchaseOrder.findByIdAndUpdate(poId, { $set: { deletedAt: new Date() } });
+  await prisma.purchaseOrder.update({ where: { id: poId }, data: { deletedAt: new Date() } });
 }
 
 export async function deletePurchaseOrderForUser(poId: string, user: SessionUser) {
@@ -551,7 +508,7 @@ export async function deletePurchaseOrderForUser(poId: string, user: SessionUser
   if (
     isOrgPurchaseOrderSubmitter(user) &&
     !canManagePurchaseOrdersInventory(user) &&
-    refEntityId(po.createdBy) !== String(user.id)
+    po.createdBy !== user.id
   ) {
     throw new Error("You can only delete your own draft purchase orders");
   }
@@ -571,15 +528,13 @@ export async function updatePurchaseOrderStatus(
   status: PurchaseOrderStatus,
   user: SessionUser
 ) {
-  await connectDB();
-
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (!canUserAccessPurchaseOrder(po, user)) {
     throw new Error("Purchase order not found");
   }
 
-  const fromStatus = po.status as PurchaseOrderStatus;
+  const fromStatus = po.status;
   if (!isValidPoStatusTransition(fromStatus, status)) {
     throw new Error(`Cannot transition from ${po.status} to ${status}`);
   }
@@ -594,10 +549,7 @@ export async function updatePurchaseOrderStatus(
       if (!isOrgPurchaseOrderSubmitter(user) && !canManagePurchaseOrdersInventory(user)) {
         throw new Error("You cannot cancel this purchase order");
       }
-      if (
-        isOrgPurchaseOrderSubmitter(user) &&
-        refEntityId(po.createdBy) !== String(user.id)
-      ) {
+      if (isOrgPurchaseOrderSubmitter(user) && po.createdBy !== user.id) {
         throw new Error("You can only cancel your own draft purchase orders");
       }
     } else if (po.status === "submitted") {
@@ -613,11 +565,7 @@ export async function updatePurchaseOrderStatus(
     }
   }
 
-  const updated = await PurchaseOrder.findByIdAndUpdate(
-    poId,
-    { $set: { status } },
-    { new: true }
-  ).lean();
+  const updated = await prisma.purchaseOrder.update({ where: { id: poId }, data: { status } });
 
   if (updated) {
     await recordPurchaseOrderAudit({
@@ -632,17 +580,12 @@ export async function updatePurchaseOrderStatus(
   return updated;
 }
 
-export async function declinePurchaseOrder(
-  poId: string,
-  user: SessionUser,
-  reason?: string
-) {
+export async function declinePurchaseOrder(poId: string, user: SessionUser, reason?: string) {
   if (!canApprovePurchaseOrders(user)) {
     throw new Error("Only platform administrators can decline purchase orders");
   }
 
-  await connectDB();
-  const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null });
+  const po = await prisma.purchaseOrder.findFirst({ where: { id: poId, deletedAt: null } });
   if (!po) throw new Error("Purchase order not found");
   if (!canUserAccessPurchaseOrder(po, user)) {
     throw new Error("Purchase order not found");
@@ -652,18 +595,15 @@ export async function declinePurchaseOrder(
   }
 
   const trimmedReason = reason?.trim();
-  const updated = await PurchaseOrder.findByIdAndUpdate(
-    poId,
-    {
-      $set: {
-        status: "declined",
-        declinedBy: new mongoose.Types.ObjectId(user.id),
-        declinedAt: new Date(),
-        declineReason: trimmedReason || undefined,
-      },
+  const updated = await prisma.purchaseOrder.update({
+    where: { id: poId },
+    data: {
+      status: "declined",
+      declinedBy: user.id,
+      declinedAt: new Date(),
+      declineReason: trimmedReason || undefined,
     },
-    { new: true }
-  ).lean();
+  });
 
   if (updated) {
     await recordPurchaseOrderAudit({
@@ -684,9 +624,7 @@ export async function receivePurchaseOrder(
   user: SessionUser,
   input: ReceivePurchaseOrderInput
 ) {
-  await connectDB();
   const defaultLowStockThreshold = await getDefaultLowStockThreshold();
-  const session = await mongoose.startSession();
   const userId = user.id;
   const receivedSignature = buildPurchaseOrderSignatureEmbed(
     user,
@@ -694,12 +632,11 @@ export async function receivePurchaseOrder(
     input.signatureDataUrl
   );
 
-  try {
-    session.startTransaction();
-
-    const po = await PurchaseOrder.findOne({ _id: poId, deletedAt: null })
-      .populate("organizationId", "settings")
-      .session(session);
+  await prisma.$transaction(async (tx) => {
+    const po = await tx.purchaseOrder.findFirst({
+      where: { id: poId, deletedAt: null },
+      include: { organization: { select: { hasInventory: true } } },
+    });
     if (!po) throw new Error("Purchase order not found");
     if (!canUserAccessPurchaseOrder(po, user)) {
       throw new Error("Purchase order not found");
@@ -709,13 +646,13 @@ export async function receivePurchaseOrder(
     }
     if (po.status !== "approved") throw new Error("Only approved purchase orders can be received");
 
-    const poItems = await PurchaseOrderItem.find({ purchaseOrderId: poId }).session(session);
+    const poItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId: poId } });
 
     validateReceiveQuantities(
       poItems.map((item) => {
-        const receiveItem = input.items.find((r) => r.itemId === String(item._id));
+        const receiveItem = input.items.find((r) => r.itemId === item.id);
         return {
-          itemId: String(item._id),
+          itemId: item.id,
           productName: item.productName,
           quantity: item.quantity,
           receivedQuantity: receiveItem?.receivedQuantity ?? 0,
@@ -723,140 +660,118 @@ export async function receivePurchaseOrder(
       })
     );
 
-    // Build a map for quick poItem lookup
-    const poItemMap = new Map(poItems.map((i) => [String(i._id), i]));
+    const poItemMap = new Map(poItems.map((i) => [i.id, i]));
     const validItems = input.items
       .map((ri) => ({ ri, poItem: poItemMap.get(ri.itemId) }))
       .filter((x): x is { ri: typeof x.ri; poItem: NonNullable<typeof x.poItem> } => !!x.poItem);
 
     if (!po.branchId) {
-      // Org PO — batch update PO items and org inventory
-      const orgSettings = (po.organizationId as unknown as { settings?: { hasInventory?: boolean } })?.settings;
-      const orgHasInventory = orgSettings?.hasInventory !== false;
+      // Org PO — update PO items and org inventory
+      const orgHasInventory = po.organization.hasInventory !== false;
 
-      await PurchaseOrderItem.bulkWrite(
-        validItems.map(({ ri, poItem }) => ({
-          updateOne: {
-            filter: { _id: poItem._id },
-            update: { $set: { receivedQuantity: ri.receivedQuantity } },
-          },
-        })),
-        { session }
-      );
+      for (const { ri, poItem } of validItems) {
+        await tx.purchaseOrderItem.update({
+          where: { id: poItem.id },
+          data: { receivedQuantity: ri.receivedQuantity },
+        });
+      }
 
-      const orgInvItems = validItems.filter(
-        ({ ri }) => po.organizationId && ri.receivedQuantity > 0 && orgHasInventory
-      );
-      if (orgInvItems.length > 0) {
-        await OrganizationInventory.bulkWrite(
-          orgInvItems.map(({ ri, poItem }) => ({
-            updateOne: {
-              filter: { organizationId: po.organizationId, productId: poItem.productId },
-              update: {
-                $inc: { quantity: ri.receivedQuantity, totalReceived: ri.receivedQuantity },
-              },
-              upsert: true,
+      const orgInvItems = validItems.filter(({ ri }) => ri.receivedQuantity > 0 && orgHasInventory);
+      for (const { ri, poItem } of orgInvItems) {
+        const existing = await tx.organizationInventory.findFirst({
+          where: { organizationId: po.organizationId, productId: poItem.productId, variantId: poItem.variantId },
+        });
+        if (existing) {
+          await tx.organizationInventory.update({
+            where: { id: existing.id },
+            data: { quantity: { increment: ri.receivedQuantity }, totalReceived: { increment: ri.receivedQuantity } },
+          });
+        } else {
+          await tx.organizationInventory.create({
+            data: {
+              organizationId: po.organizationId,
+              productId: poItem.productId,
+              variantId: poItem.variantId,
+              quantity: ri.receivedQuantity,
+              totalReceived: ri.receivedQuantity,
             },
-          })),
-          { session }
-        );
+          });
+        }
       }
     } else {
-      // Branch PO — batch fetch inventory, then bulkWrite + insertMany stock movements
+      // Branch PO — fetch inventory, then update + record stock movements
       const branchItems = validItems.filter(({ ri }) => ri.receivedQuantity > 0);
-      const invDocs = await Inventory.find({
-        branchId: po.branchId,
-        productId: { $in: branchItems.map(({ poItem }) => poItem.productId) },
-      }).session(session).lean();
-      const invMap = new Map(
-        invDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv.quantity])
-      );
+      const invDocs = await tx.inventory.findMany({
+        where: { branchId: po.branchId, productId: { in: branchItems.map(({ poItem }) => poItem.productId) } },
+      });
+      const invMap = new Map(invDocs.map((inv) => [`${inv.productId}:${inv.variantId ?? ""}`, inv]));
 
-      if (branchItems.length > 0) {
-        // Upsert inventory increments
-        await Inventory.bulkWrite(
-          branchItems.map(({ ri, poItem }) => ({
-            updateOne: {
-              filter: {
-                branchId: po.branchId,
-                productId: poItem.productId,
-                variantId: poItem.variantId ?? null,
-              },
-              update: {
-                $inc: { quantity: ri.receivedQuantity },
-                $setOnInsert: {
-                  reservedQuantity: 0,
-                  lowStockThreshold: defaultLowStockThreshold,
-                },
-              },
-              upsert: true,
-            },
-          })),
-          { session }
-        );
+      for (const { ri, poItem } of branchItems) {
+        const key = `${poItem.productId}:${poItem.variantId ?? ""}`;
+        const existing = invMap.get(key);
+        const previousQuantity = existing?.quantity ?? 0;
 
-        await StockMovement.insertMany(
-          branchItems.map(({ ri, poItem }) => {
-            const prevKey = `${poItem.productId}:${poItem.variantId ?? ""}`;
-            const previousQuantity = invMap.get(prevKey) ?? 0;
-            return {
+        if (existing) {
+          await tx.inventory.update({
+            where: { id: existing.id },
+            data: { quantity: { increment: ri.receivedQuantity } },
+          });
+        } else {
+          await tx.inventory.create({
+            data: {
               branchId: po.branchId,
               productId: poItem.productId,
-              variantId: poItem.variantId ?? null,
-              type: "IN",
+              variantId: poItem.variantId,
               quantity: ri.receivedQuantity,
-              previousQuantity,
-              newQuantity: previousQuantity + ri.receivedQuantity,
-              unitCost: poItem.unitCost,
-              reference: po.poNumber,
-              notes: `Received from PO ${po.poNumber}`,
-              performedBy: userId,
-            };
-          }),
-          { session }
-        );
-
-        await PurchaseOrderItem.bulkWrite(
-          branchItems.map(({ ri, poItem }) => ({
-            updateOne: {
-              filter: { _id: poItem._id },
-              update: { $set: { receivedQuantity: ri.receivedQuantity } },
+              reservedQuantity: 0,
+              lowStockThreshold: defaultLowStockThreshold,
             },
-          })),
-          { session }
-        );
+          });
+        }
+
+        await tx.stockMovement.create({
+          data: {
+            branchId: po.branchId,
+            productId: poItem.productId,
+            variantId: poItem.variantId,
+            type: "IN",
+            quantity: ri.receivedQuantity,
+            previousQuantity,
+            newQuantity: previousQuantity + ri.receivedQuantity,
+            unitCost: poItem.unitCost,
+            reference: po.poNumber,
+            notes: `Received from PO ${po.poNumber}`,
+            performedBy: userId,
+          },
+        });
+
+        await tx.purchaseOrderItem.update({
+          where: { id: poItem.id },
+          data: { receivedQuantity: ri.receivedQuantity },
+        });
       }
     }
 
-    await PurchaseOrder.findByIdAndUpdate(
-      poId,
-      {
-        $set: {
-          status: "received",
-          receivedBy: userId,
-          receivedAt: new Date(),
-          receivedSignature,
-        },
-      },
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    await recordPurchaseOrderAudit({
-      purchaseOrderId: poId,
-      action: "received",
-      user,
-      fromStatus: "approved",
-      toStatus: "received",
-      performedByName: input.signedByName,
+    await tx.purchaseOrder.update({
+      where: { id: poId },
+      data: { status: "received", receivedBy: userId, receivedAt: new Date() },
     });
 
-    return getPurchaseOrderById(poId);
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
-  } finally {
-    await session.endSession();
-  }
+    await tx.purchaseOrderSignature.upsert({
+      where: { purchaseOrderId_kind: { purchaseOrderId: poId, kind: "RECEIVED" } },
+      create: { purchaseOrderId: poId, kind: "RECEIVED", ...receivedSignature },
+      update: receivedSignature,
+    });
+  });
+
+  await recordPurchaseOrderAudit({
+    purchaseOrderId: poId,
+    action: "received",
+    user,
+    fromStatus: "approved",
+    toStatus: "received",
+    performedByName: input.signedByName,
+  });
+
+  return getPurchaseOrderById(poId);
 }

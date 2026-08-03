@@ -3,8 +3,7 @@ import "server-only";
 import { generateSecret, generateURI, verifySync } from "otplib";
 import QRCode from "qrcode";
 import { randomBytes } from "crypto";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 
 const TOTP_ISSUER = process.env.NEXT_PUBLIC_APP_NAME ?? "Glowish";
 const BACKUP_CODE_COUNT = 8;
@@ -33,8 +32,10 @@ export async function initTotpSetup(userId: string): Promise<{
   otpauthUrl: string;
   qrDataUrl: string;
 }> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, deletedAt: null }).select("email name").lean();
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: { email: true, name: true },
+  });
   if (!user) throw new Error("User not found");
 
   const secret = generateSecret();
@@ -42,7 +43,10 @@ export async function initTotpSetup(userId: string): Promise<{
   const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
 
   // Store the pending secret (not yet enabled — confirmed after first verify)
-  await User.updateOne({ _id: userId }, { $set: { totpSecret: secret, totpEnabled: false } });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { totpSecret: secret, totpEnabled: false },
+  });
 
   return { secret, otpauthUrl, qrDataUrl };
 }
@@ -52,10 +56,10 @@ export async function confirmTotpSetup(
   userId: string,
   token: string
 ): Promise<{ backupCodes: string[] }> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, deletedAt: null })
-    .select("+totpSecret totpEnabled")
-    .lean();
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: { totpSecret: true, totpEnabled: true },
+  });
   if (!user) throw new Error("User not found");
   if (!user.totpSecret) throw new Error("TOTP setup not initiated");
   if (user.totpEnabled) throw new Error("2FA is already enabled");
@@ -63,20 +67,20 @@ export async function confirmTotpSetup(
   if (!checkTotp(token, user.totpSecret)) throw new Error("Invalid verification code");
 
   const backupCodes = generateBackupCodes();
-  await User.updateOne(
-    { _id: userId },
-    { $set: { totpEnabled: true, totpBackupCodes: backupCodes } }
-  );
+  await prisma.user.update({
+    where: { id: userId },
+    data: { totpEnabled: true, totpBackupCodes: backupCodes },
+  });
 
   return { backupCodes };
 }
 
 /** Verify a TOTP token (login flow). Returns true if valid. */
 export async function verifyTotpToken(userId: string, token: string): Promise<boolean> {
-  await connectDB();
-  const user = await User.findOne({ _id: userId, deletedAt: null })
-    .select("+totpSecret +totpBackupCodes totpEnabled")
-    .lean();
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null },
+    select: { totpSecret: true, totpBackupCodes: true, totpEnabled: true },
+  });
   if (!user || !user.totpEnabled || !user.totpSecret) return false;
 
   // Check TOTP token
@@ -84,21 +88,20 @@ export async function verifyTotpToken(userId: string, token: string): Promise<bo
 
   // Check backup codes (single-use)
   const normalised = token.toUpperCase().replace(/\s/g, "");
-  const codes: string[] = user.totpBackupCodes ?? [];
+  const codes = user.totpBackupCodes ?? [];
   const idx = codes.indexOf(normalised);
   if (idx === -1) return false;
 
   // Consume the backup code
   const remaining = codes.filter((_, i) => i !== idx);
-  await User.updateOne({ _id: userId }, { $set: { totpBackupCodes: remaining } });
+  await prisma.user.update({ where: { id: userId }, data: { totpBackupCodes: remaining } });
   return true;
 }
 
 /** Disable 2FA for a user (requires current password + valid TOTP token from caller). */
 export async function disableTotp(userId: string): Promise<void> {
-  await connectDB();
-  await User.updateOne(
-    { _id: userId },
-    { $set: { totpEnabled: false, totpSecret: null, totpBackupCodes: null } }
-  );
+  await prisma.user.update({
+    where: { id: userId },
+    data: { totpEnabled: false, totpSecret: null, totpBackupCodes: [] },
+  });
 }

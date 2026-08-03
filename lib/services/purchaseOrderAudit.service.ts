@@ -1,9 +1,5 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import {
-  PurchaseOrderAuditLog,
-  type PurchaseOrderAuditAction,
-} from "@/lib/db/models/PurchaseOrderAuditLog";
+import type { Prisma, PurchaseOrderAuditAction } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import type { PurchaseOrderStatus, SessionUser } from "@/types";
 
 export interface RecordPurchaseOrderAuditInput {
@@ -17,32 +13,23 @@ export interface RecordPurchaseOrderAuditInput {
 }
 
 export async function recordPurchaseOrderAudit(input: RecordPurchaseOrderAuditInput) {
-  await connectDB();
-  assertValidObjectId(input.purchaseOrderId, "purchase order id");
-
-  return PurchaseOrderAuditLog.create({
-    purchaseOrderId: input.purchaseOrderId,
-    action: input.action,
-    fromStatus: input.fromStatus ?? null,
-    toStatus: input.toStatus ?? null,
-    performedBy: new mongoose.Types.ObjectId(input.user.id),
-    performedByName: input.performedByName ?? input.user.name ?? null,
-    metadata: input.metadata ?? null,
+  return prisma.purchaseOrderAuditLog.create({
+    data: {
+      purchaseOrderId: input.purchaseOrderId,
+      action: input.action,
+      fromStatus: input.fromStatus ?? null,
+      toStatus: input.toStatus ?? null,
+      performedBy: input.user.id,
+      performedByName: input.performedByName ?? input.user.name ?? null,
+      metadata: (input.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
+    },
   });
 }
 
 export async function listPurchaseOrderAuditLogs(purchaseOrderId: string, limit = 50) {
-  await connectDB();
-  assertValidObjectId(purchaseOrderId, "purchase order id");
-
-  return PurchaseOrderAuditLog.find({ purchaseOrderId })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
-}
-
-function assertValidObjectId(id: string, label = "ID"): void {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new Error(`Invalid ${label}`);
-  }
+  return prisma.purchaseOrderAuditLog.findMany({
+    where: { purchaseOrderId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }

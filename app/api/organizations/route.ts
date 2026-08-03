@@ -1,9 +1,12 @@
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
-import { getOrganizations, createOrganization } from "@/lib/services/organization.service";
+import {
+  getOrganizations,
+  createOrganization,
+  type OrganizationType,
+} from "@/lib/services/organization.service";
 import { successResponse, errorResponse, serverErrorResponse, forbiddenResponse } from "@/lib/utils/apiResponse";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
-import type { OrganizationType } from "@/lib/db/models/Organization";
 
 const VALID_TYPES: OrganizationType[] = ["distributor", "franchise", "partner", "headquarters"];
 
@@ -35,7 +38,7 @@ const postHandler = async (req: AuthedRequest) => {
       id: req.user.id,
       name: req.user.name,
     });
-    return successResponse({ ...organization.toObject(), tempPassword }, "Organization created", 201);
+    return successResponse({ ...organization, tempPassword }, "Organization created", 201);
   } catch (error) {
     if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();

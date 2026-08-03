@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 import { getPublicAppSettings } from "@/lib/services/appSettings.service";
 import {
   listMyMarketplaceOrders,
@@ -68,13 +66,11 @@ export function resolveAccountStatus(
 }
 
 export async function getCustomerDashboard(userId: string): Promise<CustomerDashboardData | null> {
-  await connectDB();
-  if (!mongoose.isValidObjectId(userId)) return null;
-
   const [user, orders, settings] = await Promise.all([
-    User.findOne({ _id: userId, deletedAt: null })
-      .select("name email phone avatar role createdAt")
-      .lean(),
+    prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { name: true, email: true, phone: true, avatar: true, role: true, createdAt: true },
+    }),
     listMyMarketplaceOrders(userId),
     getPublicAppSettings(),
   ]);
@@ -91,7 +87,7 @@ export async function getCustomerDashboard(userId: string): Promise<CustomerDash
       phone: user.phone ?? null,
       avatar: user.avatar ?? null,
       role,
-      memberSince: (user.createdAt as Date).toISOString(),
+      memberSince: user.createdAt.toISOString(),
     },
     orders,
     rewardPoints: calculateRewardPoints(orders),

@@ -1,8 +1,6 @@
-import { connectDB } from "@/lib/db/connect";
+import { prisma } from "@/lib/db/prisma";
 import logger from "@/lib/logger";
-import { MediaAsset } from "@/lib/db/models/MediaAsset";
-import { Product } from "@/lib/db/models/Product";
-import { ProductVariant } from "@/lib/db/models/ProductVariant";
+import type { Prisma } from "@prisma/client";
 import {
   rollbackStoredUploads,
   uploadImageBlobToStorage,
@@ -32,10 +30,10 @@ export type MediaAssetApiRow = {
 
 export function serializeMediaAssetForApi(
   doc: {
-    _id: unknown;
+    id: string;
     url: string;
     publicId: string;
-    filename?: string;
+    filename?: string | null;
     mimeType: string;
     bytes: number;
     folder: string;
@@ -44,10 +42,10 @@ export function serializeMediaAssetForApi(
   }
 ): MediaAssetApiRow {
   return {
-    _id: String(doc._id),
+    _id: doc.id,
     url: doc.url,
     publicId: doc.publicId,
-    filename: doc.filename,
+    filename: doc.filename ?? undefined,
     mimeType: doc.mimeType,
     bytes: doc.bytes,
     folder: doc.folder,
@@ -72,38 +70,35 @@ export async function registerMediaAsset(
   folder: string,
   uploadedBy?: string
 ) {
-  await connectDB();
-
-  const existing = await MediaAsset.findOne({ publicId: upload.publicId });
+  const existing = await prisma.mediaAsset.findUnique({ where: { publicId: upload.publicId } });
   if (existing) {
     if (existing.deletedAt) {
-      return MediaAsset.findByIdAndUpdate(
-        existing._id,
-        {
-          $set: {
-            deletedAt: null,
-            url: upload.url,
-            filename: upload.filename,
-            mimeType: upload.mimeType,
-            bytes: upload.bytes,
-            folder,
-            uploadedBy: uploadedBy || existing.uploadedBy,
-          },
+      return prisma.mediaAsset.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: null,
+          url: upload.url,
+          filename: upload.filename,
+          mimeType: upload.mimeType,
+          bytes: upload.bytes,
+          folder,
+          uploadedBy: uploadedBy || existing.uploadedBy,
         },
-        { new: true }
-      );
+      });
     }
     return existing;
   }
 
-  return MediaAsset.create({
-    url: upload.url,
-    publicId: upload.publicId,
-    filename: upload.filename,
-    mimeType: upload.mimeType,
-    bytes: upload.bytes,
-    folder,
-    uploadedBy: uploadedBy || undefined,
+  return prisma.mediaAsset.create({
+    data: {
+      url: upload.url,
+      publicId: upload.publicId,
+      filename: upload.filename,
+      mimeType: upload.mimeType,
+      bytes: upload.bytes,
+      folder,
+      uploadedBy: uploadedBy || undefined,
+    },
   });
 }
 
@@ -137,7 +132,7 @@ export async function uploadAndRegisterImages(
     const registeredUrls = new Set(assets.map((a) => a.url));
     await rollbackStoredUploads(uploaded.filter((u) => !registeredUrls.has(u.url)));
     for (const asset of assets) {
-      await MediaAsset.findByIdAndDelete(asset._id).catch(() => {});
+      await prisma.mediaAsset.delete({ where: { id: asset.id } }).catch(() => {});
     }
     throw e;
   }
@@ -162,58 +157,49 @@ export async function uploadAndRegisterVideo(
   }
 }
 
-export async function listMediaAssets(
-  page = 1,
-  limit = 24,
-  search?: string
-) {
-  await connectDB();
-  const query: Record<string, unknown> = { deletedAt: null };
+export async function listMediaAssets(page = 1, limit = 24, search?: string) {
+  const where: Prisma.MediaAssetWhereInput = { deletedAt: null };
   const q = search?.trim().slice(0, MAX_SEARCH_LENGTH);
   if (q && q.length > 0) {
-    try {
-      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      query.$or = [{ filename: re }, { publicId: re }, { url: re }];
-    } catch (e) {
-      logger.error({ err: e }, "Invalid search pattern");
-      /* Fallback to no matches for this search term */
-      return { items: [], total: 0, pages: 0 };
-    }
+    where.OR = [
+      { filename: { contains: q, mode: "insensitive" } },
+      { publicId: { contains: q, mode: "insensitive" } },
+      { url: { contains: q, mode: "insensitive" } },
+    ];
   }
 
   const skip = (page - 1) * limit;
   const [items, total] = await Promise.all([
-    MediaAsset.find(query).sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate("uploadedBy", "name email")
-      .lean(),
-    MediaAsset.countDocuments(query),
+    prisma.mediaAsset.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      include: { uploader: { select: { name: true, email: true } } },
+    }),
+    prisma.mediaAsset.count({ where }),
   ]);
 
   return { items, total, pages: Math.ceil(total / limit) };
 }
 
 export async function countMediaAssetReferences(url: string): Promise<number> {
-  await connectDB();
   const [productCount, variantCount] = await Promise.all([
-    Product.countDocuments({ deletedAt: null, images: url }),
-    ProductVariant.countDocuments({ deletedAt: null, images: url }),
+    prisma.product.count({ where: { deletedAt: null, images: { has: url } } }),
+    prisma.productVariant.count({ where: { deletedAt: null, images: { has: url } } }),
   ]);
   return productCount + variantCount;
 }
 
 export async function getMediaAssetUsage(assetId: string) {
-  await connectDB();
-  const asset = await MediaAsset.findOne({ _id: assetId, deletedAt: null }).lean();
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, deletedAt: null } });
   if (!asset) return null;
   const referenceCount = await countMediaAssetReferences(asset.url);
   return { asset, referenceCount };
 }
 
 export async function deleteMediaAsset(assetId: string, options: { force?: boolean } = {}) {
-  await connectDB();
-  const asset = await MediaAsset.findOne({ _id: assetId, deletedAt: null });
+  const asset = await prisma.mediaAsset.findFirst({ where: { id: assetId, deletedAt: null } });
   if (!asset) return { ok: false as const, reason: "not_found" as const };
 
   const referenceCount = await countMediaAssetReferences(asset.url);
@@ -222,7 +208,7 @@ export async function deleteMediaAsset(assetId: string, options: { force?: boole
   }
 
   await deleteStoredImage(asset.publicId, { url: asset.url }).catch(() => {});
-  await MediaAsset.findByIdAndUpdate(assetId, { $set: { deletedAt: new Date() } });
+  await prisma.mediaAsset.update({ where: { id: assetId }, data: { deletedAt: new Date() } });
   return { ok: true as const, asset, referenceCount };
 }
 
@@ -233,13 +219,12 @@ export async function deleteMediaAssetsByUrls(urls: string[]) {
 }
 
 export async function deleteMediaAssetByUrl(url: string) {
-  await connectDB();
   const publicId = parseStoredUploadKey(url);
   if (!publicId) return;
 
-  const asset = await MediaAsset.findOne({ publicId, deletedAt: null });
+  const asset = await prisma.mediaAsset.findFirst({ where: { publicId, deletedAt: null } });
   if (asset) {
-    await deleteMediaAsset(String(asset._id), { force: true });
+    await deleteMediaAsset(asset.id, { force: true });
     return;
   }
   await deleteStoredImage(publicId).catch(() => {});

@@ -25,7 +25,7 @@ const postHandler = async (req: AuthedRequest) => {
     void writeAuditLog({
       action: "order.created",
       actor: { id: req.user.id, name: req.user.name },
-      targetId: String((order as { _id: unknown })._id),
+      targetId: order.id,
       targetType: "Order",
       metadata: {
         channel: "B2B",

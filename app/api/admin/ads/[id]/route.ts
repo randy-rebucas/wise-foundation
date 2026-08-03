@@ -1,6 +1,3 @@
-import { connectDB } from "@/lib/db/connect";
-import { Ad } from "@/lib/db/models/Ad";
-import { Product } from "@/lib/db/models/Product";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
 import { withPermission } from "@/lib/middleware/withPermission";
 import { updateAdSchema } from "@/lib/validations/ad.schema";
@@ -12,16 +9,14 @@ import {
   serverErrorResponse,
 } from "@/lib/utils/apiResponse";
 import { writeAuditLog } from "@/lib/services/audit.service";
+import { getAdById, updateAd, deleteAd } from "@/lib/services/ad.service";
 import type { AuthedRequest } from "@/lib/middleware/withAuth";
 
 const getHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await connectDB();
-    const ad = await Ad.findOne({ _id: id, deletedAt: null })
-      .populate("productId", "name slug images")
-      .lean();
+    const ad = await getAdById(id);
     if (!ad) return notFoundResponse("Ad not found");
     return successResponse(ad);
   } catch (err) {
@@ -40,18 +35,7 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
       return errorResponse(parsed.error.issues.map((issue) => issue.message).join(", "), 400);
     }
 
-    await connectDB();
-
-    if (parsed.data.productId) {
-      const product = await Product.findById(parsed.data.productId).select("_id").lean();
-      if (!product) return errorResponse("Product not found", 404);
-    }
-
-    const ad = await Ad.findOneAndUpdate(
-      { _id: id, deletedAt: null },
-      { $set: parsed.data },
-      { new: true }
-    );
+    const ad = await updateAd(id, parsed.data);
     if (!ad) return notFoundResponse("Ad not found");
 
     void writeAuditLog({
@@ -63,6 +47,9 @@ const patchHandler = async (req: AuthedRequest, ctx: unknown) => {
 
     return successResponse(ad, "Ad updated");
   } catch (err) {
+    if (err instanceof Error && err.message === "Product not found") {
+      return errorResponse("Product not found", 404);
+    }
     console.error("[admin/ads/:id] PATCH error", err);
     return serverErrorResponse();
   }
@@ -72,13 +59,8 @@ const deleteHandler = async (req: AuthedRequest, ctx: unknown) => {
   if (req.user.role !== "ADMIN") return forbiddenResponse("Admin only");
   try {
     const { id } = await (ctx as { params: Promise<{ id: string }> }).params;
-    await connectDB();
 
-    const ad = await Ad.findOneAndUpdate(
-      { _id: id, deletedAt: null },
-      { $set: { deletedAt: new Date() } },
-      { new: true }
-    );
+    const ad = await deleteAd(id);
     if (!ad) return notFoundResponse("Ad not found");
 
     void writeAuditLog({

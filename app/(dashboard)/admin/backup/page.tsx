@@ -38,7 +38,6 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
-  Send,
   Trash2,
   Upload,
   AlertTriangle,
@@ -112,17 +111,6 @@ async function previewBackup(filename: string): Promise<BackupPreview> {
   return json.data;
 }
 
-async function transferBackup(filename: string, connectionString: string): Promise<Record<string, number>> {
-  const res = await fetch(`/api/admin/backup/${encodeURIComponent(filename)}/transfer`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ connectionString }),
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error ?? "Transfer failed");
-  return json.data.collections;
-}
-
 export default function BackupPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -134,8 +122,6 @@ export default function BackupPage() {
   const [restoreTarget, setRestoreTarget] = useState<File | null>(null);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const [previewTarget, setPreviewTarget] = useState<string | null>(null);
-  const [transferTarget, setTransferTarget] = useState<string | null>(null);
-  const [transferConnectionString, setTransferConnectionString] = useState("");
 
   const { data: backups = [], isLoading, error } = useQuery({
     queryKey: ["admin-backups"],
@@ -184,19 +170,6 @@ export default function BackupPage() {
     queryKey: ["admin-backup-preview", previewTarget],
     queryFn: () => previewBackup(previewTarget as string),
     enabled: !!previewTarget,
-  });
-
-  const transferMutation = useMutation({
-    mutationFn: () => transferBackup(transferTarget as string, transferConnectionString.trim()),
-    onSuccess: (collections) => {
-      const total = Object.values(collections).reduce((sum, n) => sum + n, 0);
-      setTransferTarget(null);
-      setTransferConnectionString("");
-      toast({ title: "Transfer complete", description: `${total} documents transferred.` });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Transfer failed", description: err.message, variant: "destructive" });
-    },
   });
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -306,10 +279,6 @@ export default function BackupPage() {
                           <DropdownMenuItem onClick={() => handleDownload(b.filename)}>
                             <Download className="mr-2 h-4 w-4" />
                             Download
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setTransferTarget(b.filename)}>
-                            <Send className="mr-2 h-4 w-4" />
-                            Transfer
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -473,58 +442,6 @@ export default function BackupPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Transfer Dialog */}
-        <Dialog
-          open={!!transferTarget}
-          onOpenChange={(open) => {
-            if (!open) {
-              setTransferTarget(null);
-              setTransferConnectionString("");
-            }
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Transfer Backup</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              File: <span className="font-mono font-medium">{transferTarget}</span>
-            </p>
-            <Alert variant="destructive">
-              <AlertDescription>
-                This will insert the backup&apos;s data into the target database. Existing data with matching IDs will cause insert errors and be skipped.
-              </AlertDescription>
-            </Alert>
-            <div className="space-y-2">
-              <Label htmlFor="connectionString">Target MongoDB connection string</Label>
-              <Input
-                id="connectionString"
-                type="password"
-                placeholder="mongodb+srv://user:pass@host/db"
-                value={transferConnectionString}
-                onChange={(e) => setTransferConnectionString(e.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setTransferTarget(null);
-                  setTransferConnectionString("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={transferMutation.isPending || !transferConnectionString.trim()}
-                onClick={() => transferMutation.mutate()}
-              >
-                {transferMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Transfer
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </RoleGuard>
   );

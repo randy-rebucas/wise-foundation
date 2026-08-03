@@ -1,7 +1,5 @@
-import bcrypt from "bcryptjs";
 import { withStaffAuth } from "@/lib/middleware/withStaffAuth";
-import { connectDB } from "@/lib/db/connect";
-import { User } from "@/lib/db/models/User";
+import { changeUserPassword } from "@/lib/services/user.service";
 import { changePasswordSchema } from "@/lib/validations/auth.schema";
 import {
   successResponse,
@@ -19,18 +17,7 @@ const patchHandler = async (req: AuthedRequest) => {
       return errorResponse(parsed.error.issues.map((e) => e.message).join(", "));
     }
 
-    await connectDB();
-    const user = await User.findOne({ _id: req.user.id, deletedAt: null })
-      .select("+password")
-      .lean();
-
-    if (!user) return errorResponse("User not found", 404);
-
-    const isValid = await bcrypt.compare(parsed.data.currentPassword, user.password);
-    if (!isValid) return errorResponse("Current password is incorrect");
-
-    const hashed = await bcrypt.hash(parsed.data.newPassword, 12);
-    await User.updateOne({ _id: req.user.id }, { $set: { password: hashed } });
+    await changeUserPassword(req.user.id, parsed.data.currentPassword, parsed.data.newPassword);
 
     void writeAuditLog({
       action: "user.password_changed",
@@ -40,7 +27,8 @@ const patchHandler = async (req: AuthedRequest) => {
     });
 
     return successResponse(null, "Password changed successfully");
-  } catch {
+  } catch (error) {
+    if (error instanceof Error) return errorResponse(error.message);
     return serverErrorResponse();
   }
 };

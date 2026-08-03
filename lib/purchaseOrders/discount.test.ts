@@ -6,16 +6,12 @@ import { resolvePurchaseOrderDiscountPercent } from "@/lib/purchaseOrders/discou
 import { DEFAULT_PURCHASE_ORDER_DISCOUNT_BY_ORG_TYPE } from "@/lib/purchaseOrders/orgTypeDiscountDefaults";
 import type { SessionUser } from "@/types";
 
-vi.mock("@/lib/db/connect", () => ({
-  connectDB: vi.fn().mockResolvedValue(undefined),
-}));
-
-const mockLean = vi.fn();
-vi.mock("@/lib/db/models/Organization", () => ({
-  Organization: {
-    findOne: vi.fn(() => ({
-      select: vi.fn(() => ({ lean: mockLean })),
-    })),
+const mockFindFirst = vi.fn();
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    organization: {
+      findFirst: (...args: unknown[]) => mockFindFirst(...args),
+    },
   },
 }));
 
@@ -27,8 +23,6 @@ vi.mock("@/lib/services/appSettings.service", () => ({
     headquarters: 0,
   }),
 }));
-
-import { Organization } from "@/lib/db/models/Organization";
 
 const orgAdmin: SessionUser = {
   id: "u1",
@@ -65,12 +59,12 @@ describe("getPurchaseOrderDiscountForOrgType", () => {
 describe("resolvePurchaseOrderDiscountPercent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLean.mockResolvedValue({ type: "distributor" });
+    mockFindFirst.mockResolvedValue({ type: "distributor" });
   });
 
   it("forces org-type default for non-admin regardless of request", async () => {
     const pct = await resolvePurchaseOrderDiscountPercent({
-      organizationId: "507f1f77bcf86cd799439011",
+      organizationId: "org-uuid-1",
       requestedPercent: 50,
       user: orgAdmin,
     });
@@ -79,7 +73,7 @@ describe("resolvePurchaseOrderDiscountPercent", () => {
 
   it("allows admin to override with requested percent", async () => {
     const pct = await resolvePurchaseOrderDiscountPercent({
-      organizationId: "507f1f77bcf86cd799439011",
+      organizationId: "org-uuid-1",
       requestedPercent: 25,
       user: admin,
     });
@@ -88,7 +82,7 @@ describe("resolvePurchaseOrderDiscountPercent", () => {
 
   it("keeps existing percent for admin when no request", async () => {
     const pct = await resolvePurchaseOrderDiscountPercent({
-      organizationId: "507f1f77bcf86cd799439011",
+      organizationId: "org-uuid-1",
       existingPercent: 12,
       user: admin,
     });
@@ -96,13 +90,13 @@ describe("resolvePurchaseOrderDiscountPercent", () => {
   });
 
   it("throws when organization is missing", async () => {
-    mockLean.mockResolvedValue(null);
+    mockFindFirst.mockResolvedValue(null);
     await expect(
       resolvePurchaseOrderDiscountPercent({
-        organizationId: "507f1f77bcf86cd799439011",
+        organizationId: "org-uuid-1",
         user: admin,
       })
     ).rejects.toThrow("Organization not found");
-    expect(Organization.findOne).toHaveBeenCalled();
+    expect(mockFindFirst).toHaveBeenCalled();
   });
 });

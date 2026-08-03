@@ -1,8 +1,4 @@
-import mongoose from "mongoose";
-import { connectDB } from "@/lib/db/connect";
-import { Order } from "@/lib/db/models/Order";
-import { OrderItem } from "@/lib/db/models/OrderItem";
-import { Product } from "@/lib/db/models/Product";
+import { prisma } from "@/lib/db/prisma";
 import type { OrderStatus } from "@/types";
 
 export type CustomerOrderLineSummary = {
@@ -25,87 +21,83 @@ export type CustomerOrderRow = {
 };
 
 export async function listMyMarketplaceOrders(customerUserId: string, limit = 50): Promise<CustomerOrderRow[]> {
-  await connectDB();
-  if (!mongoose.isValidObjectId(customerUserId)) return [];
+  const rows = await prisma.order.findMany({
+    where: { type: "MARKETPLACE", marketplaceCustomerUserId: customerUserId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 100),
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      total: true,
+      createdAt: true,
+      paidAt: true,
+      paymentDetails: true,
+    },
+  });
 
-  const oid = new mongoose.Types.ObjectId(customerUserId);
-  const rows = await Order.find({
-    type: "MARKETPLACE",
-    marketplaceCustomerUserId: oid,
-    deletedAt: null,
-  })
-    .sort({ createdAt: -1 })
-    .limit(Math.min(limit, 100))
-    .select("orderNumber status total createdAt paidAt marketplaceShipping")
-    .lean();
-
-  const orderIds = rows.map((o) => o._id as mongoose.Types.ObjectId);
+  const orderIds = rows.map((o) => o.id);
   const lineItems = orderIds.length
-    ? await OrderItem.find({ orderId: { $in: orderIds } })
-        .select("orderId productId quantity")
-        .sort({ createdAt: 1 })
-        .lean()
+    ? await prisma.orderItem.findMany({
+        where: { orderId: { in: orderIds } },
+        select: { orderId: true, productId: true, quantity: true, productName: true },
+        orderBy: { createdAt: "asc" },
+      })
     : [];
 
-  const productIds = [
-    ...new Set(lineItems.map((item) => item.productId as mongoose.Types.ObjectId)),
-  ];
-  const products =
-    productIds.length > 0
-      ? await Product.find({ _id: { $in: productIds }, deletedAt: null })
-          .select("images slug")
-          .lean()
-      : [];
-  const imageByProductId = new Map(
-    products.map((p) => [String(p._id), (p.images?.[0] as string | undefined) ?? null])
-  );
-  const slugByProductId = new Map(products.map((p) => [String(p._id), p.slug as string]));
+  const productIds = [...new Set(lineItems.map((item) => item.productId))];
+  const products = productIds.length
+    ? await prisma.product.findMany({
+        where: { id: { in: productIds }, deletedAt: null },
+        select: { id: true, images: true, slug: true },
+      })
+    : [];
+  const imageByProductId = new Map(products.map((p) => [p.id, p.images?.[0] ?? null]));
+  const slugByProductId = new Map(products.map((p) => [p.id, p.slug]));
 
   const metaByOrderId = new Map<
     string,
     { thumbnailUrl: string | null; itemCount: number; lineItems: CustomerOrderLineSummary[] }
   >();
   for (const item of lineItems) {
-    const orderKey = String(item.orderId);
-    const qty = item.quantity as number;
-    const productId = String(item.productId);
-    const productName = item.productName as string;
-    const existing = metaByOrderId.get(orderKey);
+    const existing = metaByOrderId.get(item.orderId);
     if (existing) {
-      existing.itemCount += qty;
-      if (!existing.lineItems.some((l) => l.productId === productId)) {
+      existing.itemCount += item.quantity;
+      if (!existing.lineItems.some((l) => l.productId === item.productId)) {
         existing.lineItems.push({
-          productId,
-          productName,
-          productSlug: slugByProductId.get(productId),
+          productId: item.productId,
+          productName: item.productName,
+          productSlug: slugByProductId.get(item.productId),
         });
       }
       continue;
     }
-    metaByOrderId.set(orderKey, {
-      thumbnailUrl: imageByProductId.get(productId) ?? null,
-      itemCount: qty,
+    metaByOrderId.set(item.orderId, {
+      thumbnailUrl: imageByProductId.get(item.productId) ?? null,
+      itemCount: item.quantity,
       lineItems: [
-        { productId, productName, productSlug: slugByProductId.get(productId) },
+        {
+          productId: item.productId,
+          productName: item.productName,
+          productSlug: slugByProductId.get(item.productId),
+        },
       ],
     });
   }
 
   return rows.map((o) => {
-    const ship = o.marketplaceShipping as
-      | { line1?: string; city?: string; region?: string }
-      | undefined;
+    const details = o.paymentDetails as { shipping?: { line1?: string; city?: string; region?: string } } | null;
+    const ship = details?.shipping;
     const parts = [ship?.line1, ship?.city, ship?.region].filter(Boolean);
     const shipSummary = parts.length > 0 ? parts.join(" · ") : "—";
-    const orderKey = String(o._id);
-    const meta = metaByOrderId.get(orderKey);
+    const meta = metaByOrderId.get(o.id);
     return {
-      _id: orderKey,
+      _id: o.id,
       orderNumber: o.orderNumber,
-      status: o.status as OrderStatus,
+      status: o.status,
       total: o.total,
-      createdAt: (o.createdAt as Date).toISOString(),
-      paidAt: o.paidAt ? (o.paidAt as Date).toISOString() : null,
+      createdAt: o.createdAt.toISOString(),
+      paidAt: o.paidAt ? o.paidAt.toISOString() : null,
       shipSummary,
       thumbnailUrl: meta?.thumbnailUrl ?? null,
       itemCount: meta?.itemCount ?? 0,

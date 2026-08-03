@@ -1,6 +1,4 @@
-import { connectDB } from "@/lib/db/connect";
-import { Role } from "@/lib/db/models/Role";
-import { User } from "@/lib/db/models/User";
+import { prisma } from "@/lib/db/prisma";
 import { getSystemRolePermissions } from "@/lib/roles/rolePermissions";
 import { SYSTEM_ROLE_DEFINITIONS } from "@/lib/roles/systemRoles";
 import type { UserRole } from "@/types";
@@ -14,16 +12,18 @@ export interface SyncRolesResult {
 }
 
 export interface SyncRolesOptions {
-  /** Upsert Role documents from code defaults. Default true. */
+  /** Upsert Role rows from code defaults. Default true. */
   syncRoles?: boolean;
   /** Set each user's `permissions` to their role defaults. Default true. */
   syncUsers?: boolean;
 }
 
-/** Permissions stored on the Role document, falling back to code defaults. */
+/** Permissions stored on the Role row, falling back to code defaults. */
 export async function getRolePermissions(role: UserRole): Promise<string[]> {
-  await connectDB();
-  const doc = await Role.findOne({ name: role, deletedAt: null }).select("permissions").lean();
+  const doc = await prisma.role.findFirst({
+    where: { name: role, deletedAt: null },
+    select: { permissions: true },
+  });
   if (doc?.permissions?.length) {
     return [...doc.permissions];
   }
@@ -31,48 +31,52 @@ export async function getRolePermissions(role: UserRole): Promise<string[]> {
 }
 
 export async function listRoles() {
-  await connectDB();
-  return Role.find({ deletedAt: null }).sort({ name: 1 }).lean();
+  return prisma.role.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+  });
 }
 
 /**
- * Align MongoDB Role documents and (optionally) user permission arrays with
+ * Align Role rows and (optionally) user permission arrays with
  * {@link DEFAULT_ROLE_PERMISSIONS} in `lib/permissions.ts`.
  */
 export async function syncRolesAndPermissions(
   options: SyncRolesOptions = {}
 ): Promise<SyncRolesResult> {
   const { syncRoles = true, syncUsers = true } = options;
-  await connectDB();
 
   let rolesUpserted = 0;
   let usersUpdated = 0;
 
   if (syncRoles) {
     for (const def of SYSTEM_ROLE_DEFINITIONS) {
-      await Role.findOneAndUpdate(
-        { name: def.name },
-        {
-          $set: {
-            displayName: def.displayName,
-            permissions: def.permissions,
-            isSystem: true,
-            deletedAt: null,
-          },
+      await prisma.role.upsert({
+        where: { name: def.name },
+        create: {
+          name: def.name,
+          displayName: def.displayName,
+          permissions: def.permissions,
+          isSystem: true,
         },
-        { upsert: true }
-      );
+        update: {
+          displayName: def.displayName,
+          permissions: def.permissions,
+          isSystem: true,
+          deletedAt: null,
+        },
+      });
       rolesUpserted += 1;
     }
   }
 
   if (syncUsers) {
     for (const def of SYSTEM_ROLE_DEFINITIONS) {
-      const result = await User.updateMany(
-        { role: def.name, deletedAt: null },
-        { $set: { permissions: def.permissions } }
-      );
-      usersUpdated += result.modifiedCount;
+      const result = await prisma.user.updateMany({
+        where: { role: def.name, deletedAt: null },
+        data: { permissions: def.permissions },
+      });
+      usersUpdated += result.count;
     }
   }
 
